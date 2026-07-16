@@ -426,6 +426,194 @@ def test_identify_bundles_partitions_multiple_workspaces_isolated(sessionmaker_f
         session.close()
 
 
+# --- trash_document (Task 3.2 / Req 5.1~5.7, 6.1~6.4, 9.4) ----------------
+
+
+def test_trash_document_traps_active_subtree_only(sessionmaker_factory):
+    """active 문서 삭제 시 그 시점 active 하위(root 포함)만 공통 trashed_at 으로 trashed 되고,
+    이미 trashed 된 하위는 흡수되지 않는다(비흡수, Req 5.1·5.2·6.2)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="trash-trap")
+        ws = _make_workspace(seed, name="ws-trap")
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="root",
+            status="active", sort_order=Decimal("100"),
+        )
+        child = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=root.id,
+            title="child", status="active", sort_order=Decimal("100"),
+        )
+        grandchild = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=child.id,
+            title="grandchild", status="active", sort_order=Decimal("100"),
+        )
+        # 이미 trashed 된(과거 T1) 하위 — active_descendants 가 제외해야 한다(비흡수).
+        already = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=root.id,
+            title="already-trashed", status="trashed", trashed_at=T1,
+            sort_order=Decimal("200"),
+        )
+        seed.commit()
+        root_id, child_id, grandchild_id = root.id, child.id, grandchild.id
+        already_id = already.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        root = DocumentRepository().get(session, root_id)
+        bundle = engine.trash_document(session, root)
+
+        assert bundle.root_document_id == root_id
+        member_ids = {d.id for d in bundle.members}
+        assert member_ids == {root_id, child_id, grandchild_id}, (
+            "그 시점 active 하위(root 포함)만 포착되어야 한다"
+        )
+        assert already_id not in member_ids, "이미 trashed 된 하위는 흡수되지 않는다"
+        assert all(d.status == "trashed" for d in bundle.members)
+        assert all(d.trashed_at == bundle.trashed_at for d in bundle.members), (
+            "모든 구성원이 단일 공통 trashed_at 을 공유해야 한다"
+        )
+    finally:
+        session.close()
+
+    # fresh 세션 재조회로 영속·공통값 확인.
+    verify = sessionmaker_factory()
+    try:
+        repo = DocumentRepository()
+        persisted = [repo.get(verify, i) for i in (root_id, child_id, grandchild_id)]
+        assert all(d.status == "trashed" for d in persisted)
+        trashed_ats = {d.trashed_at for d in persisted}
+        assert len(trashed_ats) == 1 and None not in trashed_ats, (
+            "포착 구성원 전체가 동일 trashed_at 으로 영속되어야 한다"
+        )
+        # 이미 trashed 된 하위는 자기 시점(T1) 을 그대로 유지(흡수·재기록 없음).
+        stale = repo.get(verify, already_id)
+        assert stale.status == "trashed" and stale.trashed_at == T1
+    finally:
+        verify.close()
+
+
+def test_trash_child_first_parent_later_not_absorbed_inv11(sessionmaker_factory):
+    """자식 먼저(t1) 삭제·부모 나중(t2) 삭제 시 자식이 부모 묶음에 흡수되지 않고
+    child.trashed_at ≤ parent.trashed_at(INV-11) 이 성립한다(Req 6.3·6.4)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="trash-inv11")
+        ws = _make_workspace(seed, name="ws-inv11")
+        parent = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="parent",
+            status="active", sort_order=Decimal("100"),
+        )
+        # 자식은 부모보다 먼저(t1=T1) 개별 삭제된 상태로 시드 → 독립 묶음(6.3).
+        child_early = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=parent.id,
+            title="child-early", status="trashed", trashed_at=T1,
+            sort_order=Decimal("100"),
+        )
+        # 부모와 같은 시점(t2)에 캐스케이드될 active 형제.
+        sibling = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=parent.id,
+            title="sibling", status="active", sort_order=Decimal("200"),
+        )
+        seed.commit()
+        parent_id, child_early_id, sibling_id = (
+            parent.id, child_early.id, sibling.id,
+        )
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        parent = DocumentRepository().get(session, parent_id)
+        bundle = engine.trash_document(session, parent)  # 부모 나중(t2=utcnow > T1)
+
+        member_ids = {d.id for d in bundle.members}
+        assert member_ids == {parent_id, sibling_id}, (
+            "부모 묶음은 같은 시점 active 형제만 포함한다"
+        )
+        assert child_early_id not in member_ids, "먼저 삭제된 자식은 흡수되지 않는다"
+        # INV-11: child.trashed_at(T1) ≤ parent.trashed_at(t2).
+        assert T1 <= bundle.trashed_at, "child.trashed_at ≤ parent.trashed_at 이어야 한다"
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        repo = DocumentRepository()
+        stale_child = repo.get(verify, child_early_id)
+        assert stale_child.trashed_at == T1, "먼저 삭제된 자식의 trashed_at 은 재기록되지 않는다"
+    finally:
+        verify.close()
+
+
+def test_trash_non_active_raises_409(sessionmaker_factory):
+    """비active(이미 trashed/deleted) 대상 삭제는 409(CONFLICT) 로 거부된다(Req 5.7)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="trash-409")
+        ws = _make_workspace(seed, name="ws-409")
+        trashed = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="already",
+            status="trashed", trashed_at=T1, sort_order=Decimal("100"),
+        )
+        deleted = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="gone",
+            status="deleted", sort_order=Decimal("200"),
+        )
+        seed.commit()
+        trashed_id, deleted_id = trashed.id, deleted.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        repo = DocumentRepository()
+        for doc_id in (trashed_id, deleted_id):
+            doc = repo.get(session, doc_id)
+            with pytest.raises(DomainError) as exc:
+                engine.trash_document(session, doc)
+            assert exc.value.http_status == 409
+            assert exc.value.code == ErrorCode.CONFLICT
+    finally:
+        session.close()
+
+
+def test_trash_ignores_lock(sessionmaker_factory):
+    """잠긴 문서(lock_user_id 세팅)도 잠금을 무시하고 정상 전이한다(상태·잠금 독립, Req 9.4)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="trash-lock")
+        ws = _make_workspace(seed, name="ws-lock")
+        doc = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="locked",
+            status="active", sort_order=Decimal("100"),
+        )
+        # 잠금 필드를 직접 세팅해도 삭제가 막히지 않아야 한다.
+        doc.lock_user_id = user.id
+        doc.lock_acquired_at = datetime.utcnow()
+        seed.commit()
+        doc_id, locker_id = doc.id, user.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        doc = DocumentRepository().get(session, doc_id)
+        bundle = engine.trash_document(session, doc)
+        assert {d.id for d in bundle.members} == {doc_id}
+        assert bundle.members[0].status == "trashed"
+        # 잠금 값은 엔진이 건드리지 않는다(9.5): 세팅된 lock_user_id 가 그대로 남는다.
+        assert bundle.members[0].lock_user_id == locker_id
+    finally:
+        session.close()
+
+
 def ws_id_of(session, document_id):
     """시드된 문서의 workspace_id 를 조회하는 소형 헬퍼(테스트 편의)."""
     return DocumentRepository().get_workspace_id(session, document_id)

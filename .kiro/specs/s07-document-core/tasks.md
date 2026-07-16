@@ -91,7 +91,7 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 9.1, 9.2, 9.3_
   - _Boundary: DocumentStateEngine_
   - _Depends: 1.2_
-- [ ] 3.2 삭제 캐스케이드(active → trashed) primitive 구현
+- [x] 3.2 삭제 캐스케이드(active → trashed) primitive 구현
   - `engine.py`에 `trash_document` 구현: 대상 active 검사(아니면 409); 현재 시각 `trashed_at` 산정;
     `active_descendants`로 그 시점 active 하위(root 포함) 포착·이미 trashed 하위 제외(비흡수, 6.2.1);
     포착 구성원을 단일 트랜잭션에서 status=trashed·공통 trashed_at으로 전환(원자적, INV-10); 잠금 여부 무시

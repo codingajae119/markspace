@@ -33,6 +33,9 @@ __all__ = ["Bundle", "DocumentStateEngine"]
 # 문서 "휴지통" 상태 값(s01 document.status ENUM). 묶음 식별·재구성이 소비한다.
 _TRASHED = "trashed"
 
+# 문서 "살아있는" 상태 값. 삭제 캐스케이드의 대상 자격(비active 거부) 판정이 소비한다.
+_ACTIVE = "active"
+
 
 @dataclass(frozen=True)
 class Bundle:
@@ -69,6 +72,38 @@ class DocumentStateEngine:
         하위(그 서브트리째)는 제외한다.
         """
         return self._repository.collect_active_descendants(db, document)
+
+    def trash_document(self, db: Session, document: Document) -> Bundle:
+        """active 문서를 그 시점 active 하위(root 포함)와 함께 trashed 로 캐스케이드한다
+        (design.md §DocumentStateEngine 삭제, Req 5.1~5.7·6.1~6.4·9.4).
+
+        대상이 active 가 아니면 409(CONFLICT)로 거부한다(비active 삭제 금지, Req 5.7). active 면
+        단일 공통 `trashed_at`(utcnow) 을 산정하고, `active_descendants`(=repo.
+        collect_active_descendants) 로 **그 시점** active 하위(root 포함)만 포착한다. 이미 trashed
+        된 하위는 이 질의가 서브트리째 자동 제외하므로 흡수되지 않는다(비흡수, Req 6.2·6.2.1).
+        포착 구성원 전체를 `repo.set_status_bulk` 로 단일 트랜잭션에서 status=trashed·공통
+        trashed_at 으로 전환한다(원자적, INV-10). 잠금과 무관하게 전이하며 lock 값은 읽지도 쓰지도
+        않는다(상태·잠금 독립, Req 9.4·9.5). 반환 묶음의 루트는 대상 문서다.
+        """
+        if document.status != _ACTIVE:
+            raise DomainError(
+                code=ErrorCode.CONFLICT,
+                message=(
+                    f"Document {document.id} is not active "
+                    "and cannot be trashed"
+                ),
+                http_status=409,
+            )
+        trashed_at = datetime.utcnow()
+        members = self.active_descendants(db, document)
+        self._repository.set_status_bulk(
+            db, members, status=_TRASHED, trashed_at=trashed_at
+        )
+        return Bundle(
+            root_document_id=document.id,
+            trashed_at=trashed_at,
+            members=members,
+        )
 
     def identify_bundles(self, db: Session, workspace_id: int) -> list[Bundle]:
         """워크스페이스의 trashed 문서를 묶음으로 분할해 전체 열거한다(Req 6.5).
