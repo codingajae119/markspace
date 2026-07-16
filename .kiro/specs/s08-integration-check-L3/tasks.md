@@ -9,7 +9,7 @@
 > L2 하네스는 **재사용·확장**한다.
 
 - [ ] 1. Foundation: L3 실제 결합 검증 하네스 (L2 재사용·확장)
-- [ ] 1.1 L3 통합 테스트 하네스 구성 (L2 하네스 재사용 + 문서 트리·엔진 세션 픽스처)
+- [x] 1.1 L3 통합 테스트 하네스 구성 (L2 하네스 재사용 + 문서 트리·엔진 세션 픽스처)
   - `tests/integration_L3/conftest.py`에서 `s06` `tests/integration_L2`의 하네스 픽스처(실제 MySQL 8에 `alembic
     upgrade head` 적용·`s01` `create_app()` 부팅·admin 시드·세션 유지 `TestClient` 팩토리·고유 login_id 생성기·
     워크스페이스 생성·멤버 추가(role)·role별 세션 클라이언트)를 재사용하고, 부팅 앱이 s02·s03·s05·**s07 문서 라우터가
