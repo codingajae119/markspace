@@ -6,7 +6,7 @@
 > **`s01-contract-foundation` 단일 소스**다. 애플리케이션 코드(`app/*`)·마이그레이션은 수정하지 않는다.
 
 - [ ] 1. Foundation: 실제 결합 검증 하네스
-- [ ] 1.1 L1 통합 테스트 하네스 구성 (마이그레이션·앱 부팅·admin 시드·세션 클라이언트)
+- [x] 1.1 L1 통합 테스트 하네스 구성 (마이그레이션·앱 부팅·admin 시드·세션 클라이언트)
   - `tests/integration_L1/conftest.py`에 실제 MySQL 8에 `alembic upgrade head`를 적용해 s01 스키마를 준비하고,
     `s01` `create_app()`으로 s02·s03 라우터가 조립된 앱을 부팅하며, 세션 쿠키를 유지하는 `TestClient`를 제공하는
     픽스처를 구성. admin 생성 경로가 없으므로 s01 user 모델/직접 INSERT로 `is_admin=true` 사용자를 DB에 시드
