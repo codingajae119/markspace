@@ -58,7 +58,7 @@
   - _Requirements: 4.3_
   - _Boundary: Security_
   - _Depends: 1.1_
-- [ ] 3.3 (P) 공용 Read 스키마 규약(Base Schemas)
+- [x] 3.3 (P) 공용 Read 스키마 규약(Base Schemas)
   - `schemas/base.py`에 `ORMReadModel`(from_attributes), `TimestampedRead`, `Page[T]` 정의 및 `{Resource}Create/Read/Update` 명명 규약 문서 주석
   - 관찰 가능 완료: ORM 객체로부터 `TimestampedRead`가 직렬화되고 `Page[T]`가 items/total을 담는 단위 테스트가 통과한다
   - _Requirements: 6.2, 6.5_
