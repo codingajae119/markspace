@@ -81,7 +81,7 @@
   - _Depends: 2.1_
 
 - [ ] 3. Core: 상태 전이 엔진 (묶음 비흡수 단일 구현)
-- [ ] 3.1 (P) 묶음 식별·열거·active 하위 질의 구현
+- [x] 3.1 (P) 묶음 식별·열거·active 하위 질의 구현
   - `engine.py`에 `Bundle` DTO와 `active_descendants`(삭제 캐스케이드·s14 공유 공용), `identify_bundles`(WS
     전체 묶음 열거), `get_bundle`(루트 문서 id로 묶음 구성원 확정·검증, 유효하지 않은 루트→404) 구현. 묶음
     = 루트 문서 id, 루트 = trashed 문서 중 부모가 없거나·부모가 trashed 아님·부모 trashed_at 상이인 문서;
