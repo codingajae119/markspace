@@ -85,7 +85,7 @@
   - 관찰 가능 완료: `uv run uvicorn app.main:app`이 오류 없이 기동되고, 미처리 예외가 500 `ErrorResponse`로 변환된다
   - _Requirements: 8.1, 8.4, 8.5, 8.6_
   - _Depends: 1.2, 3.1, 3.4_
-- [ ] 4.2 health 라우터(+DB 연결 점검)
+- [x] 4.2 health 라우터(+DB 연결 점검)
   - `app/routers/`에 `GET /health` 구현: `HealthRead{status, db}` 반환, 경량 `SELECT 1`로 DB 연결 여부 반영
   - 관찰 가능 완료: `GET /health` → 200 `{status:"ok", db:"ok"}`, DB 중단 시 `db:"down"`
   - _Requirements: 8.2, 8.3_

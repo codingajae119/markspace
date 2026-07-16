@@ -1,13 +1,17 @@
 """상태 점검(health) 라우터 (Requirement 8.2, 8.3).
 
-이 파일은 부트스트랩(task 4.1)이 라우터 조립 지점에 포함할 수 있도록 만든
-최소 스텁이다. 실제 DB 연결 점검(경량 ``SELECT 1``, 실패 시 ``db="down"``,
-Req 8.3)은 task 4.2가 이 핸들러를 대체하며 소유한다. 현재는 앱이 부팅되고
-라우터가 조립되었음을 확인할 수 있도록 고정값을 반환한다.
+``GET /health`` 는 애플리케이션 가용 상태(`status:"ok"`, Req 8.2)와 경량
+``SELECT 1`` 기반 DB 연결 여부(`db:"ok"|"down"`, Req 8.3)를 반영한다. DB
+점검이 실패해도 이는 실패가 아니라 준비 상태(readiness) 신호이므로 예외를
+전파하지 않고 200으로 응답하되 ``db="down"`` 을 반영한다.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.common.db import get_db
 
 router = APIRouter()
 
@@ -16,10 +20,14 @@ class HealthRead(BaseModel):
     """상태 점검 응답 계약 (Req 8.2, 8.3)."""
 
     status: str
-    db: str  # task 4.2가 실제 DB 연결 점검 결과("ok"|"down")로 채운다.
+    db: str  # 경량 SELECT 1 결과: "ok"(연결 성공) | "down"(연결 실패).
 
 
 @router.get("/health", response_model=HealthRead)
-def health() -> HealthRead:
-    # NOTE: db는 임시 고정값이다. task 4.2가 실제 DB 연결 점검으로 대체한다.
-    return HealthRead(status="ok", db="ok")
+def health(db: Session = Depends(get_db)) -> HealthRead:
+    try:
+        db.execute(text("SELECT 1"))
+        db_status = "ok"
+    except Exception:  # noqa: BLE001 - 모든 DB/연결 오류는 준비 상태 "down"으로 처리
+        db_status = "down"
+    return HealthRead(status="ok", db=db_status)
