@@ -40,7 +40,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 7.2_
   - _Boundary: ContractConformanceSuite_
   - _Depends: 1.1_
-- [ ] 2.2 (P) 계정 생명주기 ↔ 로그인 경계 스위트 — 활성/비활성/삭제/재활성화/재설정/본인변경
+- [x] 2.2 (P) 계정 생명주기 ↔ 로그인 경계 스위트 — 활성/비활성/삭제/재활성화/재설정/본인변경
   - `tests/integration_L1/test_account_lifecycle_login.py`에 비-admin 사용자를 대상으로: (1) 생성→로그인 200+세션
     (3.1), (2) admin 비밀번호 재설정→새 비번 200·옛 비번 401 (3.2, 3.3), (3) 비활동(is_active=false)→로그인 401·
     세션 미발급 (4.1), (4) 삭제(is_deleted=true)→로그인 401 (4.2)·보유 세션의 후속 `/auth/me` 401 (4.3), (5)
