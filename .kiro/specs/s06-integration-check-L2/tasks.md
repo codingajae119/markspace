@@ -6,7 +6,7 @@
 > 데이터 결합). 계약 대조 기준은 개별 spec design이 아니라 **`s01-contract-foundation` 단일 소스**다. 애플리케이션
 > 코드(`app/*`)·마이그레이션·`s04` L1 자산(`tests/integration_L1/*`)은 수정하지 않는다 — L1 하네스는 **재사용·확장**한다.
 
-- [ ] 1. Foundation: L2 실제 결합 검증 하네스 (L1 재사용·확장)
+- [x] 1. Foundation: L2 실제 결합 검증 하네스 (L1 재사용·확장)
 - [x] 1.1 L2 통합 테스트 하네스 구성 (L1 하네스 재사용 + 워크스페이스·role 세션 픽스처)
   - `tests/integration_L2/conftest.py`에서 `s04` `tests/integration_L1`의 하네스 픽스처(실제 MySQL 8에 `alembic
     upgrade head` 적용·`s01` `create_app()` 부팅·admin 시드·세션 유지 `TestClient` 팩토리·고유 login_id 생성기)를
@@ -31,7 +31,7 @@
   - _Boundary: Helpers_
   - _Depends: 1.1_
 
-- [ ] 2. Core: 계약 대조·권한 경계·override·소유권·계정결합·설정 검증 스위트
+- [x] 2. Core: 계약 대조·권한 경계·override·소유권·계정결합·설정 검증 스위트
 - [x] 2.1 (P) 워크스페이스 계약 대조 스위트 — 스키마·API(9~17)·에러 모델·Base 규약
   - `tests/integration_L2/test_workspace_contract_conformance.py`에: (1) 마이그레이션된 `workspace`(name·
     is_shareable·trash_retention_days·타임스탬프)와 `workspace_member`(workspace_id/user_id FK·role
@@ -101,7 +101,7 @@
   - _Boundary: WorkspaceSettingsSuite_
   - _Depends: 1.2_
 
-- [ ] 3. Validation: 게이트 판정 및 재검증 트리거
+- [x] 3. Validation: 게이트 판정 및 재검증 트리거
 - [x] 3.1 전체 스위트 결합 실행 및 게이트(L2→L3) 판정·재검증 트리거 기록
   - `uv run pytest tests/integration_L2` 전체를 실제 결합(마이그레이션 DB + 부팅 앱 + 실제 멤버십 데이터, mock 없음)
     에서 실행하여 Requirement 2~7 스위트가 전부 통과하면 게이트(G-1 규칙) 통과(=L3 `s07-document-core` impl 착수
