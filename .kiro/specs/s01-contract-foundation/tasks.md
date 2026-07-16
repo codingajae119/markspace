@@ -80,7 +80,7 @@
   - _Depends: 2.1, 3.4_
 
 - [ ] 4. 애플리케이션 부트스트랩·health (integration)
-- [ ] 4.1 create_app 조립 지점 구현
+- [x] 4.1 create_app 조립 지점 구현
   - `app/main.py`에 `create_app()`: Settings 로드, `SessionMiddleware`(session_secret/cookie/max_age) 등록, `register_error_handlers`, health 라우터 include, feature 라우터 조립 지점(초기 비어있음) 마련. 기존 `backend/main.py`는 실행 래퍼로 정리
   - 관찰 가능 완료: `uv run uvicorn app.main:app`이 오류 없이 기동되고, 미처리 예외가 500 `ErrorResponse`로 변환된다
   - _Requirements: 8.1, 8.4, 8.5, 8.6_
@@ -116,3 +116,4 @@
 - **Windows 인코딩**: `alembic.ini`는 configparser가 시스템 로캘(cp949)로 읽어 한글 주석이 UnicodeDecodeError를 유발. alembic.ini는 ASCII-only로 유지할 것. `alembic check`("No new upgrade operations detected")로 모델↔마이그레이션 드리프트 없음을 기계적으로 확인 가능.
 - **DB 상태**: 2.2 완료 후 DB는 `base`(빈 상태, alembic_version 테이블만 존재). 마이그레이션 검증 태스크는 자체 fixture로 upgrade/downgrade 제어.
 - **DB 테스트 격리 패턴(재사용)**: DB 접근 테스트는 `notion_lite_test`에 대해 `DB_NAME=notion_lite_test`+`get_settings.cache_clear()` 후 `get_settings().sqlalchemy_url`로 **fresh engine**를 새로 만든다(모듈 레벨 `app.common.db.engine`는 import 시점에 dev DB로 바인딩되어 재사용 불가). teardown에서 테이블 drop+DB_NAME 복원+cache_clear. `tests/test_migration_roundtrip.py`·`tests/test_auth.py` 참고.
+- **FastAPI 0.139 라우팅**: 등록 엔드포인트 집합 검사는 `app.routes`의 `.path`가 아니라 `app.openapi()["paths"]`로 열거(0.139는 lazy `_IncludedRouter` 사용). 4.1 `create_app()` 팩토리 + 모듈레벨 `app = create_app()`. health 라우터는 4.1이 minimal stub(db="ok" 고정), 4.2가 실제 `SELECT 1` 연결 점검으로 확장.
