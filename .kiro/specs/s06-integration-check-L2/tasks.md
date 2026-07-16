@@ -19,7 +19,7 @@
     구성된 워크스페이스/멤버십을 제공하고, admin 클라이언트가 `GET /workspaces`에서 200을 받는 스모크 검증이 통과한다
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
   - _Boundary: L2TestHarness_
-- [ ] 1.2 워크스페이스 시나리오 헬퍼 구성 (멤버·소유권·설정 래퍼, L1 계정 헬퍼 재사용)
+- [x] 1.2 워크스페이스 시나리오 헬퍼 구성 (멤버·소유권·설정 래퍼, L1 계정 헬퍼 재사용)
   - `tests/integration_L2/helpers.py`에 워크스페이스 생성(`POST /workspaces`), 멤버 추가(`POST
     /workspaces/{id}/members`, role 지정), role 변경(`PATCH .../members/{uid}`), 멤버 제거(`DELETE
     .../members/{uid}`), 소유권 변경(`POST /admin/workspaces/{id}/owner`), 설정 변경(`PATCH /workspaces/{id}`)
