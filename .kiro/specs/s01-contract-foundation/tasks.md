@@ -52,7 +52,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8_
   - _Boundary: Errors_
   - _Depends: 1.1_
-- [ ] 3.2 (P) 비밀번호 해싱 공용 헬퍼
+- [x] 3.2 (P) 비밀번호 해싱 공용 헬퍼
   - `common/security.py`에 pwdlib(Argon2id) 기반 `hash_password`/`verify_password` 구현
   - 관찰 가능 완료: hash→verify 왕복이 True, 잘못된 비밀번호는 False를 반환하는 단위 테스트가 통과한다
   - _Requirements: 4.3_
