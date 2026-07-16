@@ -29,7 +29,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(health_router)
     # feature 라우터 조립 지점: s02~s14가 여기에 include_router로 추가한다
-    # (이 spec에서는 초기 비어 있음, Req 8.4).
+    # (s01 Req 8.4는 이 지점을 비운 채 제공했고, s02가 auth 라우터를 최초로 등록한다).
     app.include_router(auth_router)
     return app
 
