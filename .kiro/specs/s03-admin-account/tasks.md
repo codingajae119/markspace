@@ -58,7 +58,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 2.2, 3.1, 4.1, 5.1, 6.1, 7.1, 7.5, 8.1, 8.2_
   - _Boundary: AdminUserRouter_
   - _Depends: 1.2, 2.2_
-- [ ] 3.2 s01 라우터 조립 지점에 admin 라우터 연결
+- [x] 3.2 s01 라우터 조립 지점에 admin 라우터 연결
   - `s01` `create_app()`의 feature 라우터 조립 지점(`app/main.py` 또는 `app/routers/__init__.py`)에
     `include_router(admin_account.router)` 추가
   - 관찰 가능 완료: `uv run uvicorn app.main:app` 부팅 후 `/admin/users` 경로가 앱 라우트 목록에 노출됨을 확인
