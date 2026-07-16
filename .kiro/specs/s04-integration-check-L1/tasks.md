@@ -16,7 +16,7 @@
     admin으로 로그인한 클라이언트가 `GET /auth/me`에서 200을 받는 스모크 검증이 통과한다
   - _Requirements: 1.1, 1.2, 1.3_
   - _Boundary: L1TestHarness_
-- [ ] 1.2 시나리오 헬퍼 구성 (로그인·계정 생성·상태 전이 호출 래퍼)
+- [x] 1.2 시나리오 헬퍼 구성 (로그인·계정 생성·상태 전이 호출 래퍼)
   - `tests/integration_L1/helpers.py`에 admin 계정 생성(`POST /admin/users`), 사용자 로그인(`POST /auth/login`),
     상태 전이(`PATCH /admin/users/{id}` is_active/is_deleted), admin 비밀번호 재설정
     (`POST /admin/users/{id}/password`), 본인 비밀번호 변경(`POST /auth/password`) 호출을 감싸는 헬퍼와 고유
