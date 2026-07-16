@@ -28,7 +28,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. Core: 계약 대조·경계·불변식 검증 스위트
-- [ ] 2.1 (P) 계약 대조 스위트 — user 스키마·인증/계정 API·에러 모델·민감필드
+- [x] 2.1 (P) 계약 대조 스위트 — user 스키마·인증/계정 API·에러 모델·민감필드
   - `tests/integration_L1/test_contract_conformance.py`에: (1) 마이그레이션된 `user` 테이블의 컬럼·유일제약
     (`login_id`)·flag(`is_admin`/`is_active`/`is_deleted`)·`password_hash`가 s01 물리 데이터 모델과 일치, (2) 부팅
     앱 라우트가 s01 카탈로그 1~4(auth)·5~8(admin) 경로·메서드·요구 인증/admin 게이트대로 노출, (3) 미인증 401·
