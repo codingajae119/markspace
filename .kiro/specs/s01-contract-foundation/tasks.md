@@ -16,7 +16,7 @@
   - 관찰 가능 완료: config.yml+.env 로드 시 `Settings` 인스턴스가 생성되고, 필수 secret(session_secret/db_password) 누락 시 부팅이 ValidationError로 실패한다(단위 테스트로 확인)
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
   - _Boundary: Settings_
-- [ ] 1.3 DB engine·세션 팩토리·Base·get_db 의존성 구현
+- [x] 1.3 DB engine·세션 팩토리·Base·get_db 의존성 구현
   - `common/db.py`에 `Base(DeclarativeBase)`, `engine`(Settings의 URL, pool_pre_ping), `SessionLocal`, 요청 스코프 `get_db()` 구현
   - 관찰 가능 완료: `get_db()`가 세션을 yield하고 종료 시 close하며, `SELECT 1`이 성공한다(로컬 MySQL 8 또는 통합 테스트 컨테이너 기준)
   - _Requirements: 1.9, 8.3_
