@@ -45,7 +45,7 @@
   - _Depends: 2.2_
 
 - [ ] 3. 공용 런타임 인프라 (common)
-- [ ] 3.1 (P) 공통 에러 모델·코드 카탈로그·전역 예외 핸들러
+- [x] 3.1 (P) 공통 에러 모델·코드 카탈로그·전역 예외 핸들러
   - `common/errors.py`에 `FieldError`, `ErrorResponse`, `ErrorCode`(401/403/404/409/422/500), `DomainError` 기반 예외, `register_error_handlers(app)` 구현
   - RequestValidationError→422+field_errors, HTTPException·DomainError→코드·상태 매핑, 미처리 예외→500(내부 세부정보 미노출) 변환
   - 관찰 가능 완료: 각 예외 유형이 `ErrorResponse` 형태(code/message/field_errors)로 직렬화됨을 단위 테스트로 확인
