@@ -78,7 +78,7 @@
   - _Requirements: 5.1, 5.2, 5.3, 5.4_
   - _Boundary: OwnerChangeSuite_
   - _Depends: 1.2_
-- [ ] 2.5 (P) 계정상태 ↔ 멤버십 결합 스위트 — 유일 owner 전이·보존 (L1 결합, INV-4)
+- [x] 2.5 (P) 계정상태 ↔ 멤버십 결합 스위트 — 유일 owner 전이·보존 (L1 결합, INV-4)
   - `tests/integration_L2/test_account_state_membership.py`에 owner가 WS 생성 + editor·viewer 추가 후: (1) admin이
     유일 owner를 비활동(`is_active=false`) 또는 삭제(`is_deleted=true`) 처리 → editor·viewer 세션이 자신의 role
     라우트에 계속 정상 접근(무영향) (6.1, docs 3.7), (2) 삭제된 멤버의 `workspace_member` 행·사용자 이름이 DB에
