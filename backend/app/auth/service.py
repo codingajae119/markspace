@@ -16,6 +16,7 @@ from collections.abc import MutableMapping
 
 from app.auth.repository import AuthUserRepository
 from app.auth.schemas import AuthUserRead
+from app.common.auth import AuthContext
 from app.common.errors import DomainError, ErrorCode
 from app.common.security import verify_password
 
@@ -74,4 +75,28 @@ class AuthService:
 
         # 성공 시에만 세션에 사용자 식별자만 기록한다(Req 1.6, 세션 고정 완화 위해 재설정).
         session[SESSION_USER_KEY] = user.id
+        return AuthUserRead.model_validate(user)
+
+    def logout(self, session: MutableMapping) -> None:
+        """세션을 폐기하여 인증 상태를 종료한다 (Req 2.1).
+
+        세션 전체를 비워 ``SESSION_USER_KEY`` 를 포함한 모든 payload 를 제거한다.
+        이후 s01 ``get_current_user`` 는 ``user_id`` 부재로 401 을 반환한다. 이미
+        비어 있는 세션에 대해서도 안전하다(idempotent).
+        """
+        session.clear()
+
+    def get_me(self, ctx: AuthContext) -> AuthUserRead:
+        """현재 인증된 사용자 정보를 조회한다 (Req 3.1).
+
+        보호 엔드포인트는 s01 ``get_current_user`` 뒤에서 실행되므로 ``ctx`` 는 이미
+        세션·상태(활동/미삭제) 검증을 통과한 신뢰 가능한 컨텍스트다. PK 로 사용자를
+        로드하여 :class:`AuthUserRead` 를 반환한다(민감 필드 미노출, Req 1.7).
+
+        방어적 처리: 조회 결과가 없으면(경합 등 예외적 상황) 깨진 모델 대신
+        로그인과 동일한 401 로 통일해 거부한다.
+        """
+        user = self._repo.get_by_id(ctx.user_id)
+        if user is None:
+            raise _unauthenticated()
         return AuthUserRead.model_validate(user)

@@ -26,7 +26,7 @@
   - _Requirements: 1.1, 1.3, 1.4, 1.5, 1.6, 5.4_
   - _Boundary: AuthService_
   - _Depends: 1.2_
-- [ ] 2.2 로그아웃·현재 사용자 조회 서비스
+- [x] 2.2 로그아웃·현재 사용자 조회 서비스
   - `AuthService.logout`(세션 clear)과 `AuthService.get_me`(`AuthContext.user_id`로 사용자 로드 → `AuthUserRead` 매핑) 구현
   - 관찰 가능 완료: `logout` 호출 후 세션 매핑에 `user_id`가 없고, `get_me`가 컨텍스트 사용자의 `AuthUserRead`를 반환하는 단위 테스트가 통과한다
   - _Requirements: 2.1, 3.1_
