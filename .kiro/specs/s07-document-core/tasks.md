@@ -51,7 +51,7 @@
   - _Boundary: MarkdownRenderer_
   - _Depends: 1.1_
 
-- [ ] 2. Core: 문서 구조 서비스 (CRUD·이동·렌더 오케스트레이션)
+- [x] 2. Core: 문서 구조 서비스 (CRUD·이동·렌더 오케스트레이션)
 - [x] 2.1 문서 생성·조회·목록 구현 (렌더 포함)
   - `service.py`에 `create_document`(부모 지정 시 존재·active·동일 WS 검증, 아니면 거부; 형제 마지막 순서
     `sort_order` 부여; status=active·created_by 기록; 초기 버전 생성 안 함), `get_document`(미존재→404, 현재
@@ -70,7 +70,7 @@
   - _Requirements: 3.1, 3.3, 3.4_
   - _Boundary: DocumentService_
   - _Depends: 2.1_
-- [ ] 2.3 문서 이동·재정렬 구현 (순환 방지·동일 WS·중간 삽입)
+- [x] 2.3 문서 이동·재정렬 구현 (순환 방지·동일 WS·중간 삽입)
   - `service.py`에 `move_document` 구현: 대상=자기/후손 이동 거부(순환 방지, 새 부모에서 루트까지 조상
     체인 검사, INV-5); 새 부모 WS 상이 시 거부(INV-6); 새 부모 존재·active 검증(아니면 거부); 두 형제 사이
     삽입은 인접 `sort_order` 중간값 부여(다른 형제 재배치 없음). active 문서에만 적용

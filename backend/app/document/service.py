@@ -28,7 +28,12 @@ from app.common.auth import AuthContext
 from app.common.errors import DomainError, ErrorCode
 from app.document.renderer import MarkdownRenderer
 from app.document.repository import DocumentRepository
-from app.document.schemas import DocumentCreate, DocumentRead, DocumentUpdate
+from app.document.schemas import (
+    DocumentCreate,
+    DocumentMoveRequest,
+    DocumentRead,
+    DocumentUpdate,
+)
 from app.models import Document
 from app.schemas.base import Page
 
@@ -167,6 +172,175 @@ class DocumentService:
         update_fields = changes.model_dump(exclude_unset=True)
         updated = self._repo.apply_updates(db, document, update_fields)
         return self._to_read(db, updated)
+
+    def move_document(
+        self, db: Session, document_id: int, payload: DocumentMoveRequest
+    ) -> DocumentRead:
+        """문서를 새 부모 밑으로 옮기거나 형제 사이 순서를 재정렬한다 (Req 4.1~4.5·4.7).
+
+        대상을 로드해 없으면 404 로 거부하고, active 문서에만 이동을 허용한다(비active
+        대상→409). `new_parent_id` 가 지정되면 새 부모가 존재(미존재→404)·동일 workspace_id
+        (타 WS→409, INV-6)·active(비active→409)인지 검증하고, 새 부모에서 루트까지 parent_id
+        체인을 거슬러 올라가며 대상 자신을 만나면 순환으로 판정해 거부한다(자기/후손 밑 이동
+        금지, 409, INV-5·4.2·4.7). `new_parent_id` 가 None 이면 루트로 이동한다(parent_id=NULL).
+
+        정렬 순서는 `before_sibling_id`/`after_sibling_id` 로 지정된 인접 형제 **사이**의
+        중간값을 부여하며 다른 형제는 재배치하지 않는다(4.5). 형제 참조가 새 부모의 형제가
+        아니거나 서로 모순되면 잘못된 이동 파라미터로 422 로 거부한다. 최종적으로
+        `set_parent_and_order` 로 parent_id·sort_order 를 갱신하고 `DocumentRead` 로 반환한다.
+        권한 게이트(editor 이상)는 라우터가 담당한다.
+        """
+        document = self._repo.get(db, document_id)
+        if document is None:
+            raise DomainError(
+                code=ErrorCode.NOT_FOUND,
+                message="Document not found",
+                http_status=404,
+            )
+        # 이동은 active 구조에만 적용한다(trashed/deleted 는 휴지통 도메인 소유).
+        if document.status != _ACTIVE:
+            raise DomainError(
+                code=ErrorCode.CONFLICT,
+                message="Only active documents can be moved",
+                http_status=409,
+            )
+
+        new_parent_id = payload.new_parent_id
+        if new_parent_id is not None:
+            new_parent = self._repo.get(db, new_parent_id)
+            if new_parent is None:
+                raise DomainError(
+                    code=ErrorCode.NOT_FOUND,
+                    message="New parent document not found",
+                    http_status=404,
+                )
+            # WS 경계 위반(INV-6): 새 부모가 다른 워크스페이스면 이동을 거부한다.
+            if new_parent.workspace_id != document.workspace_id:
+                raise DomainError(
+                    code=ErrorCode.CONFLICT,
+                    message="New parent belongs to another workspace",
+                    http_status=409,
+                )
+            # active 하위 구조로만 이동한다(비active 새 부모 아래로 이동 금지, 4.4).
+            if new_parent.status != _ACTIVE:
+                raise DomainError(
+                    code=ErrorCode.CONFLICT,
+                    message="New parent document is not active",
+                    http_status=409,
+                )
+            # 순환 방지(INV-5): 새 부모 조상 체인에 대상이 있으면 자기/후손 밑 이동이다.
+            self._reject_cycle(db, document_id, new_parent)
+
+        sort_order = self._resolve_move_sort_order(
+            db, document, new_parent_id, payload
+        )
+        moved = self._repo.set_parent_and_order(
+            db, document, parent_id=new_parent_id, sort_order=sort_order
+        )
+        return self._to_read(db, moved)
+
+    def _reject_cycle(
+        self, db: Session, document_id: int, new_parent: Document
+    ) -> None:
+        """새 부모에서 루트까지 조상 체인을 거슬러 올라가 대상을 만나면 거부한다(INV-5).
+
+        `new_parent` 자신부터 시작해 `parent_id` 를 따라 루트까지 올라가며 각 노드가 대상
+        (document_id)인지 확인한다. 대상을 만나면 자기 자신(new_parent==대상) 또는 후손 밑으로
+        옮기려는 사이클이므로 409 로 거부한다. 방문 집합으로 기존 데이터의 사이클에 대한 무한
+        루프도 방어한다.
+        """
+        node: Document | None = new_parent
+        visited: set[int] = set()
+        while node is not None:
+            if node.id == document_id:
+                raise DomainError(
+                    code=ErrorCode.CONFLICT,
+                    message="Cannot move a document under itself or its descendant",
+                    http_status=409,
+                )
+            if node.id in visited:
+                break
+            visited.add(node.id)
+            if node.parent_id is None:
+                break
+            node = self._repo.get(db, node.parent_id)
+
+    def _resolve_move_sort_order(
+        self,
+        db: Session,
+        document: Document,
+        new_parent_id: int | None,
+        payload: DocumentMoveRequest,
+    ) -> Decimal:
+        """중간 삽입 규약(4.5)에 따라 대상에 부여할 `sort_order` 를 계산한다.
+
+        새 부모의 active 형제 목록(대상 자신 제외)을 정렬 순으로 얻고, 지정된
+        `before_sibling_id`/`after_sibling_id` 로 삽입 지점의 하한(lo)·상한(hi) 이웃 순서를
+        결정한다. 두 이웃 사이면 그 중간값을, 한쪽 끝이면 고정 step 만큼 밀어 배치한다(다른
+        형제는 재배치하지 않는다). 참조가 새 부모의 형제가 아니거나 서로 모순되면(역순·비인접)
+        422 로 거부한다.
+        """
+        siblings = self._repo.list_siblings(
+            db, document.workspace_id, new_parent_id, _ACTIVE
+        )
+        others = [s for s in siblings if s.id != document.id]
+        by_id = {s.id: s for s in others}
+
+        before_id = payload.before_sibling_id
+        after_id = payload.after_sibling_id
+        if before_id is not None and before_id not in by_id:
+            raise self._invalid_move("before_sibling_id is not a sibling")
+        if after_id is not None and after_id not in by_id:
+            raise self._invalid_move("after_sibling_id is not a sibling")
+
+        lo, hi = self._insertion_bounds(others, by_id, before_id, after_id)
+        if lo is not None and hi is not None:
+            return (lo + hi) / Decimal(2)
+        if lo is not None:
+            return lo + _SORT_ORDER_STEP
+        if hi is not None:
+            return hi - _SORT_ORDER_STEP
+        return _SORT_ORDER_START
+
+    def _insertion_bounds(
+        self,
+        others: list[Document],
+        by_id: dict[int, Document],
+        before_id: int | None,
+        after_id: int | None,
+    ) -> tuple[Decimal | None, Decimal | None]:
+        """삽입 지점의 (하한, 상한) 이웃 `sort_order` 를 결정한다(None 이면 목록 끝/처음).
+
+        - 두 참조 모두: `after` 바로 뒤가 `before` 여야 하며(인접), 아니면 422.
+        - `after` 만: 그 형제 뒤·다음 형제 앞(끝이면 상한 None → append).
+        - `before` 만: 그 형제 앞·이전 형제 뒤(처음이면 하한 None → prepend).
+        - 참조 없음: 목록 마지막 뒤(append; 비면 하한·상한 모두 None → 시작값).
+        """
+        if before_id is not None and after_id is not None:
+            after = by_id[after_id]
+            before = by_id[before_id]
+            if others.index(after) + 1 != others.index(before):
+                raise self._invalid_move("sibling references are inconsistent")
+            return after.sort_order, before.sort_order
+        if after_id is not None:
+            after = by_id[after_id]
+            idx = others.index(after)
+            hi = others[idx + 1].sort_order if idx + 1 < len(others) else None
+            return after.sort_order, hi
+        if before_id is not None:
+            before = by_id[before_id]
+            idx = others.index(before)
+            lo = others[idx - 1].sort_order if idx - 1 >= 0 else None
+            return lo, before.sort_order
+        return (others[-1].sort_order if others else None), None
+
+    def _invalid_move(self, message: str) -> DomainError:
+        """잘못된 이동 파라미터를 나타내는 422 DomainError 를 만든다(design §Error Handling)."""
+        return DomainError(
+            code=ErrorCode.UNPROCESSABLE,
+            message=message,
+            http_status=422,
+        )
 
     def _next_sort_order(
         self, db: Session, workspace_id: int, parent_id: int | None

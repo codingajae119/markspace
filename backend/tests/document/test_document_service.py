@@ -27,7 +27,12 @@ import pytest
 from app.common.auth import AuthContext
 from app.common.errors import DomainError, ErrorCode
 from app.document.renderer import MarkdownRenderer
-from app.document.schemas import DocumentCreate, DocumentRead, DocumentUpdate
+from app.document.schemas import (
+    DocumentCreate,
+    DocumentMoveRequest,
+    DocumentRead,
+    DocumentUpdate,
+)
 from app.document.service import DocumentService
 from app.models import Document
 from app.schemas.base import Page
@@ -88,6 +93,7 @@ class _FakeRepo:
         self.siblings_calls: list[tuple] = []
         self.list_calls: list[tuple] = []
         self.apply_updates_calls: list[dict] = []
+        self.set_parent_calls: list[dict] = []
         self._next_id = 500
 
     def get(self, db, document_id: int) -> Document | None:
@@ -143,6 +149,17 @@ class _FakeRepo:
         for key, value in changes.items():
             if key == "title":
                 setattr(doc, key, value)
+        return doc
+
+    def set_parent_and_order(
+        self, db, doc: Document, *, parent_id, sort_order
+    ) -> Document:
+        assert isinstance(db, _FakeDb)
+        self.set_parent_calls.append(
+            {"id": doc.id, "parent_id": parent_id, "sort_order": sort_order}
+        )
+        doc.parent_id = parent_id
+        doc.sort_order = sort_order
         return doc
 
 
@@ -443,3 +460,338 @@ def test_update_document_no_fields_provided_applies_empty_changes():
     # 아무 필드도 제공하지 않으면 exclude_unset 이 빈 변경셋을 전달하고 제목은 불변.
     assert result.title == "Keep"
     assert repo.apply_updates_calls == [{}]
+
+
+# --- move_document ------------------------------------------------------------
+
+
+def test_move_missing_target_raises_404():
+    db = _FakeDb()
+    repo = _FakeRepo()  # get_map 비어 있음 → 대상 미존재
+    service = _service(repo)
+
+    with pytest.raises(DomainError) as ei:
+        service.move_document(db, 404, DocumentMoveRequest(new_parent_id=None))
+
+    assert ei.value.code == ErrorCode.NOT_FOUND
+    assert ei.value.http_status == 404
+    assert repo.set_parent_calls == []
+
+
+def test_move_non_active_target_raises_409():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    repo.get_map = {10: _make_doc(doc_id=10, status="trashed")}
+    service = _service(repo)
+
+    with pytest.raises(DomainError) as ei:
+        service.move_document(db, 10, DocumentMoveRequest(new_parent_id=None))
+
+    assert ei.value.code == ErrorCode.CONFLICT
+    assert ei.value.http_status == 409
+    assert repo.set_parent_calls == []
+
+
+def test_move_under_self_raises_409():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, status="active")
+    repo.get_map = {10: doc}
+    service = _service(repo)
+
+    with pytest.raises(DomainError) as ei:
+        service.move_document(db, 10, DocumentMoveRequest(new_parent_id=10))
+
+    assert ei.value.code == ErrorCode.CONFLICT
+    assert ei.value.http_status == 409
+    assert repo.set_parent_calls == []
+
+
+def test_move_under_descendant_raises_409():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    root = _make_doc(doc_id=10, workspace_id=1, parent_id=None, status="active")
+    child = _make_doc(doc_id=20, workspace_id=1, parent_id=10, status="active")
+    grand = _make_doc(doc_id=30, workspace_id=1, parent_id=20, status="active")
+    repo.get_map = {10: root, 20: child, 30: grand}
+    service = _service(repo)
+
+    # 루트(10)를 자신의 손자(30) 밑으로 이동 → 사이클.
+    with pytest.raises(DomainError) as ei:
+        service.move_document(db, 10, DocumentMoveRequest(new_parent_id=30))
+
+    assert ei.value.code == ErrorCode.CONFLICT
+    assert ei.value.http_status == 409
+    assert repo.set_parent_calls == []
+    # 계층 무변: 대상·손자 parent_id 그대로.
+    assert root.parent_id is None
+    assert grand.parent_id == 20
+
+
+def test_move_to_other_workspace_parent_raises_409():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, status="active")
+    other = _make_doc(doc_id=50, workspace_id=2, status="active")
+    repo.get_map = {10: doc, 50: other}
+    service = _service(repo)
+
+    with pytest.raises(DomainError) as ei:
+        service.move_document(db, 10, DocumentMoveRequest(new_parent_id=50))
+
+    assert ei.value.code == ErrorCode.CONFLICT
+    assert ei.value.http_status == 409
+    assert repo.set_parent_calls == []
+
+
+def test_move_new_parent_missing_raises_404():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    repo.get_map = {10: _make_doc(doc_id=10, workspace_id=1, status="active")}
+    service = _service(repo)
+
+    with pytest.raises(DomainError) as ei:
+        service.move_document(db, 10, DocumentMoveRequest(new_parent_id=99))
+
+    assert ei.value.code == ErrorCode.NOT_FOUND
+    assert ei.value.http_status == 404
+    assert repo.set_parent_calls == []
+
+
+def test_move_new_parent_non_active_raises_409():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, status="active")
+    parent = _make_doc(doc_id=50, workspace_id=1, status="trashed")
+    repo.get_map = {10: doc, 50: parent}
+    service = _service(repo)
+
+    with pytest.raises(DomainError) as ei:
+        service.move_document(db, 10, DocumentMoveRequest(new_parent_id=50))
+
+    assert ei.value.code == ErrorCode.CONFLICT
+    assert ei.value.http_status == 409
+    assert repo.set_parent_calls == []
+
+
+def test_move_to_root_sets_parent_null():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, parent_id=5, status="active")
+    repo.get_map = {10: doc}
+    repo.siblings_result = []  # 루트에 다른 형제 없음
+    service = _service(repo)
+
+    result = service.move_document(db, 10, DocumentMoveRequest(new_parent_id=None))
+
+    assert len(repo.set_parent_calls) == 1
+    call = repo.set_parent_calls[0]
+    assert call["parent_id"] is None
+    assert call["sort_order"] == Decimal("1000")
+    assert result.parent_id is None
+
+
+def test_move_normal_updates_parent_and_order():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, parent_id=None, status="active")
+    parent = _make_doc(doc_id=50, workspace_id=1, status="active")
+    repo.get_map = {10: doc, 50: parent}
+    repo.siblings_result = []  # 새 부모에 형제 없음 → append
+    service = _service(repo)
+
+    result = service.move_document(db, 10, DocumentMoveRequest(new_parent_id=50))
+
+    call = repo.set_parent_calls[0]
+    assert call["parent_id"] == 50
+    assert call["sort_order"] == Decimal("1000")
+    assert result.parent_id == 50
+
+
+def test_move_between_two_siblings_uses_midpoint_no_reorder():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, parent_id=None, status="active")
+    parent = _make_doc(doc_id=50, workspace_id=1, status="active")
+    sib_a = _make_doc(doc_id=1, workspace_id=1, parent_id=50, sort_order=Decimal("1000"))
+    sib_b = _make_doc(doc_id=2, workspace_id=1, parent_id=50, sort_order=Decimal("2000"))
+    repo.get_map = {10: doc, 50: parent}
+    repo.siblings_result = [sib_a, sib_b]
+    service = _service(repo)
+
+    result = service.move_document(
+        db,
+        10,
+        DocumentMoveRequest(new_parent_id=50, after_sibling_id=1, before_sibling_id=2),
+    )
+
+    call = repo.set_parent_calls[0]
+    assert call["parent_id"] == 50
+    # 인접 형제 중간값(1000·2000 → 1500) 부여.
+    assert call["sort_order"] == Decimal("1500")
+    assert result.sort_order == Decimal("1500")
+    # 다른 형제 sort_order 는 재배치되지 않는다(핵심 acceptance 4.5).
+    assert sib_a.sort_order == Decimal("1000")
+    assert sib_b.sort_order == Decimal("2000")
+
+
+def test_move_after_sibling_only_inserts_before_next():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, status="active")
+    parent = _make_doc(doc_id=50, workspace_id=1, status="active")
+    sib_a = _make_doc(doc_id=1, workspace_id=1, parent_id=50, sort_order=Decimal("1000"))
+    sib_b = _make_doc(doc_id=2, workspace_id=1, parent_id=50, sort_order=Decimal("2000"))
+    sib_c = _make_doc(doc_id=3, workspace_id=1, parent_id=50, sort_order=Decimal("3000"))
+    repo.get_map = {10: doc, 50: parent}
+    repo.siblings_result = [sib_a, sib_b, sib_c]
+    service = _service(repo)
+
+    service.move_document(
+        db, 10, DocumentMoveRequest(new_parent_id=50, after_sibling_id=1)
+    )
+
+    # sib_a(1000) 뒤, 다음 형제 sib_b(2000) 앞 → 1500.
+    assert repo.set_parent_calls[0]["sort_order"] == Decimal("1500")
+    assert [sib_a.sort_order, sib_b.sort_order, sib_c.sort_order] == [
+        Decimal("1000"),
+        Decimal("2000"),
+        Decimal("3000"),
+    ]
+
+
+def test_move_after_last_sibling_appends_to_end():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, status="active")
+    parent = _make_doc(doc_id=50, workspace_id=1, status="active")
+    sib_a = _make_doc(doc_id=1, workspace_id=1, parent_id=50, sort_order=Decimal("1000"))
+    sib_b = _make_doc(doc_id=2, workspace_id=1, parent_id=50, sort_order=Decimal("2000"))
+    repo.get_map = {10: doc, 50: parent}
+    repo.siblings_result = [sib_a, sib_b]
+    service = _service(repo)
+
+    service.move_document(
+        db, 10, DocumentMoveRequest(new_parent_id=50, after_sibling_id=2)
+    )
+
+    # 마지막 형제 뒤 → max + step(2000 + 1000 = 3000).
+    assert repo.set_parent_calls[0]["sort_order"] == Decimal("3000")
+
+
+def test_move_before_sibling_only_inserts_after_previous():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, status="active")
+    parent = _make_doc(doc_id=50, workspace_id=1, status="active")
+    sib_a = _make_doc(doc_id=1, workspace_id=1, parent_id=50, sort_order=Decimal("1000"))
+    sib_b = _make_doc(doc_id=2, workspace_id=1, parent_id=50, sort_order=Decimal("2000"))
+    sib_c = _make_doc(doc_id=3, workspace_id=1, parent_id=50, sort_order=Decimal("3000"))
+    repo.get_map = {10: doc, 50: parent}
+    repo.siblings_result = [sib_a, sib_b, sib_c]
+    service = _service(repo)
+
+    service.move_document(
+        db, 10, DocumentMoveRequest(new_parent_id=50, before_sibling_id=2)
+    )
+
+    # sib_b(2000) 앞, 이전 형제 sib_a(1000) 뒤 → 1500.
+    assert repo.set_parent_calls[0]["sort_order"] == Decimal("1500")
+
+
+def test_move_before_first_sibling_prepends():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, status="active")
+    parent = _make_doc(doc_id=50, workspace_id=1, status="active")
+    sib_a = _make_doc(doc_id=1, workspace_id=1, parent_id=50, sort_order=Decimal("1000"))
+    sib_b = _make_doc(doc_id=2, workspace_id=1, parent_id=50, sort_order=Decimal("2000"))
+    repo.get_map = {10: doc, 50: parent}
+    repo.siblings_result = [sib_a, sib_b]
+    service = _service(repo)
+
+    service.move_document(
+        db, 10, DocumentMoveRequest(new_parent_id=50, before_sibling_id=1)
+    )
+
+    # 첫 형제 앞 → min - step(1000 - 1000 = 0).
+    assert repo.set_parent_calls[0]["sort_order"] == Decimal("0")
+
+
+def test_move_no_refs_appends_to_end():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, status="active")
+    parent = _make_doc(doc_id=50, workspace_id=1, status="active")
+    sib_a = _make_doc(doc_id=1, workspace_id=1, parent_id=50, sort_order=Decimal("1000"))
+    sib_b = _make_doc(doc_id=2, workspace_id=1, parent_id=50, sort_order=Decimal("2000"))
+    repo.get_map = {10: doc, 50: parent}
+    repo.siblings_result = [sib_a, sib_b]
+    service = _service(repo)
+
+    service.move_document(db, 10, DocumentMoveRequest(new_parent_id=50))
+
+    assert repo.set_parent_calls[0]["sort_order"] == Decimal("3000")
+
+
+def test_move_excludes_target_from_siblings_when_same_parent():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    # 대상(10)이 이미 부모 50 의 형제 목록에 포함됨.
+    doc = _make_doc(
+        doc_id=10, workspace_id=1, parent_id=50, sort_order=Decimal("1500"), status="active"
+    )
+    parent = _make_doc(doc_id=50, workspace_id=1, status="active")
+    sib_a = _make_doc(doc_id=1, workspace_id=1, parent_id=50, sort_order=Decimal("1000"))
+    sib_b = _make_doc(doc_id=2, workspace_id=1, parent_id=50, sort_order=Decimal("2000"))
+    repo.get_map = {10: doc, 50: parent}
+    repo.siblings_result = [sib_a, doc, sib_b]
+    service = _service(repo)
+
+    # 참조 없음 → 대상 제외 후 마지막(2000) 뒤 → 3000.
+    service.move_document(db, 10, DocumentMoveRequest(new_parent_id=50))
+
+    assert repo.set_parent_calls[0]["sort_order"] == Decimal("3000")
+
+
+def test_move_unknown_sibling_ref_raises_422():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, status="active")
+    parent = _make_doc(doc_id=50, workspace_id=1, status="active")
+    sib_a = _make_doc(doc_id=1, workspace_id=1, parent_id=50, sort_order=Decimal("1000"))
+    repo.get_map = {10: doc, 50: parent}
+    repo.siblings_result = [sib_a]
+    service = _service(repo)
+
+    # after_sibling_id=99 는 새 부모의 형제가 아님.
+    with pytest.raises(DomainError) as ei:
+        service.move_document(
+            db, 10, DocumentMoveRequest(new_parent_id=50, after_sibling_id=99)
+        )
+
+    assert ei.value.http_status == 422
+    assert repo.set_parent_calls == []
+
+
+def test_move_contradictory_sibling_refs_raises_422():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=10, workspace_id=1, status="active")
+    parent = _make_doc(doc_id=50, workspace_id=1, status="active")
+    sib_a = _make_doc(doc_id=1, workspace_id=1, parent_id=50, sort_order=Decimal("1000"))
+    sib_b = _make_doc(doc_id=2, workspace_id=1, parent_id=50, sort_order=Decimal("2000"))
+    repo.get_map = {10: doc, 50: parent}
+    repo.siblings_result = [sib_a, sib_b]
+    service = _service(repo)
+
+    # after=sib_b(뒤), before=sib_a(앞) → 순서 모순(비인접/역순).
+    with pytest.raises(DomainError) as ei:
+        service.move_document(
+            db,
+            10,
+            DocumentMoveRequest(new_parent_id=50, after_sibling_id=2, before_sibling_id=1),
+        )
+
+    assert ei.value.http_status == 422
+    assert repo.set_parent_calls == []
