@@ -123,7 +123,7 @@
   - _Depends: 3.1_
 
 - [ ] 4. Integration: 라우터·부트스트랩 연결
-- [ ] 4.1 DocumentRouter 6개 엔드포인트 구현
+- [x] 4.1 DocumentRouter 6개 엔드포인트 구현
   - `router.py`에 `POST /workspaces/{id}/documents`(EDITOR, DocumentCreate→DocumentRead),
     `GET /workspaces/{id}/documents`(VIEWER, limit/offset→Page[DocumentRead]), `GET /documents/{id}`(VIEWER→
     DocumentRead), `PATCH /documents/{id}`(EDITOR, DocumentUpdate), `POST /documents/{id}/move`(EDITOR,
