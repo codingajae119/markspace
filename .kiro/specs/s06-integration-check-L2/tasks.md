@@ -7,7 +7,7 @@
 > 코드(`app/*`)·마이그레이션·`s04` L1 자산(`tests/integration_L1/*`)은 수정하지 않는다 — L1 하네스는 **재사용·확장**한다.
 
 - [ ] 1. Foundation: L2 실제 결합 검증 하네스 (L1 재사용·확장)
-- [ ] 1.1 L2 통합 테스트 하네스 구성 (L1 하네스 재사용 + 워크스페이스·role 세션 픽스처)
+- [x] 1.1 L2 통합 테스트 하네스 구성 (L1 하네스 재사용 + 워크스페이스·role 세션 픽스처)
   - `tests/integration_L2/conftest.py`에서 `s04` `tests/integration_L1`의 하네스 픽스처(실제 MySQL 8에 `alembic
     upgrade head` 적용·`s01` `create_app()` 부팅·admin 시드·세션 유지 `TestClient` 팩토리·고유 login_id 생성기)를
     재사용하고, 부팅 앱이 s02·s03·**s05 라우터가 조립된 상태**(워크스페이스·소유권 라우트 노출)임을 전제로 한다.
