@@ -326,10 +326,13 @@ def test_openapi_exposes_exactly_the_four_auth_endpoints(seeded):
 
 
 def test_openapi_has_no_account_lifecycle_endpoints(seeded):
-    """계정 생성/삭제·admin 비밀번호 재설정·자가 가입/재설정 엔드포인트 부재 (Req 5.3, 5.4).
+    """s02(auth) 표면이 계정 생성/삭제·admin 재설정·자가 가입/재설정을 소유하지 않음 (Req 5.3, 5.4).
 
-    auth 표면은 정확히 4개이므로, 사용자 계정 생명주기(`/users` 생성/삭제)·admin 재설정·
-    비밀번호 분실 자가 재설정(`/auth/reset` 등) 경로가 존재하지 않음을 명시적으로 강제한다.
+    Req 5.3/5.4의 주어는 **Auth Service(s02 자신의 표면)** 이다. s02 Introduction이 명시하듯
+    계정 생명주기(`/admin/users` 생성/삭제·admin 비밀번호 재설정)는 `s03-admin-account`가 소유한다.
+    따라서 이 테스트는 s02 auth 표면이 정확히 4개 경로뿐이며, s03가 소유하는 `/admin/*`
+    네임스페이스를 **제외한** 나머지 표면에 계정 생명주기/재설정 경로가 없음을 강제한다.
+    (`/admin/*` 는 s03 spec이 소유·검증하므로 이 s02 경계 테스트의 금지 검사 대상이 아니다.)
     """
     paths = seeded.app.openapi()["paths"]
     all_paths = set(paths.keys())
@@ -343,13 +346,16 @@ def test_openapi_has_no_account_lifecycle_endpoints(seeded):
         "/auth/password",
     }, f"auth 경로는 정확히 4개여야 한다: {auth_paths!r}"
 
-    # 계정 생명주기/재설정으로 해석될 수 있는 경로가 하나도 없어야 한다.
+    # s02 표면에 계정 생명주기/재설정으로 해석될 수 있는 경로가 하나도 없어야 한다.
+    # s03가 소유하는 `/admin/*` 계정관리 경로는 이 s02 경계 검사에서 제외한다(소유권 분리).
     forbidden_substrings = ["/users", "/user", "reset", "signup", "sign-up", "register"]
     for path in all_paths:
+        if path.startswith("/admin"):
+            continue  # s03-admin-account 소유 네임스페이스 — s02 경계 검사 대상 아님.
         lowered = path.lower()
         for needle in forbidden_substrings:
             assert needle not in lowered, (
-                f"계정 생명주기/재설정 엔드포인트가 존재해서는 안 된다: {path!r} "
+                f"s02 auth 표면에 계정 생명주기/재설정 엔드포인트가 존재해서는 안 된다: {path!r} "
                 f"(금지 토큰 {needle!r})"
             )
 
