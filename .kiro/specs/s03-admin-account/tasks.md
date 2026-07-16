@@ -66,7 +66,7 @@
   - _Depends: 3.1_
 
 - [ ] 4. Validation: 계약·생명주기 통합 검증
-- [ ] 4.1 계정 생명주기·계약·soft-delete 통합 테스트
+- [x] 4.1 계정 생명주기·계약·soft-delete 통합 테스트
   - 마이그레이션된 DB + 부팅 앱에서: (1) admin 세션 `POST /admin/users`→201, 비-admin→403, 비인증→401,
     (2) 생성→`GET /admin/users` 목록 노출→`PATCH` 삭제(is_deleted=true)→목록에 삭제 상태로 계속 노출→재활성화
     (is_deleted=false) 왕복, (3) `POST /admin/users/{id}/password` 후 저장 비밀번호가 새 해시로 갱신(평문 아님),
