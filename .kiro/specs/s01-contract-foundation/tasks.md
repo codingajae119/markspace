@@ -4,7 +4,7 @@
 > 계약 문서(엔드포인트 카탈로그·불변식 카탈로그·`{Resource}Create/Read/Update` 규약)의 단일 소스는 `design.md`이며,
 > 아래 태스크는 그 계약을 실행/검증 가능한 공용 인프라로 구현하고 계약 완전성을 테스트로 고정한다.
 
-- [ ] 1. Foundation: 실행 환경·단일 설정·DB 접속 뼈대
+- [x] 1. Foundation: 실행 환경·단일 설정·DB 접속 뼈대
 - [x] 1.1 uv 의존성 추가 및 앱 패키지 스캐폴드
   - `uv add`로 fastapi, uvicorn[standard], sqlalchemy(<2.1), pymysql, alembic, pydantic-settings, pyyaml, itsdangerous, pwdlib[argon2] 추가
   - `app/`, `app/common/`, `app/models/`, `app/schemas/`, `app/routers/`, `migrations/` 패키지 골격 생성
@@ -23,7 +23,7 @@
   - _Boundary: Db_
   - _Depends: 1.2_
 
-- [ ] 2. 데이터 스키마 마이그레이션 (전체 DB 계약)
+- [x] 2. 데이터 스키마 마이그레이션 (전체 DB 계약)
 - [x] 2.1 (P) SQLAlchemy 모델 7테이블 + is_admin 정의
   - `models/`에 user(+is_admin), workspace, workspace_member, document, document_version, attachment, share_link을 `design.md` 물리 모델(컬럼·타입·ENUM·nullable)대로 정의하고 `models/__init__.py`가 `Base.metadata`를 노출
   - 제약: login_id UNIQUE, (workspace_id,user_id) UNIQUE, token UNIQUE, ENUM(role/status/kind), 자기참조 document.parent_id, soft-delete 컬럼(is_deleted/status/is_archived)
@@ -44,7 +44,7 @@
   - _Requirements: 1.1, 1.10, 1.11_
   - _Depends: 2.2_
 
-- [ ] 3. 공용 런타임 인프라 (common)
+- [x] 3. 공용 런타임 인프라 (common)
 - [x] 3.1 (P) 공통 에러 모델·코드 카탈로그·전역 예외 핸들러
   - `common/errors.py`에 `FieldError`, `ErrorResponse`, `ErrorCode`(401/403/404/409/422/500), `DomainError` 기반 예외, `register_error_handlers(app)` 구현
   - RequestValidationError→422+field_errors, HTTPException·DomainError→코드·상태 매핑, 미처리 예외→500(내부 세부정보 미노출) 변환
@@ -79,7 +79,7 @@
   - _Boundary: PermissionResolver_
   - _Depends: 2.1, 3.4_
 
-- [ ] 4. 애플리케이션 부트스트랩·health (integration)
+- [x] 4. 애플리케이션 부트스트랩·health (integration)
 - [x] 4.1 create_app 조립 지점 구현
   - `app/main.py`에 `create_app()`: Settings 로드, `SessionMiddleware`(session_secret/cookie/max_age) 등록, `register_error_handlers`, health 라우터 include, feature 라우터 조립 지점(초기 비어있음) 마련. 기존 `backend/main.py`는 실행 래퍼로 정리
   - 관찰 가능 완료: `uv run uvicorn app.main:app`이 오류 없이 기동되고, 미처리 예외가 500 `ErrorResponse`로 변환된다
@@ -91,7 +91,7 @@
   - _Requirements: 8.2, 8.3_
   - _Depends: 1.3, 4.1_
 
-- [ ] 5. 계약 완전성 확정 및 통합 검증 (validation)
+- [x] 5. 계약 완전성 확정 및 통합 검증 (validation)
 - [x] 5.1 API 엔드포인트 카탈로그·스키마 규약 일관성 검증
   - `design.md` 엔드포인트 카탈로그가 8개 도메인(REQ-1~8)을 빠짐없이 열거하고 각 항목이 요구 role·요청/응답 스키마·소유 spec(s02~s14)을 표기하는지 점검하는 체크 테스트/검증 스크립트 작성, `{Resource}Create/Read/Update` 규약 준수 확인
   - 관찰 가능 완료: 카탈로그의 모든 엔드포인트가 소유 spec과 스키마 이름을 가지며 명명 규약을 위반하지 않음이 검증 테스트로 통과한다
