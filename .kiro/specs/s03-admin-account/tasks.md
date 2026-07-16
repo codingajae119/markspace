@@ -37,7 +37,7 @@
   - _Requirements: 2.2, 3.1, 3.3, 3.4, 4.1, 5.1, 6.1, 7.1, 8.3_
   - _Boundary: UserRepository_
   - _Depends: 1.1_
-- [ ] 2.2 AdminAccountService 구현 (계정 생명주기 로직)
+- [x] 2.2 AdminAccountService 구현 (계정 생명주기 로직)
   - `service.py`에 `create_user`(login_id 중복→409, `s01` `hash_password`로 해싱, 기본 상태 생성),
     `list_users`(`Page[UserRead]` 반환), `update_user`(대상 미존재→404, admin 대상의 is_active=false 또는
     is_deleted=true 전환→409 단일 admin 잠금 방지, is_active·is_deleted 독립 갱신, 재활성화=is_deleted=false),
