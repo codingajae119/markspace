@@ -71,7 +71,7 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
   - _Boundary: SessionAuth_
   - _Depends: 1.3, 2.1, 3.1_
-- [ ] 3.5 워크스페이스 권한 resolver + admin 게이트 구현
+- [x] 3.5 워크스페이스 권한 resolver + admin 게이트 구현
   - `common/permissions.py`에 `Role(IntEnum)`, `WorkspaceRoleResolver`(workspace_member 조회, owner≥editor≥viewer), `require_ws_role(min)` 의존성 팩토리 구현: admin이면 무조건 통과(INV-3), 미충족 시 403
   - 동일 `common/permissions.py`에 admin 전용 `require_admin(ctx=Depends(get_current_user)) -> AuthContext` 의존성 단일 정의: `not ctx.is_admin`이면 표준 403 `DomainError(FORBIDDEN)` raise, admin이면 통과. admin 전용 엔드포인트(카탈로그 row 5–9)가 이 단일 정의를 소비하며 feature spec은 재정의하지 않는다(권한 검사 단일화)
   - 관찰 가능 완료: role 충족→통과, 미충족→403, admin→bypass 통과, viewer의 editor 요구 작업 거부, `require_admin`이 비-admin→403·admin→통과를 단위 테스트로 확인
