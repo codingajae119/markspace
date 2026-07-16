@@ -7,7 +7,7 @@
 > 데이터를 채워 이를 실동작시킨다. workspace·workspace_member는 물리 삭제(INV-4 비대상), user는 조회만.
 
 - [ ] 1. Foundation: feature 모듈·스키마·의존성
-- [ ] 1.1 workspace 모듈 스캐폴드 및 스키마 정의
+- [x] 1.1 workspace 모듈 스캐폴드 및 스키마 정의
   - `app/workspace/` 패키지(`__init__.py`, `router.py`, `admin_router.py`, `service.py`, `repository.py`,
     `schemas.py`, `dependencies.py`) 골격 생성
   - `schemas.py`에 `s01` Base Schemas를 상속한 `WorkspaceCreate`(name), `WorkspaceUpdate`(name/is_shareable/
