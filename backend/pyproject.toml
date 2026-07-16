@@ -4,4 +4,14 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "alembic>=1.18",
+    "fastapi>=0.139",
+    "itsdangerous>=2.2",
+    "pwdlib[argon2]>=0.3",
+    "pydantic-settings>=2.14",
+    "pymysql>=1.1",
+    "pyyaml>=6.0",
+    "sqlalchemy>=2.0.51,<2.1",
+    "uvicorn[standard]>=0.35",
+]

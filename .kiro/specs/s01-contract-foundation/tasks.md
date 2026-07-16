@@ -5,7 +5,7 @@
 > 아래 태스크는 그 계약을 실행/검증 가능한 공용 인프라로 구현하고 계약 완전성을 테스트로 고정한다.
 
 - [ ] 1. Foundation: 실행 환경·단일 설정·DB 접속 뼈대
-- [ ] 1.1 uv 의존성 추가 및 앱 패키지 스캐폴드
+- [x] 1.1 uv 의존성 추가 및 앱 패키지 스캐폴드
   - `uv add`로 fastapi, uvicorn[standard], sqlalchemy(<2.1), pymysql, alembic, pydantic-settings, pyyaml, itsdangerous, pwdlib[argon2] 추가
   - `app/`, `app/common/`, `app/models/`, `app/schemas/`, `app/routers/`, `migrations/` 패키지 골격 생성
   - 관찰 가능 완료: `uv run python -c "import fastapi, sqlalchemy, alembic, pydantic_settings, pymysql, itsdangerous, pwdlib"`가 오류 없이 종료하고 `pyproject.toml`/`uv.lock`에 의존성이 기록된다
