@@ -110,7 +110,7 @@
   - _Depends: 3.1, 3.2_
 
 - [ ] 4. Validation: resolver 실동작·권한·소유권 통합 검증
-- [ ] 4.1 권한 resolver 실동작 및 워크스페이스·멤버십 왕복 통합 테스트
+- [x] 4.1 권한 resolver 실동작 및 워크스페이스·멤버십 왕복 통합 테스트
   - 마이그레이션된 DB + 부팅 앱에서: (1) `POST /workspaces`로 생성 시 요청자가 owner로 자동 등록,
     (2) owner가 사용자를 viewer/editor/owner로 멤버 추가 후 각 세션으로 `require_ws_role` 보호 라우트 접근 →
     owner·admin만 변경 라우트 통과·viewer/editor/비멤버는 403(INV-1·2·3 실동작), (3) editor 세션으로
