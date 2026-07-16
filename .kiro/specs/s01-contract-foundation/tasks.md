@@ -24,7 +24,7 @@
   - _Depends: 1.2_
 
 - [ ] 2. 데이터 스키마 마이그레이션 (전체 DB 계약)
-- [ ] 2.1 (P) SQLAlchemy 모델 7테이블 + is_admin 정의
+- [x] 2.1 (P) SQLAlchemy 모델 7테이블 + is_admin 정의
   - `models/`에 user(+is_admin), workspace, workspace_member, document, document_version, attachment, share_link을 `design.md` 물리 모델(컬럼·타입·ENUM·nullable)대로 정의하고 `models/__init__.py`가 `Base.metadata`를 노출
   - 제약: login_id UNIQUE, (workspace_id,user_id) UNIQUE, token UNIQUE, ENUM(role/status/kind), 자기참조 document.parent_id, soft-delete 컬럼(is_deleted/status/is_archived)
   - 관찰 가능 완료: `Base.metadata.tables`가 7개 테이블과 지정 컬럼·유일제약을 포함한다(단위 테스트로 확인)
@@ -107,3 +107,9 @@
   - 관찰 가능 완료: 부팅·health·세션 의존성·권한 resolver가 실제 앱 컨텍스트에서 함께 동작함이 통합 테스트로 통과한다
   - _Requirements: 4.1, 4.2, 5.3, 5.5, 8.1, 8.2, 8.3_
   - _Depends: 2.2, 3.4, 3.5, 4.2_
+
+## Implementation Notes
+
+- **환경**: dev MySQL 8 @ 127.0.0.1:3306 (root/1234), DB `notion_lite`(앱)·`notion_lite_test`(테스트) 생성됨. `backend/.env`(gitignored)에 dev secret, `.env.example`은 placeholder만.
+- **2.1→2.2**: 모델은 Python-side `default=`만 사용(모델 boundary). DDL-level `DEFAULT`(is_admin/is_active/is_deleted/is_shareable/is_enabled BOOLEAN, trash_retention_days=30, status=active)는 마이그레이션(2.2)이 `server_default`로 명시해야 함.
+- **2.1 순환 FK**: document.current_version_id ↔ document_version.id 는 nullable + `use_alter=True`(name="fk_document_current_version")로 해소. 마이그레이션도 이 FK를 `create_table` 이후 `create_foreign_key`(ALTER)로 분리 생성해야 함.
