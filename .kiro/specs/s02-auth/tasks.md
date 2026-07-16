@@ -32,7 +32,7 @@
   - _Requirements: 2.1, 3.1_
   - _Boundary: AuthService_
   - _Depends: 1.1, 1.2_
-- [ ] 2.3 본인 비밀번호 변경 서비스
+- [x] 2.3 본인 비밀번호 변경 서비스
   - `AuthService.change_password` 구현: `ctx.user_id`로 사용자 로드 → 현재 비밀번호 `verify_password`(불일치 시 `DomainError(UNPROCESSABLE, 422)`) → s01 `hash_password` → `update_password_hash`. 대상은 항상 현재 인증 사용자로 한정
   - 관찰 가능 완료: 올바른 현재 비밀번호 → 저장 해시가 새 비밀번호 해시로 갱신되고, 현재 비밀번호 불일치 → 422 unprocessable을 반환하며 대상이 ctx.user_id로 고정됨이 단위 테스트로 확인된다
   - _Requirements: 4.1, 4.2, 4.4, 4.5, 5.4_

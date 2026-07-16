@@ -18,7 +18,7 @@ from app.auth.repository import AuthUserRepository
 from app.auth.schemas import AuthUserRead
 from app.common.auth import AuthContext
 from app.common.errors import DomainError, ErrorCode
-from app.common.security import verify_password
+from app.common.security import hash_password, verify_password
 
 __all__ = ["AuthService", "SESSION_USER_KEY"]
 
@@ -100,3 +100,33 @@ class AuthService:
         if user is None:
             raise _unauthenticated()
         return AuthUserRead.model_validate(user)
+
+    def change_password(
+        self, ctx: AuthContext, current_password: str, new_password: str
+    ) -> None:
+        """본인 비밀번호를 변경한다 (Req 4.1, 4.2, 4.4, 4.5).
+
+        대상은 **항상** 현재 인증된 사용자(`ctx.user_id`)이며, 다른 사용자를 지정할
+        인자를 노출하지 않는다(Req 4.5). 현재 비밀번호 확인 후에만 새 해시로 교체한다:
+
+        1. `ctx.user_id` 로 사용자를 로드한다. 방어적으로 없으면(경합 등) 로그인과
+           동일한 401 로 거부한다.
+        2. `current_password` 를 저장된 해시와 대조한다(s01 `verify_password`).
+           불일치는 **인증 실패가 아니라 도메인 규칙 위반**이므로 422 unprocessable
+           로 거부하며, 저장소 write 는 발생하지 않는다(Req 4.2).
+        3. 일치하면 s01 `hash_password` 로 새 해시를 계산해 영속화한다(평문 저장 금지,
+           Req 4.4). 새 비밀번호 정책(최소 길이)은 스키마 계층(`PasswordChangeRequest`)
+           에서 이미 422 로 강제되므로 여기서 재검증하지 않는다.
+        """
+        user = self._repo.get_by_id(ctx.user_id)
+        if user is None:
+            raise _unauthenticated()
+
+        if not verify_password(current_password, user.password_hash):
+            raise DomainError(
+                code=ErrorCode.UNPROCESSABLE,
+                message="Current password does not match",
+                http_status=422,
+            )
+
+        self._repo.update_password_hash(user, hash_password(new_password))
