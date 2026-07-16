@@ -26,7 +26,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. Core: 리포지토리·서비스
-- [ ] 2.1 (P) UserRepository 구현 (조회·생성·flag 전환)
+- [x] 2.1 (P) UserRepository 구현 (조회·생성·flag 전환)
   - `repository.py`에 `s01` user 모델·`get_db` 세션 기반 `get_by_id`, `get_by_login_id`,
     `list_paginated`(limit/offset, 삭제·비활동 포함, total 반환), `create`(is_admin=False·is_active=True·
     is_deleted=False 기본값), `apply_updates`(flag/필드 전환), `set_password_hash` 구현
