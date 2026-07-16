@@ -20,9 +20,9 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import Workspace, WorkspaceMember
+from app.models import User, Workspace, WorkspaceMember
 
-__all__ = ["WorkspaceRepository"]
+__all__ = ["WorkspaceRepository", "MembershipRepository"]
 
 # apply_updates 가 부분 갱신할 수 있는 필드 화이트리스트.
 # 제공된 키 중 이 집합에 속한 것만 적용하여 예기치 않은 컬럼 변경을 차단한다.
@@ -134,3 +134,94 @@ class WorkspaceRepository:
         """
         db.delete(ws)
         db.commit()
+
+
+class MembershipRepository:
+    """workspace_member CRUD·role 조회·대상 user 존재 확인 데이터 접근
+    (Req 3.1, 3.2, 3.6, 3.8, 4.2, 4.7, 5.2, 5.3).
+
+    세션은 메서드별 인자로 전달받는다. 쓰기 메서드(`add`·`set_role`·`remove`·
+    `remove_all_for_workspace`)는 commit 으로 영속화한다. 멤버십은 INV-4 비대상이므로
+    `remove`·`remove_all_for_workspace` 는 물리 삭제를 발행한다.
+
+    경계(design.md §MembershipRepository Boundary): resolver 의 비교·bypass 로직은 소유하지
+    않는다. `get_role` 은 role 데이터 조회만 제공하며 role 계층/우회 판정은 s01 resolver 의
+    책임이다.
+    """
+
+    def get(
+        self, db: Session, workspace_id: int, user_id: int
+    ) -> WorkspaceMember | None:
+        """(workspace_id, user_id) 멤버 행을 로드한다. 없으면 None 을 반환한다(Req 4.2)."""
+        return db.scalar(
+            select(WorkspaceMember).where(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.user_id == user_id,
+            )
+        )
+
+    def get_role(
+        self, db: Session, workspace_id: int, user_id: int
+    ) -> str | None:
+        """(workspace_id, user_id) 의 role 문자열을 반환한다. 비멤버는 None(Req 4.2).
+
+        이는 s01 resolver 가 소비하는 role 데이터의 조회 지점이다. 원시 role 문자열
+        (owner/editor/viewer)을 그대로 반환하며 계층 비교·admin bypass 판정은 하지 않는다
+        (resolver 의 책임).
+        """
+        return db.scalar(
+            select(WorkspaceMember.role).where(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.user_id == user_id,
+            )
+        )
+
+    def add(
+        self, db: Session, *, workspace_id: int, user_id: int, role: str
+    ) -> WorkspaceMember:
+        """(workspace_id, user_id, role) 멤버 행을 생성하고 commit 하여 영속화한다(Req 3.1).
+
+        WorkspaceMember 에는 created_at/updated_at 컬럼이 없어 타임스탬프를 설정하지 않는다.
+        (workspace_id, user_id) 유일성은 s01 UNIQUE 제약(uq_workspace_member_ws_user)이
+        강제한다. 중복 삽입은 IntegrityError 로 표면화되며 리포지토리는 이를 삼키지 않는다
+        (사전 조회·409 변환은 서비스의 책임).
+        """
+        member = WorkspaceMember(
+            workspace_id=workspace_id, user_id=user_id, role=role
+        )
+        db.add(member)
+        db.commit()
+        db.refresh(member)
+        return member
+
+    def set_role(
+        self, db: Session, member: WorkspaceMember, role: str
+    ) -> WorkspaceMember:
+        """멤버의 role 을 갱신하고 commit 하여 영속화한다(Req 5.2)."""
+        member.role = role
+        db.commit()
+        db.refresh(member)
+        return member
+
+    def remove(self, db: Session, member: WorkspaceMember) -> None:
+        """멤버 행을 물리적으로 제거하고 commit 한다(INV-4 비대상, Req 5.3)."""
+        db.delete(member)
+        db.commit()
+
+    def remove_all_for_workspace(self, db: Session, workspace_id: int) -> None:
+        """워크스페이스의 모든 멤버 행을 물리적으로 제거하고 commit 한다(Req 3.6).
+
+        워크스페이스 삭제 시 멤버십 선삭제에 사용된다(INV-4 비대상, 물리 삭제 정당).
+        """
+        db.query(WorkspaceMember).filter(
+            WorkspaceMember.workspace_id == workspace_id
+        ).delete()
+        db.commit()
+
+    def user_exists(self, db: Session, user_id: int) -> bool:
+        """user 행이 존재하면 True 를 반환한다(Req 3.2).
+
+        is_deleted=True 사용자도 존재로 간주한다(is_deleted/is_active 로 필터하지 않는
+        존재 확인). 대상 사용자 존재 확인은 멤버 추가·소유권 변경의 선행 조건이다.
+        """
+        return db.get(User, user_id) is not None

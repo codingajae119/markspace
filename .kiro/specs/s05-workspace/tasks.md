@@ -40,7 +40,7 @@
   - _Requirements: 1.3, 1.4, 2.1, 2.5_
   - _Boundary: WorkspaceRepository_
   - _Depends: 1.1_
-- [ ] 2.2 MembershipRepository 구현 (workspace_member CRUD·role 조회·user 존재 확인)
+- [x] 2.2 MembershipRepository 구현 (workspace_member CRUD·role 조회·user 존재 확인)
   - 참고: 2.1과 동일한 `repository.py`를 편집하므로 병렬 실행하지 않는다(파일 경합 회피).
   - `repository.py`에 `s01` workspace_member·user 모델 기반 `get`(workspace_id,user_id), `get_role`(resolver
     데이터 소스), `add`(role 지정), `set_role`, `remove`(물리 삭제), `remove_all_for_workspace`,
