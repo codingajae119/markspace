@@ -9,7 +9,7 @@
 > import하지 않는다.
 
 - [ ] 1. Foundation: 모듈·스키마·데이터 접근·의존성
-- [ ] 1.1 document 모듈 스캐폴드·스키마 정의·렌더 의존성 추가
+- [x] 1.1 document 모듈 스캐폴드·스키마 정의·렌더 의존성 추가
   - `app/document/` 패키지(`__init__.py`, `router.py`, `service.py`, `engine.py`, `renderer.py`,
     `repository.py`, `schemas.py`, `dependencies.py`) 골격 생성
   - `schemas.py`에 `s01` Base Schemas를 상속한 `DocumentCreate`(title/parent_id), `DocumentUpdate`(title 부분
