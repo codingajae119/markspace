@@ -66,7 +66,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 2.1, 2.2, 2.3, 2.4, 2.5, 2.7, 6.6_
   - _Boundary: WorkspaceService_
   - _Depends: 2.1, 2.2_
-- [ ] 2.4 MembershipService 구현 (멤버 추가·role 변경·제거·소유권 변경)
+- [x] 2.4 MembershipService 구현 (멤버 추가·role 변경·제거·소유권 변경)
   - `service.py`에 `add_member`(대상 user 미존재→404, 기존 멤버→409, 지정 role 등록), `change_role`(멤버십
     미존재→404, role 갱신), `remove_member`(멤버십 미존재→404, 물리 삭제, 마지막 owner 제거도 허용),
     `change_owner`(admin용: 워크스페이스 미존재→404, 대상 user 미존재→404, 멤버면 role=owner 갱신·아니면

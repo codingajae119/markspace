@@ -20,9 +20,17 @@ from app.common.errors import DomainError, ErrorCode, FieldError
 from app.config import get_settings
 from app.schemas.base import Page
 from app.workspace.repository import MembershipRepository, WorkspaceRepository
-from app.workspace.schemas import WorkspaceCreate, WorkspaceRead, WorkspaceUpdate
+from app.workspace.schemas import (
+    MemberCreate,
+    MemberRead,
+    MemberUpdate,
+    OwnerChangeRequest,
+    WorkspaceCreate,
+    WorkspaceRead,
+    WorkspaceUpdate,
+)
 
-__all__ = ["WorkspaceService"]
+__all__ = ["WorkspaceService", "MembershipService"]
 
 
 class WorkspaceService:
@@ -164,3 +172,118 @@ class WorkspaceService:
                 message="Cannot delete a non-empty workspace",
                 http_status=409,
             ) from exc
+
+
+class MembershipService:
+    """멤버 추가·role 변경·제거 및 admin 소유권 변경 비즈니스 로직
+    (design.md §Components → MembershipService, Req 3.1~3.9, 5.1·5.2·5.3·5.5·5.6).
+
+    저장소는 생성자 주입하고 DB 세션은 메서드별 인자로 전달받는다. 도메인 오류는 s01
+    `DomainError` 로 raise 하며 s01 전역 핸들러가 공통 `ErrorResponse` 로 변환한다. 권한
+    게이팅(require_ws_role/require_admin)은 라우터 의존성이 담당하며 서비스는 데이터 규칙
+    (존재·유일·upsert)만 판정한다. role 문자열은 s01 ENUM(owner/editor/viewer)과 동일하게
+    `MemberRole` 값(`.value`)으로 저장소에 전달한다. owner 개수에 하한을 두지 않는다(docs 3.7).
+    """
+
+    def __init__(
+        self, member_repo: MembershipRepository, ws_repo: WorkspaceRepository
+    ) -> None:
+        self._member_repo = member_repo
+        self._ws_repo = ws_repo
+
+    def add_member(
+        self, db: Session, workspace_id: int, payload: MemberCreate
+    ) -> MemberRead:
+        """대상 사용자를 지정 role 의 멤버로 등록한다 (Req 3.1·3.2·3.3·3.4·3.8).
+
+        대상 user 가 존재하지 않으면 404, 이미 해당 워크스페이스 멤버이면 409 로 거부한다.
+        잘못된 role 문자열은 pydantic 이 라우터 계층에서 422 로 거부하므로 서비스는 재검증하지
+        않는다. role 은 `MemberRole` 값(원시 문자열)으로 저장소에 전달한다.
+        """
+        if not self._member_repo.user_exists(db, payload.user_id):
+            raise DomainError(
+                code=ErrorCode.NOT_FOUND,
+                message="User not found",
+                http_status=404,
+            )
+        if self._member_repo.get(db, workspace_id, payload.user_id) is not None:
+            raise DomainError(
+                code=ErrorCode.CONFLICT,
+                message="User is already a member",
+                http_status=409,
+            )
+        member = self._member_repo.add(
+            db,
+            workspace_id=workspace_id,
+            user_id=payload.user_id,
+            role=payload.role.value,
+        )
+        return MemberRead.model_validate(member)
+
+    def change_role(
+        self, db: Session, workspace_id: int, user_id: int, payload: MemberUpdate
+    ) -> MemberRead:
+        """멤버의 role 을 갱신한다 (Req 3.5·3.9).
+
+        대상 멤버십이 없으면 404 로 거부한다. 유일/마지막 owner 를 강등해도 하한 가드 없이
+        허용한다(Req 3.9) — owner 소실은 editor·viewer 판정에 영향을 주지 않는다.
+        """
+        member = self._member_repo.get(db, workspace_id, user_id)
+        if member is None:
+            raise DomainError(
+                code=ErrorCode.NOT_FOUND,
+                message="Membership not found",
+                http_status=404,
+            )
+        updated = self._member_repo.set_role(db, member, payload.role.value)
+        return MemberRead.model_validate(updated)
+
+    def remove_member(self, db: Session, workspace_id: int, user_id: int) -> None:
+        """멤버십을 물리적으로 제거한다 (Req 3.6·3.9).
+
+        대상 멤버십이 없으면 404 로 거부한다. 유일/마지막 owner 제거도 하한 가드 없이
+        허용한다(Req 3.9).
+        """
+        member = self._member_repo.get(db, workspace_id, user_id)
+        if member is None:
+            raise DomainError(
+                code=ErrorCode.NOT_FOUND,
+                message="Membership not found",
+                http_status=404,
+            )
+        self._member_repo.remove(db, member)
+
+    def change_owner(
+        self, db: Session, workspace_id: int, payload: OwnerChangeRequest
+    ) -> WorkspaceRead:
+        """admin 소유권 변경: 대상 사용자를 owner 로 upsert 한다 (Req 5.1·5.2·5.3·5.5·5.6·3.7).
+
+        워크스페이스가 없으면 404, 대상 user 가 없으면 404 로 거부한다. 대상이 이미 멤버이면
+        role 을 owner 로 갱신하고, 비멤버이면 owner role 로 신규 등록한다(upsert-to-owner).
+        기존 다른 owner 는 강등하지 않으며(복수 owner 허용), owner 부재 워크스페이스에도 새
+        owner 를 지정할 수 있다(Req 5.6). admin 게이트는 라우터 `require_admin` 이 담당한다.
+        """
+        workspace = self._ws_repo.get_by_id(db, workspace_id)
+        if workspace is None:
+            raise DomainError(
+                code=ErrorCode.NOT_FOUND,
+                message="Workspace not found",
+                http_status=404,
+            )
+        if not self._member_repo.user_exists(db, payload.new_owner_user_id):
+            raise DomainError(
+                code=ErrorCode.NOT_FOUND,
+                message="User not found",
+                http_status=404,
+            )
+        existing = self._member_repo.get(db, workspace_id, payload.new_owner_user_id)
+        if existing is not None:
+            self._member_repo.set_role(db, existing, "owner")
+        else:
+            self._member_repo.add(
+                db,
+                workspace_id=workspace_id,
+                user_id=payload.new_owner_user_id,
+                role="owner",
+            )
+        return WorkspaceRead.model_validate(workspace)
