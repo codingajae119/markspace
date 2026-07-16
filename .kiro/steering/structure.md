@@ -12,9 +12,9 @@
 
 ### Backend 루트
 
-**위치**: 저장소 루트 (`pyproject.toml`, `main.py` — 현재 uv 프로젝트 스캐폴드로 초기화됨)
+**위치**: `backend/` (`pyproject.toml`, `main.py`, `.python-version` — uv 프로젝트 스캐폴드)
 **목적**: FastAPI 앱, 도메인 로직, uv로 관리되는 Python 의존성
-**설정**: 루트에 단일 `config.yml`(비밀 아닌 설정) + `.env`(secret)를 두고, pydantic-settings 기반
+**설정**: `backend/`에 단일 `config.yml`(비밀 아닌 설정) + `.env`(secret)를 두고, pydantic-settings 기반
 공용 `Settings` 로더를 거쳐서만 접근한다. 모듈별 개별 설정 파일 금지.
 
 ### Frontend

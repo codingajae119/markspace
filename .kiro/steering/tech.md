@@ -36,7 +36,7 @@
 
 ## 실행 표준
 
-- 모든 backend 명령은 **`uv run`**을 통해 실행한다.
+- 모든 backend 명령은 **`backend/` 디렉터리에서 `uv run`**을 통해 실행한다.
   예: `uv run main.py`, `uv run uvicorn app.main:app --reload`, `uv run pytest`
 - 의존성 추가/제거는 `uv add` / `uv remove`를 사용하고 `pyproject.toml` + `uv.lock`으로 관리한다.
   `pip install`을 직접 사용하지 않는다.

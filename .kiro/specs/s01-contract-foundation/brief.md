@@ -6,7 +6,7 @@
 contract-first로 이 단일 소스를 먼저 확정해야 한다.
 
 ## Current State
-uv 프로젝트 스캐폴드(`pyproject.toml`, `main.py`)만 존재. DB 스키마·공용 Settings·에러 모델·권한
+`backend/`에 uv 프로젝트 스캐폴드(`pyproject.toml`, `main.py`)만 존재. DB 스키마·공용 Settings·에러 모델·권한
 resolver·API 계약 카탈로그가 아직 없다. steering(tech/structure)에 설정 단일화·레이어드 구조·물리
 삭제 없음 원칙이 정의되어 있다.
 
