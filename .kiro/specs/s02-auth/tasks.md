@@ -40,7 +40,7 @@
   - _Depends: 1.2_
 
 - [ ] 3. Integration: 라우터·앱 조립
-- [ ] 3.1 인증 라우터 구현
+- [x] 3.1 인증 라우터 구현
   - `app/auth/router.py`에 `POST /auth/login`(공개, `request.session` 전달), `POST /auth/logout`(204), `GET /auth/me`, `POST /auth/password`(204) 구현. logout·me·password는 s01 `Depends(get_current_user)`로 인증 강제
   - 경로·메서드·요구 인증은 s01 카탈로그 1~4번과 동일. self sign-up·자가 재설정 엔드포인트는 만들지 않음
   - 관찰 가능 완료: 4개 엔드포인트가 등록되고, 미인증 상태로 logout/me/password 호출 시 401(s01), login 성공 시 200 `AuthUserRead`가 반환됨이 라우터 단위/통합 테스트로 확인된다
