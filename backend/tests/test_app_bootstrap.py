@@ -16,8 +16,8 @@ from app.main import create_app
 
 # 아직 구현되지 않은 하위 spec의 feature 엔드포인트 경로(조립 지점 미등록 검증용).
 # s02가 auth 라우터를 등록했으므로 /auth/* 는 제외한다(s02 task 3.2).
+# s05가 워크스페이스 라우터를 등록했으므로 /workspaces 도 제외한다(s05 task 3.3).
 _UNIMPLEMENTED_FEATURE_PATHS = (
-    "/workspaces",
     "/documents",
     "/trash",
     "/attachments",
@@ -76,9 +76,10 @@ def test_feature_router_assembly_point_hosts_only_implemented_specs() -> None:
     """8.4: feature 라우터 조립 지점에는 구현된 spec만 등록된다.
 
     원래 8.4는 s01이 조립 지점을 비워 둔다(health만 등록)는 것을 검증했으나,
-    s02(task 3.2)가 조립 지점에 auth 라우터를 등록하면서 불변식이 갱신되었다:
-    구현된 spec(health + auth)만 등록되고, 아직 구현되지 않은 하위 spec
-    (workspaces/documents/trash/attachments/share)의 경로는 여전히 부재한다.
+    s02(task 3.2)가 auth 라우터를, s05(task 3.3)가 워크스페이스 라우터를 조립
+    지점에 등록하면서 불변식이 갱신되었다: 구현된 spec(health + auth + workspaces)만
+    등록되고, 아직 구현되지 않은 하위 spec(documents/trash/attachments/share)의
+    경로는 여전히 부재한다.
 
     OpenAPI 스키마의 paths는 실제로 조립되어 계약으로 노출된 엔드포인트
     집합이므로, 이를 기준으로 등록 여부를 검증한다.

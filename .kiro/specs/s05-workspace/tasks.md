@@ -101,7 +101,7 @@
   - _Requirements: 5.1, 5.4, 6.2, 6.4_
   - _Boundary: AdminOwnerRouter_
   - _Depends: 1.2, 2.4_
-- [ ] 3.3 s01 라우터 조립 지점에 워크스페이스·admin 라우터 연결
+- [x] 3.3 s01 라우터 조립 지점에 워크스페이스·admin 라우터 연결
   - `s01` `create_app()`의 feature 라우터 조립 지점(`app/main.py` 또는 `app/routers/__init__.py`)에
     `include_router(workspace.router)`·`include_router(workspace.admin_router)` 추가
   - 관찰 가능 완료: `uv run uvicorn app.main:app` 부팅 후 `/workspaces`·`/workspaces/{id}/members`·
@@ -133,3 +133,7 @@
   - _Requirements: 5.1, 5.4, 5.5, 5.6, 3.9, 6.1, 6.2, 6.5_
   - _Boundary: Integration Tests (owner-change 테스트 모듈, 4.1과 별도 파일)_
   - _Depends: 3.3_
+
+## Implementation Notes
+- 3.3 seam trap: s01 `tests/test_app_bootstrap.py::test_feature_router_assembly_point_hosts_only_implemented_specs` 는 미구현 feature 경로가 조립 지점에 없음을 단언한다. s05가 `/workspaces` 를 구현하면 이 경로를 `_UNIMPLEMENTED_FEATURE_PATHS` 에서 구현 집합으로 옮겨야 한다(s02 `/auth`·s03 `/admin/users` 선례와 동일). 불변식을 약화하지 말고 이동만 하라 — s07+ 문서/휴지통/첨부/공유 경로는 계속 부재 단언.
+- 2.3 delete_workspace 원자성: 저장소가 메서드별 commit 하므로 실제 DB 에서 비-empty 삭제 409 롤백(멤버십 미제거)은 s08(L3, s07 문서 도입 후)에서 실효 검증. L2 단위 테스트는 mock IntegrityError + 트랜잭션 가짜 db 로 변환·롤백 제어흐름만 검증.
