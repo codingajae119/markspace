@@ -52,7 +52,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
   - _Boundary: DocumentContractConformanceSuite_
   - _Depends: 1.1_
-- [ ] 2.2 (P) 문서 권한 게이팅 스위트 — editor/viewer 게이트·비멤버 차단·admin bypass·어댑터 (INV-1·2·3)
+- [x] 2.2 (P) 문서 권한 게이팅 스위트 — editor/viewer 게이트·비멤버 차단·admin bypass·어댑터 (INV-1·2·3)
   - `tests/integration_L3/test_document_permission_gating.py`에 owner가 WS 생성 + editor·viewer 추가 후 role별 독립
     세션으로: (1) editor 게이트(생성·수정·이동·삭제)에서 editor·owner 통과 (3.1)·viewer 403 (3.2, INV-2)·비멤버 403
     (3.4), (2) viewer 게이트(조회·목록)에서 owner·editor·viewer 통과 (3.3)·비멤버 403 (3.4, INV-1), (3) admin이
