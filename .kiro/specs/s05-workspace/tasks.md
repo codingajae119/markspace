@@ -79,7 +79,7 @@
   - _Depends: 2.2_
 
 - [ ] 3. Integration: 라우터·부트스트랩 연결
-- [ ] 3.1 WorkspaceRouter 8개 엔드포인트 구현
+- [x] 3.1 WorkspaceRouter 8개 엔드포인트 구현
   - `router.py`에 `POST /workspaces`(인증만, WorkspaceCreate→WorkspaceRead), `GET /workspaces`(limit/offset→
     Page[WorkspaceRead]), `GET /workspaces/{id}`(require_ws_role VIEWER), `PATCH /workspaces/{id}`
     (require_ws_role OWNER, WorkspaceUpdate), `DELETE /workspaces/{id}`(OWNER), `POST /workspaces/{id}/members`
