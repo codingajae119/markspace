@@ -57,7 +57,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
   - _Boundary: PermissionBoundarySuite_
   - _Depends: 1.2_
-- [ ] 2.3 (P) admin override 스위트 — 비멤버 WS bypass·전체 목록 (INV-3)
+- [x] 2.3 (P) admin override 스위트 — 비멤버 WS bypass·전체 목록 (INV-3)
   - `tests/integration_L2/test_admin_override.py`에: (1) admin이 자신이 멤버가 아닌 워크스페이스의 viewer 게이트
     (`GET /workspaces/{id}`) 접근 성공 (4.1), (2) 같은 비멤버 워크스페이스의 owner 게이트(`PATCH
     /workspaces/{id}`·멤버 추가) 접근 성공 (4.2, INV-3), (3) admin의 `GET /workspaces`가 멤버 스코프에 제한되지
