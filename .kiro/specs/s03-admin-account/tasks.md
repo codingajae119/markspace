@@ -49,7 +49,7 @@
   - _Depends: 2.1_
 
 - [ ] 3. Integration: 라우터·부트스트랩 연결
-- [ ] 3.1 AdminUserRouter 4개 엔드포인트 구현
+- [x] 3.1 AdminUserRouter 4개 엔드포인트 구현
   - `router.py`에 `POST /admin/users`(UserCreate→UserRead), `GET /admin/users`(limit/offset→Page[UserRead]),
     `PATCH /admin/users/{id}`(UserUpdate→UserRead), `POST /admin/users/{id}/password`
     (AdminPasswordResetRequest→본문 없음) 구현. 전 라우트에 `Depends(require_admin)`(s01 common 재사용) 부착, 서비스에 위임
