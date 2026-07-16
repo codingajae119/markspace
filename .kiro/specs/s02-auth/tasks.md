@@ -11,7 +11,7 @@
   - 관찰 가능 완료: User ORM 객체로부터 `AuthUserRead`가 직렬화되며 결과에 `password_hash`가 없고, `PasswordChangeRequest`의 정책 위반 입력이 pydantic 검증 오류를 발생시키는 단위 테스트가 통과한다
   - _Requirements: 1.2, 1.7, 4.3, 5.5_
   - _Boundary: AuthSchemas_
-- [ ] 1.2 (P) 인증용 user 저장소 구현
+- [x] 1.2 (P) 인증용 user 저장소 구현
   - `app/auth/repository.py`에 `AuthUserRepository` 구현: `find_by_login_id`(상태 무관 조회), `get_by_id`, `update_password_hash`(commit 포함). s01 `User` 모델과 `get_db` 세션 재사용
   - 계정 생성·삭제·플래그 전환은 구현하지 않음(s03 경계)
   - 관찰 가능 완료: `find_by_login_id`가 비활동/삭제 사용자도 반환하고, `update_password_hash` 후 재조회 시 저장 해시가 교체됨이 단위/통합 테스트로 확인된다
