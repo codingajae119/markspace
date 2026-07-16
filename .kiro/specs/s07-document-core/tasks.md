@@ -185,6 +185,13 @@
   메서드 추가 없이 엔진 경계 안에서 원자 전이. 복구/완전삭제 primitive 도 이 패턴 재사용 권장.
 - 3.1: 유효하지 않은 묶음 루트에 `get_bundle`은 404 반환(design 에러 카탈로그의 409 언급과 상이).
   5.2 property 테스트·s10 소비 시 404 기준으로 검증할 것(현재 커밋된 계약).
+- 3.4: `purge_bundle` 반환 타입은 설계 스케치(`-> None`) 대신 `Bundle` 로 확정 — 완전삭제 후에도
+  `trashed_at` 이 non-null 유지되어 `Bundle` 이 타입 정합하며 `trash_document` 과 대칭. s10 소비 시
+  `purge_bundle`→`Bundle`(members=deleted 상태) 계약을 전제할 것.
+- **s10 소비 primitive 계약 요약(다운스트림)**: `trash_document(db, doc)->Bundle`,
+  `restore_bundle(db, root_id)->list[Document]`(trashed_at=NULL), `purge_bundle(db, root_id)->Bundle`
+  (trashed_at 보존), `identify_bundles(db, ws_id)->list[Bundle]`, `get_bundle(db, root_id)->Bundle`
+  (유효하지 않은 루트=404). 라우터 없이 호출 가능(5.3 검증).
 - 5.2: **s01 스키마 정밀도 한계(다운스트림 주의)** — `document.trashed_at` 은 MySQL `DATETIME(0)`
   (초 단위, `DATETIME_PRECISION=0`). 묶음 = "동일 trashed_at 연결 서브트리" 계약상, **같은
   wall-clock 초에 발생한 서로 다른 삭제는 동일 trashed_at 으로 저장되어 한 묶음으로 병합**된다
