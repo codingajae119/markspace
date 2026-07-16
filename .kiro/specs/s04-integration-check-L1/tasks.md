@@ -51,7 +51,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 4.1, 4.2, 4.3, 5.1, 5.2, 6.1, 6.2_
   - _Boundary: AccountLifecycleLoginSuite_
   - _Depends: 1.2_
-- [ ] 2.3 (P) 물리 삭제 없음(INV-4) 보존 스위트
+- [x] 2.3 (P) 물리 삭제 없음(INV-4) 보존 스위트
   - `tests/integration_L1/test_soft_delete_preservation.py`에: (1) admin 삭제(is_deleted=true) 후 DB에서 해당
     user 레코드가 물리적으로 존재하고 flag만 전환됨을 직접 조회로 확인 (7.1), (2) 삭제된 사용자의 이름·식별 정보가
     보존되어 `GET /admin/users`에 삭제 상태로 계속 노출됨을 확인 (7.2), (3) 생성→삭제→재활성화 왕복 전반에서 user
