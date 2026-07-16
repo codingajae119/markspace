@@ -31,7 +31,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. Core: 리포지토리·서비스
-- [ ] 2.1 WorkspaceRepository 구현 (workspace CRUD·물리 삭제)
+- [x] 2.1 WorkspaceRepository 구현 (workspace CRUD·물리 삭제)
   - `repository.py`에 `s01` workspace 모델·`get_db` 세션 기반 `get_by_id`, `list_for_user`(멤버 조인,
     limit/offset, total), `list_all`(admin 전체), `create`(is_shareable=False, trash_retention_days 인자),
     `apply_updates`(name/is_shareable/trash_retention_days 부분 전환), `delete`(물리 삭제) 구현
