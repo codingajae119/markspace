@@ -123,7 +123,7 @@
     생성 후에는 실제 role로 게이팅됨이 확인된다
   - _Requirements: 1.1, 1.5, 2.5, 3.1, 3.2, 3.3, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
   - _Depends: 3.3_
-- [ ] 4.2 (P) admin 소유권 변경 및 계약 정합 통합 테스트
+- [x] 4.2 (P) admin 소유권 변경 및 계약 정합 통합 테스트
   - 마이그레이션된 DB + 부팅 앱에서: (1) 워크스페이스의 owner를 모두 제거해 owner 부재 상태로 만든 뒤
     `POST /admin/workspaces/{id}/owner`(admin 세션)로 새 owner 지정→해당 사용자가 owner 게이트 통과(3.9·5.6),
     (2) 비-admin의 소유권 변경 요청→403, (3) 응답이 `{Resource}Read`·`Page[WorkspaceRead]` 규약과 `s01`
