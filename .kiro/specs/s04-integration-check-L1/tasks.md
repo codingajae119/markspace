@@ -63,7 +63,7 @@
   - _Depends: 1.2_
 
 - [ ] 3. Validation: G-1 판정 및 재검증 트리거
-- [ ] 3.1 전체 스위트 결합 실행 및 G-1 판정·재검증 트리거 기록
+- [x] 3.1 전체 스위트 결합 실행 및 G-1 판정·재검증 트리거 기록
   - `uv run pytest tests/integration_L1` 전체를 실제 결합(마이그레이션 DB + 부팅 앱, mock 없음)에서 실행하여
     Requirement 2~7 스위트가 전부 통과하면 G-1 통과(=L2 `s05-workspace` impl 착수 선행 조건 충족)로, 하나라도
     실패하면 미통과(=L2 착수 차단)로 판정. 검증 실패는 원인 spec(s01/s02/s03)에서 수정 후 재실행하며 체크포인트에서
@@ -73,3 +73,17 @@
     L2 착수 가부가 명확히 기록된다
   - _Requirements: 1.4, 8.1, 8.2, 8.3_
   - _Depends: 2.1, 2.2, 2.3_
+
+## Implementation Notes
+
+- **하네스는 `create_all`이 아니라 실제 Alembic in-process `command.upgrade(cfg, "head")`로 스키마를 만든다.**
+  `migrations/env.py`가 로드 시 `get_settings().sqlalchemy_url`을 읽으므로, 기존 테스트 격리 패턴(`DB_NAME=notion_lite_test`
+  env 스왑 + `get_settings.cache_clear()`)만으로 마이그레이션이 테스트 DB를 대상으로 한다. 이후 L2+ 체크포인트도
+  이 패턴을 재사용해 *마이그레이션된* 스키마를 검증할 것.
+- **로그인 실패는 사유 불문 uniform 401 `unauthenticated`**(anti-enumeration). 경계 스위트는 실패를 401로만 단언하고
+  세션 미발급을 함께 확인한다. `attempt_login` 헬퍼는 상태를 단언하지 않고 raw 응답을 반환해 200/401 양방향을 가능케 한다.
+- **held-session 무효화(4.3)**: s01 `get_current_user`가 매 요청 `is_active`/`is_deleted`를 재조회하므로, 로그인 후
+  admin이 상태를 전이하면 보유 세션의 다음 보호 요청이 401이 된다. `get_db` override가 요청마다 새 세션을 열어 커밋된
+  flag를 읽는 덕분.
+- **G-1 판정은 코드가 아니라 `uv run pytest tests/integration_L1` 전부 통과로 파생**(design §GateVerdict 수동 선언 금지).
+  게이트 문서는 `tests/integration_L1/README.md`. s01/s02/s03 수정 시 이 체크포인트 + 이후 모든 체크포인트를 누적 재실행.
