@@ -145,7 +145,7 @@
   - _Depends: 4.1_
 
 - [ ] 5. Validation: 통합·불변식 검증
-- [ ] 5.1 CRUD·계층·권한 게이팅 통합 테스트
+- [x] 5.1 CRUD·계층·권한 게이팅 통합 테스트
   - 마이그레이션된 DB + 부팅 앱에서: (1) 루트·하위 문서 생성→조회 시 `content`·`content_html` 포함→제목
     수정→이동/재정렬 왕복, (2) `s05` 멤버십 기반으로 viewer는 변경(생성·수정·이동·삭제) 403·editor 통과·
     admin bypass·조회는 viewer 통과(INV-1·2·3), (3) `/documents/{id}`가 문서→WS 어댑터로 게이팅되고 미존재
