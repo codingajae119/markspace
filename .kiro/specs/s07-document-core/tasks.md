@@ -8,7 +8,7 @@
 > CRUD/이동/렌더 서비스는 이를 호출한다. s10·s14는 이 엔진 primitive를 소비하며, 이 spec은 s10·s14를
 > import하지 않는다.
 
-- [ ] 1. Foundation: 모듈·스키마·데이터 접근·의존성
+- [x] 1. Foundation: 모듈·스키마·데이터 접근·의존성
 - [x] 1.1 document 모듈 스캐폴드·스키마 정의·렌더 의존성 추가
   - `app/document/` 패키지(`__init__.py`, `router.py`, `service.py`, `engine.py`, `renderer.py`,
     `repository.py`, `schemas.py`, `dependencies.py`) 골격 생성
@@ -42,7 +42,7 @@
   - _Requirements: 10.3, 10.4_
   - _Boundary: DocumentWsAdapter_
   - _Depends: 1.2_
-- [ ] 1.4 (P) MarkdownRenderer 안전 렌더 규약 구현
+- [x] 1.4 (P) MarkdownRenderer 안전 렌더 규약 구현
   - `renderer.py`에 markdown → 새니타이즈된 HTML 렌더(`render`) 구현. 스크립트·이벤트 핸들러·위험 URL 제거
     (XSS 방지). 열람(4.4)과 편집 preview(4.5)가 공용하는 단일 규약
   - 관찰 가능 완료: 일반 markdown이 HTML로 렌더되고, `<script>`·`onerror` 등 위험 요소가 포함된 입력은
