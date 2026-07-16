@@ -74,3 +74,11 @@
   - 관찰 가능 완료: 위 4개 시나리오 통합 테스트가 실제 앱 컨텍스트에서 모두 통과한다
   - _Requirements: 1.2, 1.3, 2.2, 3.1, 3.3, 4.1, 6.1, 7.1, 7.2, 8.3, 8.5_
   - _Depends: 3.2_
+
+## Implementation Notes
+- 교차-spec 경계 seam(feature 검증에서 발견): s03가 `/admin/users`를 조립 지점에 등록하자
+  s02의 `test_openapi_has_no_account_lifecycle_endpoints`가 앱 전역 openapi에서 `/users` 부재를
+  단언하다 실패했다. s02 Req 5.3/5.4의 주어는 s02 자신의 표면이고 계정 생명주기는 s03 소유이므로,
+  s02 테스트의 금지 검사에서 s03 소유 `/admin/*`를 제외하도록 스코프 조정했다(auth 표면=정확히 4개
+  단언은 유지). 하위 spec(s04+)이 새 라우터를 조립 지점에 추가할 때, 앞선 spec의 "앱 전역 경로 부재"
+  단언이 깨질 수 있으니 그 spec의 경계 테스트를 자기 표면 기준으로 스코프했는지 확인할 것.
