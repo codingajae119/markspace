@@ -38,7 +38,7 @@
   - _Requirements: 1.1, 1.9, 1.10, 1.11_
   - _Boundary: Migration_
   - _Depends: 2.1_
-- [ ] 2.3 마이그레이션 적용·왕복 통합 테스트
+- [x] 2.3 마이그레이션 적용·왕복 통합 테스트
   - `upgrade head` 후 7테이블·is_admin·인덱스·UNIQUE(login_id, token, (workspace_id,user_id))·ENUM 존재를 검증하고, `downgrade base`로 스키마가 원복됨을 검증
   - 관찰 가능 완료: upgrade→검증→downgrade→재검증 통합 테스트가 통과한다
   - _Requirements: 1.1, 1.10, 1.11_
