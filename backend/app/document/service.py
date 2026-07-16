@@ -8,9 +8,10 @@
 INV-5·동일 WS INV-6·두 형제 사이 중간값 삽입)을 담당한다. `DocumentRead` 구성은 스키마의
 `from_document` 파생 필드 경로를 따른다.
 
-이 task(2.1) 는 생성·조회·목록 세 메서드를 구현한다. 제목 수정·이동/재정렬과 상태 전이
-위임(삭제 등)은 후속 task 의 소유이며, Service 는 active 구조만 다루고 상태 전이는 엔진만
-수행한다(design.md Invariants).
+생성·조회·목록(2.1)과 제목 부분 갱신(2.2, `update_document`)을 구현한다. 제목 수정은
+title 메타데이터만 다루며 본문·버전 저장은 s09 에 위임한다(Req 3.4). 이동/재정렬과 상태
+전이 위임(삭제 등)은 후속 task 의 소유이며, Service 는 active 구조만 다루고 상태 전이는
+엔진만 수행한다(design.md Invariants).
 
 경계(design.md §Dependency Direction): 서비스는 `DocumentRepository`·`MarkdownRenderer`
 (생성자 주입)·s01 `common`·s07 `schemas` 만 소비하며 라우터·다른 feature 도메인
@@ -27,7 +28,7 @@ from app.common.auth import AuthContext
 from app.common.errors import DomainError, ErrorCode
 from app.document.renderer import MarkdownRenderer
 from app.document.repository import DocumentRepository
-from app.document.schemas import DocumentCreate, DocumentRead
+from app.document.schemas import DocumentCreate, DocumentRead, DocumentUpdate
 from app.models import Document
 from app.schemas.base import Page
 
@@ -140,6 +141,32 @@ class DocumentService:
             items=[self._to_read(db, doc) for doc in items],
             total=total,
         )
+
+    def update_document(
+        self, db: Session, document_id: int, changes: DocumentUpdate
+    ) -> DocumentRead:
+        """문서 제목을 부분 갱신한다 (Req 3.1·3.3·3.4).
+
+        대상을 로드해 없으면 404 로 거부한다(Req 3.3). 명시적으로 제공된 필드만
+        (`model_dump(exclude_unset=True)`) `apply_updates` 로 넘긴다 — 이 task 는 title 만
+        다루며, 저장소가 `{"title"}` 화이트리스트로 안전 적용하므로 화이트리스트 밖 키는
+        무시된다. 갱신된 문서를 현재 버전 본문·안전 렌더 HTML 과 함께 `DocumentRead` 로
+        구성해 반환한다(공통 `_to_read` 경로 재사용).
+
+        **본문 내용 저장·버전 생성은 이 경계에서 수행하지 않고 s09(lock-version)에 위임한다
+        (Req 3.4).** 따라서 `content`·`current_version_id` 등 본문/버전 필드는 여기서 건드리지
+        않는다(제목 메타데이터만 갱신). 권한 게이트(editor 이상)는 라우터가 담당한다.
+        """
+        document = self._repo.get(db, document_id)
+        if document is None:
+            raise DomainError(
+                code=ErrorCode.NOT_FOUND,
+                message="Document not found",
+                http_status=404,
+            )
+        update_fields = changes.model_dump(exclude_unset=True)
+        updated = self._repo.apply_updates(db, document, update_fields)
+        return self._to_read(db, updated)
 
     def _next_sort_order(
         self, db: Session, workspace_id: int, parent_id: int | None

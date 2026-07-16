@@ -27,7 +27,7 @@ import pytest
 from app.common.auth import AuthContext
 from app.common.errors import DomainError, ErrorCode
 from app.document.renderer import MarkdownRenderer
-from app.document.schemas import DocumentCreate, DocumentRead
+from app.document.schemas import DocumentCreate, DocumentRead, DocumentUpdate
 from app.document.service import DocumentService
 from app.models import Document
 from app.schemas.base import Page
@@ -87,6 +87,7 @@ class _FakeRepo:
         self.insert_calls: list[dict] = []
         self.siblings_calls: list[tuple] = []
         self.list_calls: list[tuple] = []
+        self.apply_updates_calls: list[dict] = []
         self._next_id = 500
 
     def get(self, db, document_id: int) -> Document | None:
@@ -134,6 +135,15 @@ class _FakeRepo:
         assert isinstance(db, _FakeDb)
         self.list_calls.append((workspace_id, limit, offset))
         return self.list_result
+
+    def apply_updates(self, db, doc: Document, changes: dict) -> Document:
+        assert isinstance(db, _FakeDb)
+        # 실제 리포지토리 계약 반영: {"title"} 화이트리스트만 적용, 그 외 키 무시.
+        self.apply_updates_calls.append(dict(changes))
+        for key, value in changes.items():
+            if key == "title":
+                setattr(doc, key, value)
+        return doc
 
 
 def _service(repo: _FakeRepo) -> DocumentService:
@@ -360,3 +370,76 @@ def test_list_documents_empty_workspace_returns_empty_page():
 
     assert page.items == []
     assert page.total == 0
+
+
+# --- update_document ----------------------------------------------------------
+
+
+def test_update_document_updates_title_returns_read_with_body():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=30, title="Old", current_version_id=88)
+    repo.get_map = {30: doc}
+    repo.content_map = {30: "# Body"}
+    service = _service(repo)
+
+    result = service.update_document(
+        db, document_id=30, changes=DocumentUpdate(title="New")
+    )
+
+    # 제목이 갱신되고, 응답은 현재 버전 본문/안전 렌더를 함께 담는다.
+    assert isinstance(result, DocumentRead)
+    assert result.title == "New"
+    assert result.content == "# Body"
+    assert "<h1>" in result.content_html
+    # 부분 갱신: 제공된 title 필드만 apply_updates 로 전달한다(exclude_unset).
+    assert repo.apply_updates_calls == [{"title": "New"}]
+
+
+def test_update_document_missing_raises_404():
+    db = _FakeDb()
+    repo = _FakeRepo()  # get_map 비어 있음 → 대상 미존재
+    service = _service(repo)
+
+    with pytest.raises(DomainError) as ei:
+        service.update_document(
+            db, document_id=404, changes=DocumentUpdate(title="X")
+        )
+
+    assert ei.value.code == ErrorCode.NOT_FOUND
+    assert ei.value.http_status == 404
+    assert repo.apply_updates_calls == []
+
+
+def test_update_document_leaves_body_and_version_untouched():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=31, title="Old", current_version_id=99)
+    repo.get_map = {31: doc}
+    service = _service(repo)
+
+    result = service.update_document(
+        db, document_id=31, changes=DocumentUpdate(title="Renamed")
+    )
+
+    # 본문/버전 필드는 이 경계에서 건드리지 않는다(s09 소유).
+    assert result.current_version_id == 99
+    assert doc.current_version_id == 99
+    # 화이트리스트(title) 외 컬럼은 apply_updates 로 흘러가지 않는다.
+    assert repo.apply_updates_calls == [{"title": "Renamed"}]
+
+
+def test_update_document_no_fields_provided_applies_empty_changes():
+    db = _FakeDb()
+    repo = _FakeRepo()
+    doc = _make_doc(doc_id=32, title="Keep", current_version_id=None)
+    repo.get_map = {32: doc}
+    service = _service(repo)
+
+    result = service.update_document(
+        db, document_id=32, changes=DocumentUpdate()
+    )
+
+    # 아무 필드도 제공하지 않으면 exclude_unset 이 빈 변경셋을 전달하고 제목은 불변.
+    assert result.title == "Keep"
+    assert repo.apply_updates_calls == [{}]
