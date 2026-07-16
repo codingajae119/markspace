@@ -10,7 +10,7 @@
   - `app/`, `app/common/`, `app/models/`, `app/schemas/`, `app/routers/`, `migrations/` 패키지 골격 생성
   - 관찰 가능 완료: `uv run python -c "import fastapi, sqlalchemy, alembic, pydantic_settings, pymysql, itsdangerous, pwdlib"`가 오류 없이 종료하고 `pyproject.toml`/`uv.lock`에 의존성이 기록된다
   - _Requirements: 8.1_
-- [ ] 1.2 단일 Settings 로더 구현 (config.yml + .env)
+- [x] 1.2 단일 Settings 로더 구현 (config.yml + .env)
   - `config.py`에 `Settings`(pydantic-settings)와 `settings_customise_sources`로 YAML 소스 포함, `get_settings()` 캐시 접근자, `sqlalchemy_url` 프로퍼티 구현
   - `config.yml`(비밀 아닌 값: db_host/port/name/user, default_trash_retention_days, file_storage_root, session_cookie_name/max_age)와 `.env.example`(db_password, session_secret) 작성
   - 관찰 가능 완료: config.yml+.env 로드 시 `Settings` 인스턴스가 생성되고, 필수 secret(session_secret/db_password) 누락 시 부팅이 ValidationError로 실패한다(단위 테스트로 확인)

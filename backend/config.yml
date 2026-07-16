@@ -1,0 +1,9 @@
+app_name: notion-lite
+db_host: 127.0.0.1
+db_port: 3306
+db_name: notion_lite
+db_user: root
+default_trash_retention_days: 30
+file_storage_root: ./var/attachments
+session_cookie_name: session
+session_max_age_seconds: 1209600
