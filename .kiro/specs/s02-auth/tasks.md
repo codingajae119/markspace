@@ -19,7 +19,7 @@
   - _Boundary: AuthUserRepository_
 
 - [ ] 2. Core: 인증 서비스 동작
-- [ ] 2.1 로그인 자격 검증·계정 상태 게이트·세션 발급 서비스
+- [x] 2.1 로그인 자격 검증·계정 상태 게이트·세션 발급 서비스
   - `app/auth/service.py`의 `AuthService.authenticate` 구현: `find_by_login_id` → s01 `verify_password` → `is_active`/`is_deleted` 게이트. 성공 시 라우터가 전달한 세션 매핑에 s01 세션 키(상수 재사용)로 `user_id` 기록 후 `AuthUserRead` 반환
   - 실패(미존재·비밀번호 불일치·비활동·삭제)는 사유 불문 `DomainError(UNAUTHENTICATED, 401)` 동일 코드·메시지로 계정 열거 방지
   - 관찰 가능 완료: 올바른 자격 → 세션에 user_id 기록·`AuthUserRead` 반환, 미존재/비밀번호 불일치/`is_active=false`/`is_deleted=true` → 각각 동일한 401을 반환하는 단위 테스트가 통과한다
@@ -69,3 +69,6 @@
   - 관찰 가능 완료: 비밀번호 변경 e2e와 예외 케이스(422/401)가 통합 테스트로 통과하고, 카탈로그 경로 일치·계정 생명주기 엔드포인트 부재·공통 에러 형태가 검증된다
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 5.1, 5.2, 5.3, 5.4_
   - _Depends: 3.2_
+
+## Implementation Notes
+- 세션 키 상수: s01 `app/common/auth.py:64`는 `session.get("user_id")` **리터럴**을 쓰며 내보낸 상수가 없다. `app/common/*` 수정 금지이므로 s02는 `app/auth/service.py`에 `SESSION_USER_KEY = "user_id"`를 정의해 미러링한다(값이 s01과 반드시 일치해야 s01 `get_current_user`가 세션을 읽는다). 세션 write/clear(2.1·2.2) 및 통합 테스트(4.x)는 이 상수를 재사용한다.
