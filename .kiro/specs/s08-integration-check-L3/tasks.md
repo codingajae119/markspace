@@ -64,7 +64,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
   - _Boundary: DocumentPermissionGatingSuite_
   - _Depends: 1.2_
-- [ ] 2.3 (P) 문서 계층·이동 스위트 — 같은 WS 이동/재정렬·순환·타 WS·중간삽입 (INV-5·6)
+- [x] 2.3 (P) 문서 계층·이동 스위트 — 같은 WS 이동/재정렬·순환·타 WS·중간삽입 (INV-5·6)
   - `tests/integration_L3/test_document_hierarchy_move.py`에 editor 세션으로 문서 트리 구성 후: (1) 같은 WS 내 다른
     부모 밑 이동·형제 사이 재정렬 성공, 이후 조회에서 새 부모·정렬 반영 (4.1), (2) 자기 자신·후손 밑 이동 거부(409/422,
     INV-5) (4.2), (3) 다른 WS 문서 밑 이동 거부(INV-6) (4.3), (4) 두 형제 사이 이동 시 대상만 인접 sort_order 값을 받고
