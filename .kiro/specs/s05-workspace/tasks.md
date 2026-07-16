@@ -92,7 +92,7 @@
   - _Requirements: 1.1, 1.3, 1.5, 2.1, 2.5, 2.6, 3.1, 3.4, 3.5, 4.3, 4.4, 4.5, 6.2, 6.3, 6.4_
   - _Boundary: WorkspaceRouter_
   - _Depends: 1.2, 2.3, 2.4_
-- [ ] 3.2 (P) AdminOwnerRouter 소유권 변경 엔드포인트 구현
+- [x] 3.2 (P) AdminOwnerRouter 소유권 변경 엔드포인트 구현
   - `admin_router.py`에 `POST /admin/workspaces/{id}/owner`(게이트는 `s01` 공통 `require_admin`을 import해
     소비, OwnerChangeRequest→WorkspaceRead) 구현, `MembershipService.change_owner`에 위임. `s01` 카탈로그
     행 9와 정합(소유 spec s05 확정)
