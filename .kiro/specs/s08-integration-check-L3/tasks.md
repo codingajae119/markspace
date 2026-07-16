@@ -74,7 +74,7 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
   - _Boundary: DocumentHierarchyMoveSuite_
   - _Depends: 1.2_
-- [ ] 2.4 (P) bundle 삭제 캐스케이드 스위트 — active만 포착·비흡수·독립 묶음·원자성 (INV-10·11)
+- [x] 2.4 (P) bundle 삭제 캐스케이드 스위트 — active만 포착·비흡수·독립 묶음·원자성 (INV-10·11)
   - `tests/integration_L3/test_bundle_delete_cascade.py`에 editor가 다단계 문서 트리 구성 후: (1) active 하위를 가진
     문서 `DELETE /documents/{id}` → 그 시점 active 하위(루트 포함)만 trashed·공통 trashed_at, `identify_bundles`/
     `get_bundle`로 구성원·trashed_at 동치 확인 (5.1·5.5), (2) 자식 먼저(t1) 삭제 → 부모 나중(t2) 삭제 시 자식 비흡수·
@@ -133,3 +133,6 @@
     L4 착수 가부가 명확히 기록된다
   - _Requirements: 1.5, 8.1, 8.2, 8.3, 8.4_
   - _Depends: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
+
+## Implementation Notes
+- **DATETIME(0) 초정밀도 라운딩 (task 2.4)**: `trashed_at`(`sa.DateTime()` → MySQL `DATETIME(0)`)은 소수 초를 **버림이 아니라 반올림**한다. 서로 다른 삭제를 독립 묶음으로 관측하려면 두 삭제의 **저장된(재조회)** `trashed_at` 초가 확실히 달라야 하며, 단순히 1초 경계만 넘기면 `.6s`·다음초 `.4s` 가 같은 초로 반올림돼 자식이 부모 묶음으로 흡수된다. 해결: 자식의 **저장된** `trashed_at` + 2s 여유만큼 대기한 뒤 부모 삭제(margin-based wait keyed on stored value). task 2.6(초 단위 경계 오병합)이 같은 초 흡수를 정면으로 검증하므로 이 라운딩 특성을 그대로 활용.
