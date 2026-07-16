@@ -46,7 +46,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
   - _Boundary: WorkspaceContractConformanceSuite_
   - _Depends: 1.1_
-- [ ] 2.2 (P) 권한 경계 스위트 — role 위계·viewer 읽기전용·비멤버 차단 (INV-1·2)
+- [x] 2.2 (P) 권한 경계 스위트 — role 위계·viewer 읽기전용·비멤버 차단 (INV-1·2)
   - `tests/integration_L2/test_permission_boundary.py`에 owner가 WS 생성 + editor·viewer 추가 후 role별 독립
     세션으로: (1) viewer 게이트(`GET /workspaces/{id}`)에서 owner·editor·viewer 모두 200 (3.1)·비멤버 403 (3.3),
     (2) owner 게이트(`PATCH /workspaces/{id}`·멤버 추가·제거)에서 owner 200 (3.4)·editor·viewer 403 (3.2, INV-2)·
