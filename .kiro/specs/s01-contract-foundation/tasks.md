@@ -31,7 +31,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8_
   - _Boundary: Models_
   - _Depends: 1.3_
-- [ ] 2.2 Alembic 초기 마이그레이션 0001 작성 (upgrade/downgrade)
+- [x] 2.2 Alembic 초기 마이그레이션 0001 작성 (upgrade/downgrade)
   - `alembic.ini`·`migrations/env.py`(Settings에서 URL 주입, `target_metadata = Base.metadata`) 구성
   - `0001_initial_schema.py`에 7테이블+is_admin 생성(upgrade)과 완전 역전(downgrade), 인덱스(soft-delete 필터용 포함)·외래키·유일제약 포함
   - 관찰 가능 완료: `uv run alembic upgrade head`가 7테이블을 생성하고 `information_schema`에서 컬럼/인덱스/유일제약이 확인된다
@@ -113,3 +113,5 @@
 - **환경**: dev MySQL 8 @ 127.0.0.1:3306 (root/1234), DB `notion_lite`(앱)·`notion_lite_test`(테스트) 생성됨. `backend/.env`(gitignored)에 dev secret, `.env.example`은 placeholder만.
 - **2.1→2.2**: 모델은 Python-side `default=`만 사용(모델 boundary). DDL-level `DEFAULT`(is_admin/is_active/is_deleted/is_shareable/is_enabled BOOLEAN, trash_retention_days=30, status=active)는 마이그레이션(2.2)이 `server_default`로 명시해야 함.
 - **2.1 순환 FK**: document.current_version_id ↔ document_version.id 는 nullable + `use_alter=True`(name="fk_document_current_version")로 해소. 마이그레이션도 이 FK를 `create_table` 이후 `create_foreign_key`(ALTER)로 분리 생성해야 함.
+- **Windows 인코딩**: `alembic.ini`는 configparser가 시스템 로캘(cp949)로 읽어 한글 주석이 UnicodeDecodeError를 유발. alembic.ini는 ASCII-only로 유지할 것. `alembic check`("No new upgrade operations detected")로 모델↔마이그레이션 드리프트 없음을 기계적으로 확인 가능.
+- **DB 상태**: 2.2 완료 후 DB는 `base`(빈 상태, alembic_version 테이블만 존재). 마이그레이션 검증 태스크는 자체 fixture로 upgrade/downgrade 제어.
