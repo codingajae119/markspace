@@ -15,7 +15,7 @@
     `password_hash` 없이 직렬화되며, `UserUpdate`에 `is_admin` 필드가 존재하지 않음을 단위 테스트로 확인
   - _Requirements: 2.1, 2.5, 2.6, 3.2, 7.5, 8.1_
   - _Boundary: UserSchemas_
-- [ ] 1.2 (P) s01 require_admin 게이트 소비 (feature-local 정의 없음)
+- [x] 1.2 (P) s01 require_admin 게이트 소비 (feature-local 정의 없음)
   - s03는 자체 게이트를 정의하지 않는다. `s01` common 권한 모듈의 `require_admin`(`AuthContext.is_admin` 기반,
     비-admin→403)을 그대로 import하여 계정관리 라우트에 부착할 수 있도록 소비한다. `require_admin`의 정의·동작은
     s01이 소유하며 s03는 재정의하지 않는다(권한 단일 구현 규칙)
