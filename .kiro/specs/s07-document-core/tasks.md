@@ -144,7 +144,7 @@
   - _Requirements: 10.5, 10.6_
   - _Depends: 4.1_
 
-- [ ] 5. Validation: 통합·불변식 검증
+- [x] 5. Validation: 통합·불변식 검증
 - [x] 5.1 CRUD·계층·권한 게이팅 통합 테스트
   - 마이그레이션된 DB + 부팅 앱에서: (1) 루트·하위 문서 생성→조회 시 `content`·`content_html` 포함→제목
     수정→이동/재정렬 왕복, (2) `s05` 멤버십 기반으로 viewer는 변경(생성·수정·이동·삭제) 403·editor 통과·
@@ -167,7 +167,7 @@
   - _Requirements: 5.2, 5.3, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 8.1, 8.2, 8.3, 8.4, 9.1, 9.2_
   - _Boundary: DocumentStateEngine (property test 모듈)_
   - _Depends: 3.2, 3.3, 3.4_
-- [ ] 5.3 (P) 상태·잠금 독립 및 엔진 primitive 재사용 통합 검증
+- [x] 5.3 (P) 상태·잠금 독립 및 엔진 primitive 재사용 통합 검증
   - 마이그레이션된 DB에서: (1) `lock_user_id`가 설정된 문서(테스트에서 직접 세팅)도 `trash_document`가 정상
     전이하고, 이 spec이 lock 값을 스스로 설정하지 않음(§4.3·9.4·9.5), (2) 동일 엔진의
     `trash_document`→`restore_bundle`→(재삭제)→`purge_bundle` 왕복이 상태를 일관되게 전이시켜 s10이 소비할
