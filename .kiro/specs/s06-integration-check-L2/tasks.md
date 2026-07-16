@@ -32,7 +32,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. Core: 계약 대조·권한 경계·override·소유권·계정결합·설정 검증 스위트
-- [ ] 2.1 (P) 워크스페이스 계약 대조 스위트 — 스키마·API(9~17)·에러 모델·Base 규약
+- [x] 2.1 (P) 워크스페이스 계약 대조 스위트 — 스키마·API(9~17)·에러 모델·Base 규약
   - `tests/integration_L2/test_workspace_contract_conformance.py`에: (1) 마이그레이션된 `workspace`(name·
     is_shareable·trash_retention_days·타임스탬프)와 `workspace_member`(workspace_id/user_id FK·role
     ENUM(owner/editor/viewer)·UNIQUE(workspace_id,user_id)·INDEX(user_id))가 s01 물리 모델과 일치, (2) 부팅 앱
