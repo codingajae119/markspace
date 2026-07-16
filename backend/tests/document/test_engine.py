@@ -976,3 +976,198 @@ def test_restore_invalid_root_raises_404(sessionmaker_factory):
         assert exc.value.code == ErrorCode.NOT_FOUND
     finally:
         session.close()
+
+
+# --- purge_bundle (Task 3.4 / Req 8.1~8.5) -------------------------------
+
+
+def test_purge_transitions_all_members_to_deleted_preserving_trashed_at(
+    sessionmaker_factory,
+):
+    """완전삭제는 묶음 구성원 전체를 즉시 deleted 로 전환하고 단일 공통 trashed_at 을 보존한다
+    (물리 삭제 없음, Req 8.1·8.4). 반환은 묶음(구성원 now-deleted)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="purge-all")
+        ws = _make_workspace(seed, name="ws-purge-all")
+        # 한 번의 삭제로 포착된 묶음(모두 동일 trashed_at=T1): root → a → b.
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="root",
+            status="trashed", trashed_at=T1, sort_order=Decimal("100"),
+        )
+        a = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=root.id,
+            title="a", status="trashed", trashed_at=T1, sort_order=Decimal("100"),
+        )
+        b = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=a.id,
+            title="b", status="trashed", trashed_at=T1, sort_order=Decimal("100"),
+        )
+        seed.commit()
+        root_id, a_id, b_id = root.id, a.id, b.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        bundle = engine.purge_bundle(session, root_id)
+
+        assert isinstance(bundle, Bundle)
+        assert bundle.root_document_id == root_id
+        assert bundle.trashed_at == T1, "완전삭제는 trashed_at 을 보존한다(NULL 로 비우지 않음)"
+        assert {d.id for d in bundle.members} == {root_id, a_id, b_id}
+        assert all(d.status == "deleted" for d in bundle.members), (
+            "구성원 전체가 즉시 deleted 로 전환되어야 한다(8.1)"
+        )
+        assert all(d.trashed_at == T1 for d in bundle.members), (
+            "단일 공통 trashed_at 이 보존되어야 한다(비워지지 않음)"
+        )
+    finally:
+        session.close()
+
+    # fresh 세션 재조회로 영속·물리보존 확인(레코드가 삭제되지 않고 status=deleted 로 남는다).
+    verify = sessionmaker_factory()
+    try:
+        repo = DocumentRepository()
+        for doc_id in (root_id, a_id, b_id):
+            persisted = repo.get(verify, doc_id)
+            assert persisted is not None, "물리 삭제 없음 — 레코드가 보존되어야 한다(INV-4·8.4)"
+            assert persisted.status == "deleted"
+            assert persisted.trashed_at == T1, "완전삭제 후에도 trashed_at 이 보존된다"
+    finally:
+        verify.close()
+
+
+def test_purge_leaves_other_independent_bundle_untouched(sessionmaker_factory):
+    """완전삭제는 대상 묶음만 deleted 로 전환하고 다른 독립 묶음은 trashed·자기 trashed_at 을
+    그대로 유지한다(Req 8.2)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="purge-indep")
+        ws = _make_workspace(seed, name="ws-purge-indep")
+        # 대상 묶음 b1(T1).
+        b1 = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="b1",
+            status="trashed", trashed_at=T1, sort_order=Decimal("100"),
+        )
+        # 독립 묶음 b2(T2) + 그 자식 — 건드리면 안 된다.
+        b2 = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="b2",
+            status="trashed", trashed_at=T2, sort_order=Decimal("200"),
+        )
+        b2_child = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=b2.id,
+            title="b2-child", status="trashed", trashed_at=T2,
+            sort_order=Decimal("100"),
+        )
+        seed.commit()
+        b1_id, b2_id, b2_child_id = b1.id, b2.id, b2_child.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        engine.purge_bundle(session, b1_id)
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        repo = DocumentRepository()
+        assert repo.get(verify, b1_id).status == "deleted", "대상 묶음만 deleted"
+        # 다른 독립 묶음(b2)은 그대로 trashed·trashed_at 유지.
+        b2 = repo.get(verify, b2_id)
+        b2_child = repo.get(verify, b2_child_id)
+        assert b2.status == "trashed" and b2.trashed_at == T2, "독립 묶음은 불변(8.2)"
+        assert b2_child.status == "trashed" and b2_child.trashed_at == T2
+    finally:
+        verify.close()
+
+
+def test_purge_invalid_root_raises_404(sessionmaker_factory):
+    """완전삭제는 미존재·비trashed(active)·비루트 구성원 루트에 404 를 던진다
+    (get_bundle 검증 재사용, Req 6.5 → 8 전제)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="purge-404")
+        ws = _make_workspace(seed, name="ws-purge-404")
+        active = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="active",
+            status="active", sort_order=Decimal("100"),
+        )
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="root",
+            status="trashed", trashed_at=T1, sort_order=Decimal("200"),
+        )
+        child = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=root.id,
+            title="child", status="trashed", trashed_at=T1,
+            sort_order=Decimal("100"),
+        )
+        seed.commit()
+        active_id, child_id = active.id, child.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        # 미존재.
+        with pytest.raises(DomainError) as exc:
+            engine.purge_bundle(session, 999999)
+        assert exc.value.http_status == 404
+        assert exc.value.code == ErrorCode.NOT_FOUND
+        # 비trashed(active).
+        with pytest.raises(DomainError) as exc:
+            engine.purge_bundle(session, active_id)
+        assert exc.value.http_status == 404
+        # 비루트 구성원(부모가 같은 trashed_at 으로 trashed).
+        with pytest.raises(DomainError) as exc:
+            engine.purge_bundle(session, child_id)
+        assert exc.value.http_status == 404
+    finally:
+        session.close()
+
+
+def test_purge_deleted_is_terminal(sessionmaker_factory):
+    """deleted 는 종착 상태다(Req 8.3) — 완전삭제된 문서는 다시 trashed 될 수 없고(409),
+    더는 trashed 가 아니므로 복구·묶음 조회도 404 로 거부된다(애플리케이션 복구 경로 없음)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="purge-terminal")
+        ws = _make_workspace(seed, name="ws-purge-terminal")
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="root",
+            status="trashed", trashed_at=T1, sort_order=Decimal("100"),
+        )
+        seed.commit()
+        root_id = root.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        repo = DocumentRepository()
+        engine.purge_bundle(session, root_id)
+
+        purged = repo.get(session, root_id)
+        assert purged.status == "deleted"
+
+        # 재삭제 불가: deleted 는 active 가 아니므로 trash 는 409.
+        with pytest.raises(DomainError) as exc:
+            engine.trash_document(session, purged)
+        assert exc.value.http_status == 409
+        assert exc.value.code == ErrorCode.CONFLICT
+
+        # 복구/묶음 조회 불가: 더는 trashed 가 아니므로 404(복구 경로 없음).
+        with pytest.raises(DomainError) as exc:
+            engine.restore_bundle(session, root_id)
+        assert exc.value.http_status == 404
+        with pytest.raises(DomainError) as exc:
+            engine.get_bundle(session, root_id)
+        assert exc.value.http_status == 404
+    finally:
+        session.close()

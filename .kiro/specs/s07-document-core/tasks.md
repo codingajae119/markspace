@@ -80,7 +80,7 @@
   - _Boundary: DocumentService_
   - _Depends: 2.1_
 
-- [ ] 3. Core: 상태 전이 엔진 (묶음 비흡수 단일 구현)
+- [x] 3. Core: 상태 전이 엔진 (묶음 비흡수 단일 구현)
 - [x] 3.1 (P) 묶음 식별·열거·active 하위 질의 구현
   - `engine.py`에 `Bundle` DTO와 `active_descendants`(삭제 캐스케이드·s14 공유 공용), `identify_bundles`(WS
     전체 묶음 열거), `get_bundle`(루트 문서 id로 묶음 구성원 확정·검증, 유효하지 않은 루트→404) 구현. 묶음
@@ -112,7 +112,7 @@
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 9.2_
   - _Boundary: DocumentStateEngine_
   - _Depends: 3.1_
-- [ ] 3.4 완전삭제(trashed → deleted) primitive 구현
+- [x] 3.4 완전삭제(trashed → deleted) primitive 구현
   - `engine.py`에 `purge_bundle` 구현: `get_bundle` 구성원 전체를 status=deleted로 원자적 전환(INV-10);
     물리 삭제 없음(INV-4, 레코드 보존); deleted 종착(INV-7); 상태 전이만 수행하고 첨부 아카이브(s12)·버전
     처리는 소유하지 않음; 다른 독립 묶음 불변

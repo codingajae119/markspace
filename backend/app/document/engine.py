@@ -8,11 +8,11 @@ trashed → active 복구 primitive(부모 상태 기준 복귀 위치·sort_ord
 루트 문서 id), active 하위 집합 질의를 소유한다. 잠금과 무관하게 전이하며 lock 값은 설정하지
 않는다(상태·잠금 독립).
 
-이 모듈(task 3.1)은 묶음 식별·열거·active 하위 질의를 구현한다: `Bundle` DTO 와
-`active_descendants`·`identify_bundles`·`get_bundle`. 삭제/복구/완전삭제 전이(trash·restore·
-purge)는 후속 task 3.2~3.4 의 소유다. 엔진은 생성자로 `DocumentRepository` 를 주입받아 계층·
-상태 질의를 위임하며, 상태 전이·묶음 규칙의 유일 소유자로서 s10/s14 가 이 primitive 를 호출만
-하고 규칙을 재구현하지 않는다.
+이 모듈은 묶음 식별·열거·active 하위 질의(`Bundle` DTO·`active_descendants`·
+`identify_bundles`·`get_bundle`, task 3.1)에 더해 삭제(`trash_document`, 3.2)·복구
+(`restore_bundle`, 3.3)·완전삭제(`purge_bundle`, 3.4) 전이를 구현한다. 엔진은 생성자로
+`DocumentRepository` 를 주입받아 계층·상태 질의를 위임하며, 상태 전이·묶음 규칙의 유일 소유자로서
+s10/s14 가 이 primitive 를 호출만 하고 규칙을 재구현하지 않는다.
 
 경계: `DocumentRepository`·s01 `common`(errors)·`models`·stdlib 만 import 하며 다른 feature
 도메인(s09/s10/s14)을 import 하지 않는다. repository 를 수정하지 않고 기존 메서드
@@ -36,6 +36,9 @@ _TRASHED = "trashed"
 
 # 문서 "살아있는" 상태 값. 삭제 캐스케이드의 대상 자격(비active 거부) 판정이 소비한다.
 _ACTIVE = "active"
+
+# 문서 "영구삭제" 종착 상태 값(INV-7). 완전삭제가 묶음 구성원을 이 값으로 전환한다.
+_DELETED = "deleted"
 
 # 복구 시 root append 폴백의 sort_order 규약. service._SORT_ORDER_START/STEP 와 동일한 값·
 # 의미(형제 없으면 결정적 시작값, 있으면 마지막 형제 뒤 고정 step)를 엔진 안에서 미러링한다
@@ -61,9 +64,9 @@ class Bundle:
 class DocumentStateEngine:
     """삭제·복구·완전삭제·묶음 식별을 담는 상태 전이 단일 구현(Req 5~9).
 
-    이 task(3.1)는 묶음 식별·열거·active 하위 질의만 구현한다. 생성자로 주입된
-    `DocumentRepository` 에 계층·상태 질의를 위임하고, 무엇을 묶음으로 볼지(루트 판정·구성원
-    재구성 규칙)는 엔진이 결정한다.
+    묶음 식별·열거·active 하위 질의(3.1)와 삭제(3.2)·복구(3.3)·완전삭제(3.4) 전이를 구현한다.
+    생성자로 주입된 `DocumentRepository` 에 계층·상태 질의를 위임하고, 무엇을 묶음으로 볼지(루트
+    판정·구성원 재구성 규칙)와 상태 전이 규칙은 엔진이 결정한다.
     """
 
     def __init__(self, repository: DocumentRepository) -> None:
@@ -207,6 +210,35 @@ class DocumentStateEngine:
             return hi - _SORT_ORDER_STEP
         # 위쪽 잔존 이웃 없음 → 원래 위치가 목록 끝이므로 맨 뒤(최대 형제 뒤)로 append.
         return siblings[-1].sort_order + _SORT_ORDER_STEP
+
+    def purge_bundle(self, db: Session, root_document_id: int) -> Bundle:
+        """trashed 묶음을 deleted 로 완전삭제한다 — 종착 상태 전이 primitive
+        (design.md §DocumentStateEngine 완전삭제, Req 8.1~8.5).
+
+        `get_bundle` 으로 구성원을 확정·검증한다(유효하지 않은 루트 — 미존재·비trashed·비루트
+        구성원 — 이면 그 검증이 404 를 던지며 완전삭제도 이를 그대로 상속한다). 확정된 구성원
+        전체를 `repo.set_status_bulk` 로 단일 트랜잭션에서 status=deleted 로 전환한다(즉시·묶음
+        단위 원자적, INV-10·8.1). 물리 삭제는 발행하지 않으며 레코드는 보존된다 — 상태 전환만으로
+        영구삭제를 표현한다(INV-4·8.4). deleted 는 종착 상태로(INV-7·8.3) 애플리케이션 복구 경로를
+        제공하지 않는다.
+
+        `trashed_at` 은 비우지 않고 보존한다: 묶음 구성원은 공통 `trashed_at` 을 공유하므로
+        `set_status_bulk(members, status=deleted, trashed_at=bundle.trashed_at)` 으로 그 값을
+        그대로 유지한다(재기록·NULL 화 없음). `get_bundle` 이 이미 동일 trashed_at 연결 서브트리로
+        범위를 한정하므로 다른 독립 묶음의 status·trashed_at 은 건드리지 않는다(8.2).
+
+        범위는 상태 전이에 한정한다 — 첨부 파일 보관 이동(s12)·버전 처리는 소유하지 않는다(8.5).
+        잠금과 무관하게 전이하며 lock 값은 읽지도 쓰지도 않는다(상태·잠금 독립, Req 9.4·9.5).
+
+        반환 타입은 `Bundle`(구성원 now-deleted)다 — 복구와 달리 완전삭제는 `trashed_at` 을
+        보존하므로 `Bundle.trashed_at`(비옵셔널) 이 유효하며, `trash_document`·`get_bundle` 과 정합해
+        s10 이 무엇을 삭제했는지(루트·trashed_at·구성원) 그대로 소비할 수 있다.
+        """
+        bundle = self.get_bundle(db, root_document_id)
+        self._repository.set_status_bulk(
+            db, bundle.members, status=_DELETED, trashed_at=bundle.trashed_at
+        )
+        return bundle
 
     def identify_bundles(self, db: Session, workspace_id: int) -> list[Bundle]:
         """워크스페이스의 trashed 문서를 묶음으로 분할해 전체 열거한다(Req 6.5).
