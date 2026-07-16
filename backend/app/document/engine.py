@@ -21,6 +21,7 @@ purge)는 후속 task 3.2~3.4 의 소유다. 엔진은 생성자로 `DocumentRep
 
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
@@ -35,6 +36,12 @@ _TRASHED = "trashed"
 
 # 문서 "살아있는" 상태 값. 삭제 캐스케이드의 대상 자격(비active 거부) 판정이 소비한다.
 _ACTIVE = "active"
+
+# 복구 시 root append 폴백의 sort_order 규약. service._SORT_ORDER_START/STEP 와 동일한 값·
+# 의미(형제 없으면 결정적 시작값, 있으면 마지막 형제 뒤 고정 step)를 엔진 안에서 미러링한다
+# (경계상 service 를 import 하지 않으므로 상수를 복제; DECIMAL(30,15) 이라 Decimal 로 계산).
+_SORT_ORDER_START = Decimal("1000")
+_SORT_ORDER_STEP = Decimal("1000")
 
 
 @dataclass(frozen=True)
@@ -104,6 +111,102 @@ class DocumentStateEngine:
             trashed_at=trashed_at,
             members=members,
         )
+
+    def restore_bundle(
+        self, db: Session, root_document_id: int
+    ) -> list[Document]:
+        """trashed 묶음을 active 로 되돌린다 — 복귀 위치·순서 결정 primitive
+        (design.md §DocumentStateEngine 복구·복구 primitive 위치·순서, Req 7.1~7.7·9.2).
+
+        `get_bundle` 으로 구성원을 확정·검증한다(유효하지 않은 루트면 그 검증이 404 를 던진다).
+        복귀 위치는 **복구 시점 루트의 부모 상태**로 1회 검사해 결정한다(Req 7.1·7.2):
+
+        - 부모가 존재하고 active 이면 부모 밑으로 복귀시키고 부모 참조(parent_id)를 유지하며,
+          보존된 원래 `sort_order` 를 원위치 복원한다. 그 위치가 생존 active 형제와 충돌하면
+          `_resolve_restore_sort_order` 의 폴백 계단(원래 직전·직후 형제 사이 중간값 → 한쪽만
+          잔존 시 그 형제 기준 근사 → 맨 뒤)으로 재삽입한다(Req 7.3).
+        - 부모가 non-active(trashed·deleted) 이거나 부재(parent_id=None) 이면 root 로 복귀시켜
+          parent_id 를 NULL 로 만들고, 원위치 복원 대신 root 레벨 생존 active 형제 맨 뒤에
+          배치한다(Req 7.2·7.4).
+
+        구성원 전체를 status=active·trashed_at=NULL 로 전환하되(Req 7.7), 재삽입은 **루트만**
+        수행하므로 구성원 내부의 상대 계층(각 구성원의 parent_id/sort_order)은 그대로 유지된다.
+        자동 재중첩은 하지 않는다 — root 로 복구된 자식은 이후 부모가 복구돼도 스스로 재중첩되지
+        않는다(이 primitive 는 복구 대상 묶음의 trashed 자식만 훑고 다른 묶음을 건드리지 않으므로,
+        Req 7.5). 독립 묶음은 단독 복구 가능하며 다른 묶음을 함께 되살리지 않는다(Req 7.6).
+
+        원자성(INV-10): 루트의 parent_id/sort_order 를 세션 추적 ORM 객체 위에서 **먼저 in-memory
+        로 변경**한 뒤, 그 루트를 포함한 구성원 전체를 `repo.set_status_bulk` 로 단일 커밋
+        전환한다. 루트의 위치 변경은 같은 세션의 pending 변경이라 그 단일 커밋에서 함께 flush
+        되므로 위치 재배치와 상태 전이가 한 트랜잭션으로 원자 적용된다(별도 커밋 불필요).
+
+        잠금과 무관하게 전이하며 lock 값은 읽지도 쓰지도 않는다(상태·잠금 독립, Req 9.4·9.5).
+        반환 타입은 `list[Document]`(복구된 구성원)다 — `Bundle.trashed_at` 은 비옵셔널이라 NULL
+        로 비운 뒤 Bundle 을 반환하면 타입 위반이므로, s10 이 소비할 구성원 목록을 그대로 준다.
+        """
+        bundle = self.get_bundle(db, root_document_id)
+        members = bundle.members
+        root = next(m for m in members if m.id == root_document_id)
+
+        parent = None
+        if root.parent_id is not None:
+            parent = self._repository.get(db, root.parent_id)
+        if parent is not None and parent.status == _ACTIVE:
+            # 부모 밑 복귀: parent_id 유지, 원래 sort_order 원위치 복원(충돌 시 폴백).
+            siblings = self._repository.list_siblings(
+                db, root.workspace_id, root.parent_id, _ACTIVE
+            )
+            root.sort_order = self._resolve_restore_sort_order(
+                siblings, root.sort_order
+            )
+        else:
+            # root 복귀: parent_id=NULL, root 레벨 생존 active 형제 맨 뒤 append.
+            root_siblings = self._repository.list_siblings(
+                db, root.workspace_id, None, _ACTIVE
+            )
+            root.parent_id = None
+            root.sort_order = (
+                root_siblings[-1].sort_order + _SORT_ORDER_STEP
+                if root_siblings
+                else _SORT_ORDER_START
+            )
+
+        self._repository.set_status_bulk(
+            db, members, status=_ACTIVE, trashed_at=None
+        )
+        return members
+
+    def _resolve_restore_sort_order(
+        self, siblings: list[Document], original: Decimal
+    ) -> Decimal:
+        """부모 밑 복귀 시 루트에 부여할 `sort_order` 를 원위치 복원·폴백 계단으로 계산한다
+        (Req 7.3, service._resolve_move_sort_order 의 중간값 삽입 규약과 정합).
+
+        `siblings` 는 대상 부모의 생존 active 형제(정렬 오름차순, 루트는 trashed 라 미포함),
+        `original` 은 삭제 시 보존된 루트의 원래 sort_order 다.
+
+        - 원래 위치에 충돌(동일 sort_order 형제)이 없으면 원래 값을 그대로 쓴다(원위치 복원).
+        - 충돌하면 원래 값 기준 잔존 이웃으로 근사한다: 아래·위 잔존 이웃이 모두 있으면 그 둘
+          사이 중간값(원래 직전·직후 형제 사이), 위쪽 잔존 이웃만 있으면(원래 위치가 목록 앞쪽)
+          그 이웃 앞에 근사 배치한다. 위쪽 잔존 이웃이 없으면(원래 위치가 목록 맨 끝이거나 위쪽
+          이웃이 모두 사라짐) 형제 맨 뒤에 append 한다.
+        """
+        if all(s.sort_order != original for s in siblings):
+            return original
+        lo = max(
+            (s.sort_order for s in siblings if s.sort_order < original),
+            default=None,
+        )
+        hi = min(
+            (s.sort_order for s in siblings if s.sort_order > original),
+            default=None,
+        )
+        if lo is not None and hi is not None:
+            return (lo + hi) / Decimal(2)
+        if hi is not None:
+            return hi - _SORT_ORDER_STEP
+        # 위쪽 잔존 이웃 없음 → 원래 위치가 목록 끝이므로 맨 뒤(최대 형제 뒤)로 append.
+        return siblings[-1].sort_order + _SORT_ORDER_STEP
 
     def identify_bundles(self, db: Session, workspace_id: int) -> list[Bundle]:
         """워크스페이스의 trashed 문서를 묶음으로 분할해 전체 열거한다(Req 6.5).

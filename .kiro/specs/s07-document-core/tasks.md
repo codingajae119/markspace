@@ -102,7 +102,7 @@
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.7, 6.1, 6.2, 6.3, 6.4, 9.4_
   - _Boundary: DocumentStateEngine_
   - _Depends: 3.1_
-- [ ] 3.3 복구(trashed → active) primitive 구현
+- [x] 3.3 복구(trashed → active) primitive 구현
   - `engine.py`에 `restore_bundle` 구현: `get_bundle`로 구성원 확정; 루트의 부모 상태 1회 검사(6.5)로 부모
     active면 부모 밑(parent_id 유지, sort_order 원위치 복원 — 충돌 시 중간값·근사·맨 뒤 폴백, 6.7.1),
     non-active/부재면 root 맨 뒤 append(parent_id=NULL, 6.7.2); 구성원 전체 status=active·trashed_at=NULL,
@@ -176,3 +176,12 @@
     실제 DB에서 일관되게 통과함이 확인된다
   - _Requirements: 8.5, 9.1, 9.2, 9.4, 9.5_
   - _Depends: 3.2, 3.3, 3.4_
+
+## Implementation Notes
+- 3.3: `restore_bundle` 반환 타입은 설계 암시(`Bundle`) 대신 `list[Document]`로 확정 — `Bundle.trashed_at`
+  이 non-optional `datetime`이라 복구 후 trashed_at=NULL 이면 타입 거짓말이 됨. s10 소비 계약도 이에 맞춤.
+- 3.3: 원자성(INV-10) 확보법 — 루트 ORM 객체의 `parent_id`/`sort_order`를 in-memory 로 먼저 세팅한 뒤
+  `set_status_bulk(members, active, None)` 단일 commit 으로 flush(루트가 members 에 포함됨). repo 신규
+  메서드 추가 없이 엔진 경계 안에서 원자 전이. 복구/완전삭제 primitive 도 이 패턴 재사용 권장.
+- 3.1: 유효하지 않은 묶음 루트에 `get_bundle`은 404 반환(design 에러 카탈로그의 409 언급과 상이).
+  5.2 property 테스트·s10 소비 시 404 기준으로 검증할 것(현재 커밋된 계약).

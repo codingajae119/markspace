@@ -617,3 +617,362 @@ def test_trash_ignores_lock(sessionmaker_factory):
 def ws_id_of(session, document_id):
     """시드된 문서의 workspace_id 를 조회하는 소형 헬퍼(테스트 편의)."""
     return DocumentRepository().get_workspace_id(session, document_id)
+
+
+# --- restore_bundle (Task 3.3 / Req 7.1~7.7, 9.2) ------------------------
+
+
+def test_restore_under_active_parent_restores_original_sort_order(sessionmaker_factory):
+    """부모가 active 면 묶음을 부모 밑으로 복귀(parent_id 유지)하고 원래 sort_order 를 그대로
+    복원한다 — 충돌 없으면 원위치(Req 7.1·7.3·7.7)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="restore-active")
+        ws = _make_workspace(seed, name="ws-restore-active")
+        parent = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="parent",
+            status="active", sort_order=Decimal("100"),
+        )
+        # 부모 밑 생존 active 형제(원래 이웃) — 충돌하지 않는 위치.
+        _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=parent.id,
+            title="sib", status="active", sort_order=Decimal("1000"),
+        )
+        # 복구 대상 묶음 루트 — 원래 sort_order=500 을 보존한 채 trashed.
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=parent.id,
+            title="root", status="trashed", trashed_at=T1, sort_order=Decimal("500"),
+        )
+        seed.commit()
+        parent_id, root_id = parent.id, root.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        restored = engine.restore_bundle(session, root_id)
+        assert isinstance(restored, list)
+        root = next(d for d in restored if d.id == root_id)
+        assert root.parent_id == parent_id, "부모 참조를 유지해야 한다(7.1)"
+        assert root.sort_order == Decimal("500"), "원래 sort_order 를 원위치 복원(7.3)"
+        assert root.status == "active" and root.trashed_at is None
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        persisted = DocumentRepository().get(verify, root_id)
+        assert persisted.parent_id == parent_id
+        assert persisted.sort_order == Decimal("500")
+        assert persisted.status == "active" and persisted.trashed_at is None
+    finally:
+        verify.close()
+
+
+def test_restore_sort_order_collision_falls_back_to_midpoint(sessionmaker_factory):
+    """원래 sort_order 가 생존 형제와 충돌하면 원래 직전·직후 형제 사이 중간값으로 삽입한다
+    (Req 7.3)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="restore-collide")
+        ws = _make_workspace(seed, name="ws-restore-collide")
+        parent = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="parent",
+            status="active", sort_order=Decimal("100"),
+        )
+        # 생존 형제: 100, 200(충돌 대상), 400 — 200 위치에 복구하면 충돌.
+        for so in (Decimal("100"), Decimal("200"), Decimal("400")):
+            _make_document(
+                seed, workspace_id=ws.id, created_by=user.id, parent_id=parent.id,
+                title=f"sib-{so}", status="active", sort_order=so,
+            )
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=parent.id,
+            title="root", status="trashed", trashed_at=T1, sort_order=Decimal("200"),
+        )
+        seed.commit()
+        parent_id, root_id = parent.id, root.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        engine.restore_bundle(session, root_id)
+        root = DocumentRepository().get(session, root_id)
+        # 원래 이웃 100·400 사이 중간값(=250) — 200(충돌)과 다르고 300 이하.
+        assert root.parent_id == parent_id
+        assert root.sort_order == Decimal("250"), (
+            "충돌 시 원래 직전(100)·직후(400) 사이 중간값으로 삽입되어야 한다"
+        )
+        assert root.status == "active"
+    finally:
+        session.close()
+
+
+def test_restore_root_append_end_when_original_only_neighbor_below(sessionmaker_factory):
+    """충돌하고 생존 이웃이 한쪽(아래)뿐이면 그 잔존 형제 뒤(근사)로 밀어 넣는다(Req 7.3)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="restore-approx")
+        ws = _make_workspace(seed, name="ws-restore-approx")
+        parent = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="parent",
+            status="active", sort_order=Decimal("100"),
+        )
+        # 생존 형제: 100, 500(충돌 대상). 위쪽 이웃 없음.
+        for so in (Decimal("100"), Decimal("500")):
+            _make_document(
+                seed, workspace_id=ws.id, created_by=user.id, parent_id=parent.id,
+                title=f"sib-{so}", status="active", sort_order=so,
+            )
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=parent.id,
+            title="root", status="trashed", trashed_at=T1, sort_order=Decimal("500"),
+        )
+        seed.commit()
+        root_id = root.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        engine.restore_bundle(session, root_id)
+        root = DocumentRepository().get(session, root_id)
+        # 아래 잔존 형제(100) 기준 근사: 500 은 충돌이라 위쪽 이웃 없음 → 500+step.
+        assert root.sort_order == Decimal("1500"), (
+            "위쪽 이웃이 없으면 가장 가까운 잔존 형제(500) 뒤로 근사 삽입한다"
+        )
+    finally:
+        session.close()
+
+
+def test_restore_to_root_when_parent_trashed_appends_at_end(sessionmaker_factory):
+    """부모가 non-active(trashed)면 root 로 복귀(parent_id=NULL)하고 원위치가 아니라 root 맨
+    뒤에 배치한다(Req 7.2·7.4)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="restore-toroot")
+        ws = _make_workspace(seed, name="ws-restore-toroot")
+        # 부모는 trashed(다른 시점 T2) — 복구 대상과 별개 묶음.
+        parent = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="parent",
+            status="trashed", trashed_at=T2, sort_order=Decimal("100"),
+        )
+        # root 레벨 생존 active 형제: 1000, 2000.
+        for so in (Decimal("1000"), Decimal("2000")):
+            _make_document(
+                seed, workspace_id=ws.id, created_by=user.id, title=f"root-sib-{so}",
+                status="active", sort_order=so,
+            )
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=parent.id,
+            title="root", status="trashed", trashed_at=T1, sort_order=Decimal("500"),
+        )
+        seed.commit()
+        root_id = root.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        engine.restore_bundle(session, root_id)
+        root = DocumentRepository().get(session, root_id)
+        assert root.parent_id is None, "부모 non-active 면 parent_id=NULL(7.2)"
+        assert root.sort_order == Decimal("3000"), (
+            "root 맨 뒤(2000+step)에 배치하고 원래 sort_order(500)를 복원하지 않는다(7.4)"
+        )
+        assert root.status == "active" and root.trashed_at is None
+    finally:
+        session.close()
+
+
+def test_restore_root_level_bundle_appends_not_original(sessionmaker_factory):
+    """루트 레벨 묶음(부모 부재, parent_id=None)도 root 복귀로 취급해 원위치 대신 맨 뒤에
+    배치한다(Req 7.2·7.4)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="restore-rootlevel")
+        ws = _make_workspace(seed, name="ws-restore-rootlevel")
+        _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="root-sib",
+            status="active", sort_order=Decimal("1000"),
+        )
+        # parent_id=None 인 root 레벨 묶음, 원래 sort_order=500.
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="root",
+            status="trashed", trashed_at=T1, sort_order=Decimal("500"),
+        )
+        seed.commit()
+        root_id = root.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        engine.restore_bundle(session, root_id)
+        root = DocumentRepository().get(session, root_id)
+        assert root.parent_id is None
+        assert root.sort_order == Decimal("2000"), (
+            "부모 부재는 root 복귀 → 맨 뒤(1000+step), 원래 500 복원 안 함"
+        )
+    finally:
+        session.close()
+
+
+def test_restore_transitions_all_members_and_preserves_hierarchy(sessionmaker_factory):
+    """복구 시 구성원 전체가 active·trashed_at=NULL 로 전환되고 묶음 내부 상대 계층(부모 참조·
+    정렬)은 유지된다(Req 7.7)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="restore-hierarchy")
+        ws = _make_workspace(seed, name="ws-restore-hierarchy")
+        parent = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="parent",
+            status="active", sort_order=Decimal("100"),
+        )
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=parent.id,
+            title="root", status="trashed", trashed_at=T1, sort_order=Decimal("500"),
+        )
+        child = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=root.id,
+            title="child", status="trashed", trashed_at=T1, sort_order=Decimal("111"),
+        )
+        grandchild = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=child.id,
+            title="grandchild", status="trashed", trashed_at=T1, sort_order=Decimal("222"),
+        )
+        seed.commit()
+        root_id, child_id, gc_id = root.id, child.id, grandchild.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        restored = engine.restore_bundle(session, root_id)
+        assert {d.id for d in restored} == {root_id, child_id, gc_id}
+        assert all(d.status == "active" for d in restored)
+        assert all(d.trashed_at is None for d in restored)
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        repo = DocumentRepository()
+        child = repo.get(verify, child_id)
+        gc = repo.get(verify, gc_id)
+        # 내부 계층·정렬 유지(재삽입은 루트만): child→root, grandchild→child.
+        assert child.parent_id == root_id and child.sort_order == Decimal("111")
+        assert gc.parent_id == child_id and gc.sort_order == Decimal("222")
+        assert all(
+            d.status == "active" and d.trashed_at is None for d in (child, gc)
+        )
+    finally:
+        verify.close()
+
+
+def test_restore_no_auto_renest_child_stays_at_root(sessionmaker_factory):
+    """자식을 root 로 복구한 뒤 그 부모를 복구해도 자식을 부모 밑으로 자동 재중첩하지 않는다
+    (Req 7.5)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="restore-norenest")
+        ws = _make_workspace(seed, name="ws-restore-norenest")
+        # 부모 P 는 T1, 자식 C(P 의 자식)는 T2 로 별개 삭제 → 별개 묶음.
+        parent = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="parent",
+            status="trashed", trashed_at=T1, sort_order=Decimal("100"),
+        )
+        child = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=parent.id,
+            title="child", status="trashed", trashed_at=T2, sort_order=Decimal("200"),
+        )
+        seed.commit()
+        parent_id, child_id = parent.id, child.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        # 1) 자식 먼저 복구 → 부모(P)가 trashed 이므로 root 로 복귀(parent_id=NULL).
+        engine.restore_bundle(session, child_id)
+        child = DocumentRepository().get(session, child_id)
+        assert child.parent_id is None, "부모가 trashed 라 자식은 root 로 복귀한다"
+
+        # 2) 이제 부모 복구 → 자식은 이미 active(root)이며 자동 재중첩되지 않는다.
+        engine.restore_bundle(session, parent_id)
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        child = DocumentRepository().get(verify, child_id)
+        assert child.parent_id is None, (
+            "부모 복구가 이전에 root 로 복구된 자식을 자동으로 재중첩하지 않아야 한다(7.5)"
+        )
+        assert child.status == "active"
+    finally:
+        verify.close()
+
+
+def test_restore_independent_bundle_leaves_others_untouched(sessionmaker_factory):
+    """독립 묶음 단독 복구는 다른 독립 묶음을 함께 되살리지 않는다(Req 7.6)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="restore-independent")
+        ws = _make_workspace(seed, name="ws-restore-independent")
+        b1 = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="b1",
+            status="trashed", trashed_at=T1, sort_order=Decimal("100"),
+        )
+        b2 = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, title="b2",
+            status="trashed", trashed_at=T2, sort_order=Decimal("200"),
+        )
+        b2_child = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=b2.id,
+            title="b2-child", status="trashed", trashed_at=T2, sort_order=Decimal("100"),
+        )
+        seed.commit()
+        b1_id, b2_id, b2_child_id = b1.id, b2.id, b2_child.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        engine.restore_bundle(session, b1_id)
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        repo = DocumentRepository()
+        assert repo.get(verify, b1_id).status == "active", "복구된 묶음만 active"
+        # 다른 독립 묶음(b2)은 그대로 trashed·trashed_at 유지.
+        b2 = repo.get(verify, b2_id)
+        b2_child = repo.get(verify, b2_child_id)
+        assert b2.status == "trashed" and b2.trashed_at == T2
+        assert b2_child.status == "trashed" and b2_child.trashed_at == T2
+    finally:
+        verify.close()
+
+
+def test_restore_invalid_root_raises_404(sessionmaker_factory):
+    """유효하지 않은 묶음 루트(미존재)를 복구하면 get_bundle 검증으로 404 를 던진다(Req 6.5 재사용)."""
+    session = sessionmaker_factory()
+    try:
+        engine = _engine()
+        with pytest.raises(DomainError) as exc:
+            engine.restore_bundle(session, 999999)
+        assert exc.value.http_status == 404
+        assert exc.value.code == ErrorCode.NOT_FOUND
+    finally:
+        session.close()
