@@ -67,7 +67,7 @@
   - _Requirements: 4.1, 4.2, 4.3_
   - _Boundary: AdminOverrideSuite_
   - _Depends: 1.2_
-- [ ] 2.4 (P) admin 소유권 변경 스위트 — upsert·새 owner 권한·403·404
+- [x] 2.4 (P) admin 소유권 변경 스위트 — upsert·새 owner 권한·403·404
   - `tests/integration_L2/test_owner_change.py`에: (1) admin `POST /admin/workspaces/{id}/owner`로 사용자를 새
     owner 지정 → 그 사용자가 이후 owner 게이트를 자기 세션으로 통과 (5.1), (2) 유일 owner를 제거해 owner 부재로
     만든 뒤 새 owner 지정 성공·권한 획득 (5.2, docs 3.7), (3) 비-admin의 소유권 변경 호출 → 403 (5.3), (4) 존재하지
