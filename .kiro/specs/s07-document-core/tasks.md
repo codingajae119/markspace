@@ -52,7 +52,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. Core: 문서 구조 서비스 (CRUD·이동·렌더 오케스트레이션)
-- [ ] 2.1 문서 생성·조회·목록 구현 (렌더 포함)
+- [x] 2.1 문서 생성·조회·목록 구현 (렌더 포함)
   - `service.py`에 `create_document`(부모 지정 시 존재·active·동일 WS 검증, 아니면 거부; 형제 마지막 순서
     `sort_order` 부여; status=active·created_by 기록; 초기 버전 생성 안 함), `get_document`(미존재→404, 현재
     버전 `content`와 `MarkdownRenderer` 렌더 `content_html` 포함), `list_documents`(`Page[DocumentRead]`) 구현
