@@ -122,7 +122,7 @@
   - _Boundary: DocumentStateEngine_
   - _Depends: 3.1_
 
-- [ ] 4. Integration: 라우터·부트스트랩 연결
+- [x] 4. Integration: 라우터·부트스트랩 연결
 - [x] 4.1 DocumentRouter 6개 엔드포인트 구현
   - `router.py`에 `POST /workspaces/{id}/documents`(EDITOR, DocumentCreate→DocumentRead),
     `GET /workspaces/{id}/documents`(VIEWER, limit/offset→Page[DocumentRead]), `GET /documents/{id}`(VIEWER→
@@ -136,7 +136,7 @@
   - _Requirements: 1.1, 1.6, 1.7, 2.1, 2.4, 2.6, 3.1, 3.2, 4.1, 4.6, 5.1, 5.2, 5.6, 10.2, 10.3, 10.5_
   - _Boundary: DocumentRouter_
   - _Depends: 1.3, 2.1, 2.2, 2.3, 3.2_
-- [ ] 4.2 s01 라우터 조립 지점에 문서 라우터 연결
+- [x] 4.2 s01 라우터 조립 지점에 문서 라우터 연결
   - `s01` `create_app()`의 feature 라우터 조립 지점(`app/main.py` 또는 `app/routers/__init__.py`)에
     `include_router(document.router)` 추가. 조립 방식은 `s01`·`s05`를 따름
   - 관찰 가능 완료: `uv run uvicorn app.main:app` 부팅 후 카탈로그 행 18~23 경로
