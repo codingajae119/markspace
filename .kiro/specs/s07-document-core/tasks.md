@@ -33,7 +33,7 @@
   - _Requirements: 1.1, 1.2, 2.1, 2.4, 3.1, 4.1, 5.2, 5.3, 6.1, 6.5, 7.1, 8.1, 9.3_
   - _Boundary: DocumentRepository_
   - _Depends: 1.1_
-- [ ] 1.3 문서 id → workspace_id 어댑터 구현
+- [x] 1.3 문서 id → workspace_id 어댑터 구현
   - `dependencies.py`에 문서 id로 소속 workspace_id를 조회(미존재→404)해 `s01` `require_ws_role(minimum)`에
     주입하는 얇은 어댑터 구현. `/workspaces/{id}/*`는 경로 id를 직접 workspace_id로 사용하고, `/documents/{id}`
     는 이 어댑터로 workspace_id를 추출. resolver 위계 비교·admin bypass 로직은 재구현하지 않음
