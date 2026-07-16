@@ -51,7 +51,7 @@
   - _Requirements: 3.1, 3.2, 3.6, 3.8, 4.2, 4.7, 5.2, 5.3_
   - _Boundary: MembershipRepository_
   - _Depends: 1.1_
-- [ ] 2.3 WorkspaceService 구현 (생성 owner화·목록·상세·설정·삭제)
+- [x] 2.3 WorkspaceService 구현 (생성 owner화·목록·상세·설정·삭제)
   - `service.py`에 `create_workspace`(워크스페이스 insert + 요청자 owner 멤버 등록, 단일 트랜잭션,
     trash_retention_days는 `s01` `Settings` 기본값), `list_workspaces`(admin 전체/멤버 스코프,
     `Page[WorkspaceRead]`), `get_workspace`(미존재→404), `update_workspace`(부분 갱신,
