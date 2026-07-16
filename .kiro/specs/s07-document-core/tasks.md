@@ -21,7 +21,7 @@
     렌더 의존성이 `uv run python -c` 임포트로 로드됨을 확인
   - _Requirements: 1.1, 1.2, 3.1, 4.1, 10.1_
   - _Boundary: DocumentSchemas_
-- [ ] 1.2 DocumentRepository 구현 (계층·상태 질의·현재 버전 본문)
+- [x] 1.2 DocumentRepository 구현 (계층·상태 질의·현재 버전 본문)
   - `repository.py`에 `s01` document·document_version 모델·`get_db` 기반 `get`, `get_workspace_id`,
     `list_active_by_workspace`(limit/offset/total), `list_children`/`list_siblings`(정렬 순),
     `collect_active_descendants`(재귀, root 포함, 이미 trashed 제외), `list_trashed_by_workspace`(묶음
