@@ -91,7 +91,7 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4_
   - _Boundary: AccountStateMembershipSuite_
   - _Depends: 1.2_
-- [ ] 2.6 (P) 워크스페이스 설정 스위트 — is_shareable·retention·기본값·admin bypass
+- [x] 2.6 (P) 워크스페이스 설정 스위트 — is_shareable·retention·기본값·admin bypass
   - `tests/integration_L2/test_workspace_settings.py`에: (1) owner가 `PATCH /workspaces/{id}`로 `is_shareable`
     변경 → 이후 `GET`에 갱신 값 반영 (7.1), (2) `trash_retention_days`를 양의 정수로 변경 → 반영, 0 이하 → 422
     (7.2), (3) admin이 비멤버 워크스페이스 설정 변경 성공 (7.3, INV-3), (4) 신규 워크스페이스 기본값이
