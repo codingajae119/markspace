@@ -19,7 +19,7 @@
     ENUM 문자열과 일치함을 단위 테스트로 확인
   - _Requirements: 1.2, 2.1, 3.1, 3.4, 5.1, 6.1_
   - _Boundary: WsMemberSchemas_
-- [ ] 1.2 workspace_id 어댑터 구현 (require_admin은 s01 공통 소비)
+- [x] 1.2 workspace_id 어댑터 구현 (require_admin은 s01 공통 소비)
   - `dependencies.py`에 워크스페이스 경로 `{id}`를 workspace_id로 추출해 `s01` `require_ws_role(minimum)`에
     주입하는 얇은 어댑터 제공(resolver 로직 재구현 없음). **`require_admin`은 s05가 정의하지 않는다**: admin
     게이트는 `s01` `common/permissions`의 공통 `require_admin`으로 중앙화되었으므로 s05는 이를 import해
