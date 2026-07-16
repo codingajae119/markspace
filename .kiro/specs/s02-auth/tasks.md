@@ -47,7 +47,7 @@
   - _Requirements: 1.2, 2.2, 2.3, 3.2, 3.3, 4.6, 5.2_
   - _Boundary: AuthRouter_
   - _Depends: 2.1, 2.2, 2.3_
-- [ ] 3.2 create_app 조립 지점에 인증 라우터 등록
+- [x] 3.2 create_app 조립 지점에 인증 라우터 등록
   - s01 `app/main.py` `create_app`의 feature 라우터 조립 지점에 `app.include_router(auth.router)` 추가. `app/common/*`은 수정하지 않음
   - 관찰 가능 완료: `uv run uvicorn app.main:app` 기동 후 OpenAPI/라우트 목록에 `/auth/login`·`/auth/logout`·`/auth/me`·`/auth/password`가 노출되고 common 모듈 diff가 없음이 확인된다
   - _Requirements: 5.1, 5.3_
@@ -72,3 +72,4 @@
 
 ## Implementation Notes
 - 세션 키 상수: s01 `app/common/auth.py:64`는 `session.get("user_id")` **리터럴**을 쓰며 내보낸 상수가 없다. `app/common/*` 수정 금지이므로 s02는 `app/auth/service.py`에 `SESSION_USER_KEY = "user_id"`를 정의해 미러링한다(값이 s01과 반드시 일치해야 s01 `get_current_user`가 세션을 읽는다). 세션 write/clear(2.1·2.2) 및 통합 테스트(4.x)는 이 상수를 재사용한다.
+- 조립 지점 재검증(task 3.2): auth 라우터 등록은 s01 `tests/test_app_bootstrap.py`의 "조립 지점 비어 있음" 스냅샷 단언(`paths == {"/health"}`)을 **설계상 무효화**한다(design.md §Revalidation Triggers). 부모 승인 하에 해당 테스트를 `..._hosts_only_implemented_specs`로 갱신: /health + 4개 auth 경로 present, 미구현 spec 경로(/workspaces·/documents·/trash·/attachments·/share)는 여전히 absent로 가드 유지. 다른 부트스트랩 테스트는 불변. `app/common/*` 소스는 미수정.

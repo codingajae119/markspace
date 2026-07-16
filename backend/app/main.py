@@ -10,6 +10,7 @@
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.auth.router import router as auth_router
 from app.common.errors import register_error_handlers
 from app.config import get_settings
 from app.routers.health import router as health_router
@@ -29,6 +30,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     # feature 라우터 조립 지점: s02~s14가 여기에 include_router로 추가한다
     # (이 spec에서는 초기 비어 있음, Req 8.4).
+    app.include_router(auth_router)
     return app
 
 
