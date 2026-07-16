@@ -37,7 +37,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. Core: 계약 대조·권한 게이팅·계층 이동·bundle 캐스케이드·복구/완전삭제·엣지케이스 검증 스위트
-- [ ] 2.1 (P) 문서 계약 대조 스위트 — 스키마·API(18~23)·status·에러·Base 규약
+- [x] 2.1 (P) 문서 계약 대조 스위트 — 스키마·API(18~23)·status·에러·Base 규약
   - `tests/integration_L3/test_document_contract_conformance.py`에: (1) 마이그레이션된 `document`(workspace_id/
     parent_id/title/status ENUM(active/trashed/deleted)/sort_order DECIMAL/current_version_id/trashed_at/
     created_by/타임스탬프, 인덱스 `(workspace_id, status, parent_id)`·`(workspace_id, status, trashed_at)`)와
