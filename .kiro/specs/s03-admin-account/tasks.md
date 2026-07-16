@@ -5,7 +5,7 @@
 > `require_admin`·라우터 조립 지점)을 재사용하며 재정의하지 않는다. 모든 삭제·비활동은 flag 전환만 수행한다(INV-4).
 
 - [ ] 1. Foundation: feature 모듈·스키마·admin 게이트
-- [ ] 1.1 admin_account 모듈 스캐폴드 및 User 스키마 정의
+- [x] 1.1 admin_account 모듈 스캐폴드 및 User 스키마 정의
   - `app/admin_account/` 패키지(`__init__.py`, `router.py`, `service.py`, `repository.py`, `schemas.py`)
     골격 생성 (feature-local `dependencies.py`는 생성하지 않음 — `require_admin`은 s01 common 재사용)
   - `schemas.py`에 `s01` Base Schemas를 상속한 `UserCreate`(login_id/password/name/email), `UserRead`
