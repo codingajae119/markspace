@@ -5,7 +5,7 @@
 > `app/common/*`은 수정하지 않는다(단, s01 `create_app`의 feature 라우터 조립 지점 연결만 예외).
 
 - [ ] 1. Foundation: 인증 스키마·데이터 접근
-- [ ] 1.1 (P) 인증 요청/응답 스키마 정의
+- [x] 1.1 (P) 인증 요청/응답 스키마 정의
   - `app/auth/schemas.py`에 `LoginRequest`(login_id, password), `AuthUserRead`(id, login_id, name, email, is_admin — s01 `ORMReadModel` 상속), `PasswordChangeRequest`(current_password, new_password + 최소 길이 등 정책 검증) 정의
   - `AuthUserRead`는 `password_hash` 등 민감 필드를 절대 포함하지 않음
   - 관찰 가능 완료: User ORM 객체로부터 `AuthUserRead`가 직렬화되며 결과에 `password_hash`가 없고, `PasswordChangeRequest`의 정책 위반 입력이 pydantic 검증 오류를 발생시키는 단위 테스트가 통과한다
