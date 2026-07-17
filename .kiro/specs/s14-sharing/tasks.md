@@ -75,7 +75,7 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 7.7_
   - _Boundary: PublicShareService_
   - _Depends: 2.2_
-- [ ] 2.4 (P) 무효화 조정 스윕 구현 (status·게이트 관측 retire)
+- [x] 2.4 (P) 무효화 조정 스윕 구현 (status·게이트 관측 retire)
   - 관측 기반 무효화 조정 구현: 무효화 스코프 질의로 활성이면서 문서 status가 trashed/deleted이거나 게이트 off인
     링크를 열거하고, 각 링크를 retire(is_enabled=false + 토큰 교체)로 영구 무효화. 상태 전이·게이트 설정은 수행하지
     않고 문서 status·게이트 관측으로만 판정, 이미 비활성 링크는 스코프에서 제외되어 멱등, 개별 링크 예외는 격리.
