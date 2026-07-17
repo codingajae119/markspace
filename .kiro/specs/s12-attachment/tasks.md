@@ -60,7 +60,7 @@
   - _Boundary: AttWsAdapter_
 
 - [ ] 2. Core: 첨부 업로드·서빙 및 보관 조정(관측 기반)
-- [ ] 2.1 첨부 업로드 유스케이스 구현 (이미지 붙여넣기·파일 첨부)
+- [x] 2.1 첨부 업로드 유스케이스 구현 (이미지 붙여넣기·파일 첨부)
   - 업로드 유스케이스 구현: 대상 문서 존재 확인(부재→404), 소속 workspace_id를 클라이언트 입력이 아닌 대상
     문서에서 확정, 업로드 크기 한도 초과 시 거부(422), `AttachmentStorage.save`로 WS 격리 위치에 파일 저장(붙여넣기
     이미지도 base64 인라인이 아닌 파일), `AttachmentRepository.insert`로 kind(image/file)·원본명 보존 레코드 생성,
