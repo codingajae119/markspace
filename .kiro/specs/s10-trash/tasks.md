@@ -18,7 +18,7 @@
     따르며, 추가한 스케줄러 의존성이 `uv run python -c` 임포트로 로드됨을 확인
   - _Requirements: 1.3, 6.2_
   - _Boundary: TrashSchemas_
-- [ ] 1.2 (P) TrashRepository 구현 (보관일 조회·스윕 스코프)
+- [x] 1.2 (P) TrashRepository 구현 (보관일 조회·스윕 스코프)
   - `s01` workspace 모델·세션 기반으로 워크스페이스 보관일(trash_retention_days) 조회와 trashed 문서를 보유한
     워크스페이스 열거(스윕 스코프 축소)를 제공. 문서 상태 전이·묶음 식별은 하지 않음(엔진 위임)
   - 관찰 가능 완료: 보관일 조회가 워크스페이스 설정값을 반환하고, trashed 문서가 있는 워크스페이스만 스윕
