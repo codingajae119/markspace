@@ -143,7 +143,7 @@
     (문서·첨부별 개별 권한 없음)과 파일 WS 격리 저장이 확인된다
   - _Requirements: 1.1, 1.3, 2.1, 2.3, 2.4, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 7.1, 7.2_
   - _Depends: 3.3_
-- [ ] 4.2 (P) 완전삭제 반응 보관 이동 seam 통합 테스트 (8.6)
+- [x] 4.2 (P) 완전삭제 반응 보관 이동 seam 통합 테스트 (8.6)
   - 마이그레이션된 DB + 부팅 앱에서: 문서에 첨부를 올린 뒤 `s07`/`s10` 경로로 문서를 완전삭제(deleted)→아카이브
     스윕(`run_archival_sweep` 또는 서비스 직접 호출) 실행 후 그 첨부가 보관 폴더로 이동·is_archived=true가 되고
     `GET /attachments/{id}`가 admin 포함 404가 되며, 파일이 물리 삭제되지 않고 보관 위치에 존재함(INV-4), 보관된
@@ -188,3 +188,10 @@
 - (3.3/통합 테스트용) 이 FastAPI 버전은 `include_router` 결과를 `_IncludedRouter`로 lazy 보관해
   `app.routes` 순회가 하위 경로를 top-level Route로 평탄화하지 않는다(→ `[]`). 라우트 노출 검증의
   권위 표면은 `app.openapi()["paths"]`다. 통합/조립 테스트는 openapi paths로 경로 존재를 확인할 것.
+- (4.2 통합 seam 하네스 아티팩트) 공유 테스트 세션 팩토리(커넥션 풀)+MySQL REPEATABLE READ에서
+  한 테스트 안에 "GET(요청 세션) → 이후 sweep"을 순차 배치하면 sweep이 커밋된 purge 이전 스냅샷
+  커넥션을 잡아 대상 첨부를 놓칠 수 있다(→ sweep 0). **제품 결함 아님**: 실제 `run_archival_sweep`는
+  잡 시점에 전용 신규 `SessionLocal()`을 열어 커밋 이후 스냅샷을 얻고, 스윕 스코프는 `is_archived=false`
+  라 다음 주기 재선택으로 멱등 복구된다. 통합 테스트는 **"purge→sweep 먼저, 그다음 GET/관측"** 순서로
+  작성해 아티팩트를 회피할 것(앱 코드 수정 불필요). 검증은 `sweep(now)==1`이 커밋된 purge 뒤 결정적으로
+  성립함으로 seam을 입증한다.
