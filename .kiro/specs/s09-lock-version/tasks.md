@@ -97,7 +97,7 @@
   - _Requirements: 7.6_
   - _Depends: 3.1_
 
-- [ ] 4. Validation: 통합·불변식 검증
+- [x] 4. Validation: 통합·불변식 검증
 - [x] 4.1 잠금→저장 왕복·권한 게이팅 통합 테스트
   - 마이그레이션된 DB + 부팅 앱에서: (1) editor A `POST /lock`→editor B `POST /lock` 시 409("편집 중")→A
     `POST /save`(content)로 새 버전 생성·`current_version_id` 갱신·잠금 해제→B `POST /lock` 성공(INV-9),
@@ -109,7 +109,7 @@
     최대 1인만 보유되며(INV-9), 잠금·버전 권한이 WS 단위 resolver로만 게이팅됨이 확인된다
   - _Requirements: 1.1, 1.2, 1.5, 1.6, 2.1, 2.2, 2.3, 2.5, 3.1, 3.3, 3.5, 4.1, 4.2, 5.1, 5.5, 7.1, 7.3, 7.6_
   - _Depends: 3.2_
-- [ ] 4.2 (P) 잠금·삭제 독립·멱등/충돌·버전 보관·카탈로그 정합 검증
+- [x] 4.2 (P) 잠금·삭제 독립·멱등/충돌·버전 보관·카탈로그 정합 검증
   - (1) 잠금·삭제 독립(§4.3): 잠긴 문서를 `s07` `DocumentStateEngine.trash_document`로 trashed 전이시켜도 잠금
     필드가 유지되고 잠금·저장·해제 동작이 status와 무관하게 계속 동작하며 `s09`가 상태 전이를 수행하지 않음,
     (2) 멱등/충돌: 동일 보유자 재시작 멱등·미잠금 취소/강제해제 멱등·타인 잠금 시작·저장·취소 409,
@@ -121,3 +121,22 @@
   - _Requirements: 3.2, 4.3, 4.4, 5.2, 5.3, 5.4, 6.1, 6.2, 6.3, 6.4, 7.2, 7.4, 7.5_
   - _Boundary: LockVersionService·LockVersionRepository (독립·불변식 테스트 모듈)_
   - _Depends: 3.2_
+
+## Implementation Notes
+
+- **저장소 mutator 는 commit-free, 서비스가 트랜잭션/commit 소유**: `LockVersionRepository` 의 `acquire_lock`·
+  `clear_lock`·`set_current_version` 은 ORM 객체만 변경하고 commit 하지 않으며 `insert_version` 은 flush 로만
+  id 를 확보한다(s07 `DocumentRepository` 가 내부 commit 하는 것과 다름). `save` 원자성(버전 생성·current 갱신·
+  잠금 해제 단일 commit)이 이 규약에 의존하므로 후속 소비자는 이 경계를 지켜야 한다.
+- **`DocumentLockRead.document_id` ≠ `Document.id` 속성명**: lock read 는 `model_validate(doc)` 로 매핑되지 않아
+  서비스가 `DocumentLockRead(document_id=doc.id, ...)` 로 명시 구성한다. `DocumentVersionRead` 는 `DocumentVersion`
+  ORM 과 1:1 이라 `model_validate` 가능.
+- **MySQL `DATETIME(0)` 는 truncate 가 아니라 ROUND**: `lock_acquired_at`/`document_version.created_at` 는 초정밀도
+  컬럼이라 insert 시 반올림된다(`...29.7`→`:30`). 테스트에서 "값 불변" 을 단언할 때 in-memory `utcnow()`(마이크로초)
+  를 `str[:19]` 로 truncate 해 DB 값과 비교하면 ~4/6 플레이크(초 경계). 반드시 **DB-로드 값끼리(양쪽 반올림) 정확
+  비교**한다. 최신순 목록 동률도 `(created_at DESC, id DESC)` 로 id tiebreak. (s07/s08 초정밀도 함정과 동일 계열.)
+- **FastAPI ≥0.139 lazy 라우터**: `app.routes` 는 `_IncludedRouter` 지연 객체라 서브라우트가 안 보인다. 라우트
+  노출/카탈로그 검증은 `app.openapi()["paths"]` 로 한다(부트 스모크·조립 테스트·카탈로그 정합 테스트 공통).
+- **`/documents/{id}/*` 게이트는 s07 `ws_role_for_document(minimum)` 재사용**(`require_ws_role` 직접 아님): 어댑터가
+  문서 id→workspace_id 매핑(미존재→404) 후 s01 resolver 에 위임. 경로 파라미터명은 `id`. status 무관하게 매핑되므로
+  trashed 문서도 `/documents/{id}/*` 도달 가능(잠금·삭제 독립 §4.3 관찰의 전제).
