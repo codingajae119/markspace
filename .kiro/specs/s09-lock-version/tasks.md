@@ -35,7 +35,7 @@
   - _Boundary: LockVersionRepository_
   - _Depends: 1.1_
 
-- [ ] 2. Core: 잠금·버전 서비스
+- [x] 2. Core: 잠금·버전 서비스
 - [x] 2.1 편집 시작(start_edit) 구현 (INV-9·멱등·충돌)
   - `service.py` `LockVersionService.start_edit` 구현: `get_for_update`로 문서 로드(미존재→404); `lock_user_id`
     분기 — NULL→`acquire_lock`(요청자·현재 시각), 요청자 본인→기존 잠금 유지 멱등 성공, 타인→409(다른
@@ -66,7 +66,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 4.1, 4.3, 4.4, 4.5, 6.1, 6.3_
   - _Boundary: LockVersionService_
   - _Depends: 1.2_
-- [ ] 2.4 버전 목록(list_versions) 구현
+- [x] 2.4 버전 목록(list_versions) 구현
   - `service.py` `LockVersionService.list_versions` 구현: 문서 미존재→404; `repository.list_versions`로 최신
     저장 순 `Page[DocumentVersionRead]`(메타데이터 전용) 반환. 기존 버전 삭제·본문 노출 없음(무한 보관·rollback
     없음)

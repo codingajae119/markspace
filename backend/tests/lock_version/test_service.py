@@ -26,8 +26,9 @@ from app.common.auth import AuthContext
 from app.common.db import Base
 from app.common.errors import DomainError, ErrorCode
 from app.lock_version.repository import LockVersionRepository
-from app.lock_version.schemas import DocumentSaveRequest
+from app.lock_version.schemas import DocumentSaveRequest, DocumentVersionRead
 from app.lock_version.service import LockVersionService
+from app.schemas.base import Page
 from app.models import Document, DocumentVersion, User, Workspace
 
 TEST_DB_NAME = "notion_lite_test"
@@ -107,6 +108,22 @@ def _make_document(
     session.add(doc)
     session.flush()
     return doc
+
+
+def _make_version(session, *, document_id, created_by, content, created_at):
+    """`document_version` 행을 직접 삽입하고 flush 한다(버전 이력 시드용).
+
+    created_at 을 명시로 받아 최신 저장 순 정렬(created_at DESC, id DESC)을 결정적으로 시드한다.
+    """
+    version = DocumentVersion(
+        document_id=document_id,
+        content=content,
+        created_by=created_by,
+        created_at=created_at,
+    )
+    session.add(version)
+    session.flush()
+    return version
 
 
 @pytest.fixture
@@ -875,3 +892,185 @@ def test_force_unlock_does_not_touch_status(sessionmaker_factory):
         assert _count_versions(verify, doc_id) == 0
     finally:
         verify.close()
+
+
+# --- list_versions: 최신 저장 순 메타데이터(Req 5.1·5.4) -------------------
+
+
+def test_list_versions_returns_latest_save_first_with_metadata(
+    sessionmaker_factory,
+):
+    """여러 버전 보유 문서 → 최신 저장 순(created_at DESC, id DESC)으로 식별자·저장자·저장 시각 반환 (Req 5.1·5.4)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="ver-list")
+        ws = _make_workspace(seed, name="ws-ver-list")
+        doc = _make_document(seed, workspace_id=ws.id, created_by=user.id)
+        v1 = _make_version(
+            seed,
+            document_id=doc.id,
+            created_by=user.id,
+            content="본문1",
+            created_at=datetime(2026, 7, 16, 9, 0, 0),
+        )
+        v2 = _make_version(
+            seed,
+            document_id=doc.id,
+            created_by=user.id,
+            content="본문2",
+            created_at=datetime(2026, 7, 16, 9, 0, 1),
+        )
+        v3 = _make_version(
+            seed,
+            document_id=doc.id,
+            created_by=user.id,
+            content="본문3",
+            created_at=datetime(2026, 7, 16, 9, 0, 2),
+        )
+        seed.commit()
+        doc_id, user_id = doc.id, user.id
+        v1_id, v2_id, v3_id = v1.id, v2.id, v3.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        page = _service().list_versions(session, doc_id, limit=10, offset=0)
+        assert isinstance(page, Page)
+        assert page.total == 3
+        # 최신 저장 순(가장 최근 먼저): v3, v2, v1.
+        assert [item.id for item in page.items] == [v3_id, v2_id, v1_id]
+        # 각 항목이 메타데이터를 실어 나른다.
+        top = page.items[0]
+        assert top.id == v3_id
+        assert top.document_id == doc_id
+        assert top.created_by == user_id
+        assert top.created_at == datetime(2026, 7, 16, 9, 0, 2)
+    finally:
+        session.close()
+
+
+def test_list_versions_items_carry_no_content_body(sessionmaker_factory):
+    """버전 목록 항목은 본문(content) 필드를 노출하지 않는다 — 메타데이터 전용 (Req 5.3·5.4)."""
+    # 스키마 계약: DocumentVersionRead 는 content 필드를 아예 갖지 않는다.
+    assert "content" not in DocumentVersionRead.model_fields
+
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="ver-nocontent")
+        ws = _make_workspace(seed, name="ws-ver-nocontent")
+        doc = _make_document(seed, workspace_id=ws.id, created_by=user.id)
+        _make_version(
+            seed,
+            document_id=doc.id,
+            created_by=user.id,
+            content="비밀 본문",
+            created_at=datetime(2026, 7, 16, 9, 0, 0),
+        )
+        seed.commit()
+        doc_id = doc.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        page = _service().list_versions(session, doc_id, limit=10, offset=0)
+        assert len(page.items) == 1
+        dumped = page.items[0].model_dump()
+        assert "content" not in dumped, "직렬화 결과에 본문이 포함되면 안 된다"
+        assert set(dumped.keys()) == {
+            "id",
+            "document_id",
+            "created_by",
+            "created_at",
+        }
+    finally:
+        session.close()
+
+
+def test_list_versions_paginates_items_but_total_is_full_count(
+    sessionmaker_factory,
+):
+    """limit/offset 은 items 만 페이징하고 total 은 전체 개수를 반영한다 (Req 5.1·5.4)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="ver-page")
+        ws = _make_workspace(seed, name="ws-ver-page")
+        doc = _make_document(seed, workspace_id=ws.id, created_by=user.id)
+        ids = []
+        for i in range(3):
+            v = _make_version(
+                seed,
+                document_id=doc.id,
+                created_by=user.id,
+                content=f"본문{i}",
+                created_at=datetime(2026, 7, 16, 9, 0, i),
+            )
+            ids.append(v.id)
+        seed.commit()
+        doc_id = doc.id
+        # 최신 저장 순 기대: 마지막에 만든 것이 먼저.
+        expected_desc = list(reversed(ids))
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        first = _service().list_versions(session, doc_id, limit=2, offset=0)
+        assert first.total == 3, "total 은 페이지 크기와 무관하게 전체 개수"
+        assert len(first.items) == 2, "limit=2 이면 2개만"
+        assert [item.id for item in first.items] == expected_desc[:2]
+
+        second = _service().list_versions(session, doc_id, limit=2, offset=2)
+        assert second.total == 3
+        assert len(second.items) == 1, "offset=2 이면 남은 1개"
+        assert [item.id for item in second.items] == expected_desc[2:]
+    finally:
+        session.close()
+
+
+def test_list_versions_is_read_only_and_deletes_nothing(sessionmaker_factory):
+    """목록 조회는 append-only 이력을 읽기만 하며 어떤 버전도 삭제하지 않는다 (Req 5.2)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="ver-readonly")
+        ws = _make_workspace(seed, name="ws-ver-readonly")
+        doc = _make_document(seed, workspace_id=ws.id, created_by=user.id)
+        for i in range(3):
+            _make_version(
+                seed,
+                document_id=doc.id,
+                created_by=user.id,
+                content=f"본문{i}",
+                created_at=datetime(2026, 7, 16, 9, 0, i),
+            )
+        seed.commit()
+        doc_id = doc.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        # 두 번 조회해도 이력이 그대로다(읽기 전용).
+        _service().list_versions(session, doc_id, limit=10, offset=0)
+        _service().list_versions(session, doc_id, limit=10, offset=0)
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        assert _count_versions(verify, doc_id) == 3, "목록 조회는 버전을 삭제하지 않는다"
+    finally:
+        verify.close()
+
+
+def test_list_versions_missing_document_raises_not_found(sessionmaker_factory):
+    """존재하지 않는 문서의 버전 목록 → 404 not_found (Req 5 / §Error Handling)."""
+    session = sessionmaker_factory()
+    try:
+        with pytest.raises(DomainError) as excinfo:
+            _service().list_versions(session, 999999, limit=10, offset=0)
+        assert excinfo.value.http_status == 404
+        assert excinfo.value.code == ErrorCode.NOT_FOUND
+    finally:
+        session.close()
