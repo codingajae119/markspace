@@ -70,7 +70,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.5, 2.1, 2.2, 2.5, 3.2_
   - _Boundary: AttachmentService_
   - _Depends: 1.2, 1.3_
-- [ ] 2.2 (P) 첨부 서빙 유스케이스 구현 (보관 비노출)
+- [x] 2.2 (P) 첨부 서빙 유스케이스 구현 (보관 비노출)
   - 서빙 유스케이스 구현: 첨부 로드(부재→404), `is_archived`이면 요청자 role과 무관하게(권한 판정 이전) 404로
     차단해 보관 파일을 노출하지 않음, 미보관이면 `AttachmentStorage.open_stream`으로 바이너리 스트리밍(적절한
     content-type). 권한 게이트(첨부 workspace_id VIEWER)는 라우터에서 주입

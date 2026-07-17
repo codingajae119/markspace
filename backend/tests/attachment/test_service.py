@@ -400,3 +400,146 @@ def test_upload_exceeding_size_limit_raises_422(sessionmaker_factory, roots, ctx
     ws_dir = storage_root / str(ws_id)
     if ws_dir.exists():
         assert list(ws_dir.iterdir()) == [], "크기 초과 업로드는 파일을 저장하지 않아야 한다"
+
+
+# =====================================================================
+# serve_attachment 단위 테스트 (Task 2.2 / Req 3.3, 6.2, 6.3)
+#
+# design.md §System Flows "첨부 조회 서빙 — 보관 비노출" flowchart 판정 순서를 실제 DB +
+# tmp 저장소로 검증한다:
+# - 미보관 첨부는 실제 저장 바이트를 담은 스트림과 원본명 기반 content-type 을 반환한다(Req 3.3).
+# - 보관된 첨부는 요청자 role 과 무관하게(serve 는 role 인자를 받지 않으므로 admin 포함 무조건)
+#   404 로 차단해 보관 파일을 노출하지 않는다(Req 6.2·6.3, 8.10, INV-7).
+# - 존재하지 않는 attachment_id → 404(Req 3.3/부재).
+# =====================================================================
+
+
+def _upload_saved(sessionmaker_factory, ctx, *, kind, upload_filename, data):
+    """서비스 업로드로 실제 파일 저장 + 레코드 생성 후 attachment id 를 반환한다(서빙 시드용)."""
+    session = sessionmaker_factory()
+    try:
+        _ws_id, doc_id = _seed_document(sessionmaker_factory)
+        service = AttachmentService()
+        result = service.upload_attachment(
+            session,
+            ctx,
+            doc_id,
+            kind=kind,
+            upload_filename=upload_filename,
+            stream=io.BytesIO(data),
+            size=len(data),
+        )
+        return result.id
+    finally:
+        session.close()
+
+
+# --- 미보관 첨부: 실제 바이트 + content-type -----------------------------
+
+
+def test_serve_unarchived_returns_bytes_and_content_type(
+    sessionmaker_factory, roots, ctx
+):
+    """미보관 첨부 서빙은 저장된 실제 바이트를 담은 스트림과 원본명 기반 content-type 을 반환한다
+    (Req 3.3)."""
+    _, _, _ = roots
+    data = b"\x89PNG\r\n\x1a\n-real-image-bytes"
+    att_id = _upload_saved(
+        sessionmaker_factory, ctx, kind=AttachmentKind.IMAGE,
+        upload_filename="photo.png", data=data,
+    )
+
+    session = sessionmaker_factory()
+    try:
+        service = AttachmentService()
+        binary = service.serve_attachment(session, att_id)
+    finally:
+        session.close()
+
+    # 원본명(photo.png)에서 파생된 content-type + 서버가 서빙에 쓸 원본 파일명.
+    assert binary.content_type == "image/png"
+    assert binary.filename == "photo.png"
+    # 스트림은 저장된 정확한 바이트를 그대로 방출한다(base64 인라인 아님).
+    with binary.stream as fh:
+        assert fh.read() == data
+
+
+# --- content-type fallback (확장자 미상) ---------------------------------
+
+
+def test_serve_unknown_extension_falls_back_to_octet_stream(
+    sessionmaker_factory, roots, ctx
+):
+    """원본명에서 content-type 을 추론할 수 없으면 application/octet-stream 으로 폴백한다."""
+    _, _, _ = roots
+    data = b"unknown-binary-payload"
+    att_id = _upload_saved(
+        sessionmaker_factory, ctx, kind=AttachmentKind.FILE,
+        upload_filename="blob", data=data,
+    )
+
+    session = sessionmaker_factory()
+    try:
+        service = AttachmentService()
+        binary = service.serve_attachment(session, att_id)
+    finally:
+        session.close()
+
+    assert binary.content_type == "application/octet-stream"
+    assert binary.filename == "blob"
+    with binary.stream as fh:
+        assert fh.read() == data
+
+
+# --- 보관된 첨부: role 무관 404(admin 포함) ------------------------------
+
+
+def test_serve_archived_raises_404_role_agnostic(sessionmaker_factory, roots, ctx):
+    """보관된 첨부는 요청자 role 과 무관하게 404 로 차단된다(Req 6.2·6.3, 8.10, INV-7).
+
+    serve_attachment 은 role 인자를 받지 않으므로, admin 이 라우터 권한 게이트를 bypass 해
+    이 지점에 도달하더라도 보관 첨부는 무조건 404 가 된다(권한 판정 이전 차단). 즉 role 을
+    바꿔 넣을 여지가 없다는 사실 자체가 admin 포함 role-agnostic 성질을 보증한다.
+    """
+    _, _, _ = roots
+    data = b"archived-image-bytes"
+    att_id = _upload_saved(
+        sessionmaker_factory, ctx, kind=AttachmentKind.IMAGE,
+        upload_filename="secret.png", data=data,
+    )
+
+    # 첨부를 보관 상태로 표시(is_archived=True). 파일 이동 여부와 무관하게 DB 표시만으로 차단된다.
+    mark = sessionmaker_factory()
+    try:
+        row = mark.get(Attachment, att_id)
+        row.is_archived = True
+        mark.commit()
+    finally:
+        mark.close()
+
+    session = sessionmaker_factory()
+    try:
+        service = AttachmentService()
+        with pytest.raises(DomainError) as exc:
+            service.serve_attachment(session, att_id)
+        assert exc.value.http_status == 404
+        assert exc.value.code == ErrorCode.NOT_FOUND
+    finally:
+        session.close()
+
+
+# --- 존재하지 않는 첨부 → 404 -------------------------------------------
+
+
+def test_serve_missing_attachment_raises_404(sessionmaker_factory, roots, ctx):
+    """존재하지 않는 attachment_id 서빙은 DomainError 404(NOT_FOUND)를 던진다(Req 3.3/부재)."""
+    _, _, _ = roots
+    session = sessionmaker_factory()
+    try:
+        service = AttachmentService()
+        with pytest.raises(DomainError) as exc:
+            service.serve_attachment(session, 999_999_999)
+        assert exc.value.http_status == 404
+        assert exc.value.code == ErrorCode.NOT_FOUND
+    finally:
+        session.close()

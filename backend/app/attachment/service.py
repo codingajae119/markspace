@@ -21,6 +21,8 @@ import 하지 않으며 라우터를 import 하지 않는다. 소속 `workspace_
 
 from __future__ import annotations
 
+import mimetypes
+from dataclasses import dataclass
 from typing import BinaryIO
 
 from sqlalchemy.orm import Session
@@ -33,7 +35,24 @@ from app.common.errors import DomainError, ErrorCode
 from app.config import get_settings
 from app.document.repository import DocumentRepository
 
-__all__ = ["AttachmentService"]
+__all__ = ["AttachmentBinary", "AttachmentService"]
+
+
+@dataclass
+class AttachmentBinary:
+    """서빙 응답을 구성하기 위한 바이너리 값 객체(design.md #AttachmentService serve 계약).
+
+    라우터(task 3.1)가 `StreamingResponse` 를 구성하는 데 필요한 최소 필드만 담는다. 서비스는
+    스트림과 content-type 을 산정만 하고 HTTP 응답 조립은 라우터가 담당한다.
+
+    - `stream`: 저장 파일을 연 서빙용 바이너리 스트림(`AttachmentStorage.open_stream` 결과).
+    - `content_type`: 원본명에서 추론한 응답 content-type(추론 실패 시 octet-stream).
+    - `filename`: 원본 파일명(`original_name`). 라우터의 선택적 Content-Disposition 용.
+    """
+
+    stream: BinaryIO
+    content_type: str
+    filename: str
 
 
 class AttachmentService:
@@ -132,3 +151,51 @@ class AttachmentService:
 
         # 6. url(/attachments/{id}) 을 산정한 응답 구성(단일 생성 경로).
         return AttachmentRead.from_attachment(att)
+
+    def serve_attachment(self, db: Session, attachment_id: int) -> AttachmentBinary:
+        """첨부 바이너리를 서빙하되, 보관된 첨부는 role 과 무관하게 404 로 비노출한다
+        (design.md §System Flows 첨부 조회 서빙 — 보관 비노출, Req 3.3·6.2·6.3, 8.10, INV-7).
+
+        판정 순서는 flowchart 를 그대로 따른다:
+
+        1. **로드**: `AttachmentRepository.get` 으로 첨부를 조회한다. 없으면 404 로 거부한다
+           (Req 3.3/부재).
+        2. **보관 → role 무관 404**: `is_archived` 이면 요청자 role 과 **무관하게** 무조건 404 로
+           차단해 보관 파일을 노출하지 않는다(Req 6.2·6.3, 8.10). "권한 판정 이전 차단"은 role 과
+           무관하게 무조건 404 라는 의미이며, 이 메서드는 애초에 role 인자를 받지 않으므로 바꿔
+           넣을 여지가 없다. 라우터의 `ws_role_for_attachment(VIEWER)` 게이트가 먼저 실행되지만,
+           admin 이 그 게이트를 bypass 해 이 지점에 도달하더라도 보관 첨부는 여기서 404 가 된다
+           (admin 포함 role-agnostic).
+        3. **미보관 → 스트리밍**: `AttachmentStorage.open_stream` 으로 저장 파일을 서빙용 스트림
+           으로 열고, content-type 은 원본명(`original_name`)에서 추론하되 추론 실패 시
+           `application/octet-stream` 으로 폴백한다.
+
+        권한(role) 판정·재확인은 하지 않으며(라우터 게이트 소관), 물리 삭제·변형도 하지 않는다.
+        """
+        # 1. 첨부 로드. 부재 → 404(Req 3.3).
+        att = self._repository.get(db, attachment_id)
+        if att is None:
+            raise DomainError(
+                code=ErrorCode.NOT_FOUND,
+                message="첨부를 찾을 수 없습니다",
+                http_status=404,
+            )
+
+        # 2. 보관 첨부는 role 과 무관하게(admin 포함) 무조건 404(Req 6.2·6.3, 권한 판정 이전 차단).
+        if att.is_archived:
+            raise DomainError(
+                code=ErrorCode.NOT_FOUND,
+                message="첨부를 찾을 수 없습니다",
+                http_status=404,
+            )
+
+        # 3. 미보관 → 저장 파일 스트리밍 + 원본명 기반 content-type(추론 실패 시 octet-stream).
+        stream = self._storage.open_stream(att.file_path)
+        content_type = (
+            mimetypes.guess_type(att.original_name)[0] or "application/octet-stream"
+        )
+        return AttachmentBinary(
+            stream=stream,
+            content_type=content_type,
+            filename=att.original_name,
+        )
