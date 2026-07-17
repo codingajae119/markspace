@@ -29,7 +29,7 @@
     스윕 픽스처가 `sweep_expired_bundles(db, now)` 호출에서 결과를 반환하는 스모크 검증이 통과한다
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
   - _Boundary: L4TestHarness_
-- [ ] 1.2 잠금·버전·휴지통·스윕 시나리오 헬퍼 구성 (호출 래퍼, L3/L2/L1 헬퍼 재사용)
+- [x] 1.2 잠금·버전·휴지통·스윕 시나리오 헬퍼 구성 (호출 래퍼, L3/L2/L1 헬퍼 재사용)
   - `tests/integration_L4/helpers.py`에 잠금·버전 헬퍼(`POST /documents/{id}/lock`·`/save`(content)·`/cancel`·
     `/force-unlock`·`GET /documents/{id}/versions`), 휴지통 헬퍼(`GET /workspaces/{id}/trash`·`POST
     /trash/{bundleId}/restore`·`DELETE /trash/{bundleId}`), 스윕 헬퍼(하네스 세션으로
