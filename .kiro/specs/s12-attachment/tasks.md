@@ -103,7 +103,7 @@
   - _Depends: 1.3, 1.4, 2.3_
 
 - [ ] 3. Integration: 라우터·스케줄러·부트스트랩 연결
-- [ ] 3.1 첨부 2개 엔드포인트 구현 (행 32~33)
+- [x] 3.1 첨부 2개 엔드포인트 구현 (행 32~33)
   - 첨부 업로드(editor, 문서 경로, multipart) · 첨부 조회 서빙(viewer, 첨부 경로, 바이너리) 엔드포인트를 구현.
     업로드는 `s07` 문서→WS 어댑터(`ws_role_for_document(EDITOR)`)로 게이트(문서 미존재→404, viewer/비멤버→403,
     비인증→401, admin bypass), 조회는 `ws_role_for_attachment(VIEWER)`로 게이트(첨부 미존재→404). 조회는 보관 첨부
@@ -180,3 +180,8 @@
   (예: `DocumentVersion.document_id` 기준)을 판별하지 못한다. 소스 조인은
   `document.current_version_id == DocumentVersion.id`로 정확하나, 4.3 통합에서 현재 버전 문서에
   더 오래된 버전을 하나 더 두어 wrong-version-join 회귀를 잡도록 한다.
+- (3.1) multipart 업로드(`File`/`Form`/`UploadFile`)는 FastAPI가 `python-multipart`를 하드 요구한다
+  (없으면 임포트 시 RuntimeError). 3.1에서 `uv add python-multipart`(>=0.0.32)로 추가 — design
+  §Tech Stack의 multipart 규약을 실동작시키는 최소 필수 의존성(design의 "신규 외부 의존성 없음"은
+  이 지점에서 부정확). pyproject.toml·uv.lock 변경이 커밋에 포함됨. kind는 라우터에서 content-type
+  추론(image/*→IMAGE, 그 외→FILE, 명시 Form 우선). 보관 첨부 404는 서비스가 처리(라우터 무처리).
