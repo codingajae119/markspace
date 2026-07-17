@@ -23,7 +23,7 @@
     추가되지 않음을 확인
   - _Requirements: 1.4, 7.1, 7.5, 7.6_
   - _Boundary: AttachmentSchemas, Settings (s01 additive)_
-- [ ] 1.2 (P) AttachmentStorage 구현 (WS 격리 저장·스트리밍·보관 이동)
+- [x] 1.2 (P) AttachmentStorage 구현 (WS 격리 저장·스트리밍·보관 이동)
   - 워크스페이스 격리 저장/보관 디렉터리 규약(`{file_storage_root}/{workspace_id}/...`·`{attachment_archive_root}/
     {workspace_id}/...`)과 파일 저장(서버 생성 파일명, 원본명은 DB에만 보존)·서빙 스트림 열기·보관 위치로의 파일
     이동을 구현. 보관 이동은 물리 삭제 없이 파일을 옮기고 새 보관 경로를 반환하며 이미 보관 경로면 멱등(no-op).
@@ -161,3 +161,15 @@
     모두 확인되며, s12가 현재 버전 참조 관측으로만 판정함(저장·버전 생성 미수행)이 확인된다
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 6.5, 7.7_
   - _Depends: 3.3_
+
+## Implementation Notes
+- 테스트 하네스는 **공유 `notion_lite_test` MySQL DB**를 사용한다. 두 개 이상의 DB 기반 pytest
+  프로세스를 동시에 같은 인스턴스에 돌리면 스퓨리어스 실패/에러가 발생한다(격리 재실행 시 사라짐).
+  전체 스위트 회귀 검증은 항상 단일 프로세스로 직렬 실행할 것(구현→리뷰 순차 처리로 이미 보장).
+- `AttachmentRead`는 `attachment` 모델에 `updated_at`이 없어 `TimestampedRead`가 아니라
+  `ORMReadModel`을 상속하고 `id`/`created_at`을 명시 선언한다. `url`은 DB 컬럼이 아닌 파생값이라
+  raw `model_validate(att)`는 실패하며, `AttachmentRead.from_attachment(att)`가 유일한 생성 경로
+  (url=`/attachments/{id}` 산정). 다운스트림(2.1/2.2)은 이 생성자를 사용.
+- `AttachmentStorage`가 반환하는 `file_path`는 **루트 상대 경로**(`{workspace_id}/{uuid}.ext`)라
+  DB는 루트 독립 참조만 보유한다. 디스크 파일명은 서버 생성 uuid(경로 트래버설 방지), 원본명은
+  DB `original_name`에만 보존. 물리 삭제 없음(INV-4) — `move_to_archive`는 `shutil.move`만.
