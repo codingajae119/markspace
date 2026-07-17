@@ -77,7 +77,7 @@
   - _Depends: 1.2_
 
 - [ ] 3. Integration: 라우터·부트스트랩 연결
-- [ ] 3.1 LockVersionRouter 5개 엔드포인트 구현
+- [x] 3.1 LockVersionRouter 5개 엔드포인트 구현
   - `router.py`에 `POST /documents/{id}/lock`(EDITOR→DocumentLockRead), `POST /documents/{id}/save`(EDITOR,
     DocumentSaveRequest→DocumentVersionRead), `POST /documents/{id}/cancel`(EDITOR→204),
     `POST /documents/{id}/force-unlock`(OWNER→204), `GET /documents/{id}/versions`(VIEWER, limit/offset→
