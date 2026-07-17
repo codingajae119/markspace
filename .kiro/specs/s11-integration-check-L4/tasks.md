@@ -95,7 +95,7 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
   - _Boundary: TrashFlowSuite_
   - _Depends: 1.2_
-- [ ] 2.4 (P) 잠금↔삭제 독립 + 엔진 결합 스위트 — §4.3·s09 미전이·s10 lock 미변경·게이팅 재사용
+- [x] 2.4 (P) 잠금↔삭제 독립 + 엔진 결합 스위트 — §4.3·s09 미전이·s10 lock 미변경·게이팅 재사용
   - `tests/integration_L4/test_lock_delete_independence.py`에: (1) editor A `POST /lock`으로 잠근 문서를 editor `DELETE
     /documents/{id}`로 trashed 전이 → 상태 전이 정상·`lock_user_id`가 상태 전이로 변경되지 않음 DB 관찰 (5.1), (2)
     trashed 상태 문서에 `POST /lock`·`/save`·`/cancel` → 각 동작이 문서 `status`를 검사하지 않고 잠금 필드/버전
