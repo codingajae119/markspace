@@ -45,7 +45,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.6, 6.1_
   - _Boundary: LockVersionService_
   - _Depends: 1.2_
-- [ ] 2.2 저장(save) 원자 트랜잭션 구현 (버전 생성·current 갱신·잠금 해제)
+- [x] 2.2 저장(save) 원자 트랜잭션 구현 (버전 생성·current 갱신·잠금 해제)
   - `service.py` `LockVersionService.save` 구현: 단일 트랜잭션에서 `get_for_update` 로드(미존재→404)→보유자
     검사(`lock_user_id != 요청자`면 409·버전 미생성·롤백)→`insert_version`(content·created_by=요청자, flush)→
     `set_current_version`(새 버전 id)→`clear_lock`→commit; `DocumentVersionRead` 반환. 원자성 보장(부분 적용

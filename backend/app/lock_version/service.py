@@ -15,7 +15,11 @@ from sqlalchemy.orm import Session
 from app.common.auth import AuthContext
 from app.common.errors import DomainError, ErrorCode
 from app.lock_version.repository import LockVersionRepository
-from app.lock_version.schemas import DocumentLockRead
+from app.lock_version.schemas import (
+    DocumentLockRead,
+    DocumentSaveRequest,
+    DocumentVersionRead,
+)
 
 __all__ = ["LockVersionService"]
 
@@ -78,3 +82,59 @@ class LockVersionService:
             lock_user_id=doc.lock_user_id,
             lock_acquired_at=doc.lock_acquired_at,
         )
+
+    def save(
+        self,
+        db: Session,
+        ctx: AuthContext,
+        document_id: int,
+        payload: DocumentSaveRequest,
+    ) -> DocumentVersionRead:
+        """잠금 보유자의 저장을 버전 생성·current 갱신·잠금 해제로 원자 처리한다 (Req 2.1~2.6).
+
+        문서를 행 잠금(`FOR UPDATE`)으로 로드한 뒤 `lock_user_id` 단일 컬럼(INV-9)으로 보유자를
+        판정하고, 다음을 **단일 트랜잭션**으로 적용한다(design §저장 flowchart, REQ-2.4):
+
+        1. 문서 미존재 → 404 not_found.
+        2. 보유자 검사: `lock_user_id != 요청자`(미잠금·타인 잠금 모두 포함) → 409 conflict.
+           **어떤 insert 보다 먼저** raise 하므로 버전을 만들지 않고 잠금·상태가 불변으로 롤백된다
+           (REQ-2.5). 방어적으로 롤백해 행 잠금을 즉시 해제한다.
+        3. `insert_version`(flush 로 새 버전 id 확보) → `set_current_version`(순환 nullable FK 갱신)
+           → `clear_lock`(`lock_user_id`·`lock_acquired_at` → NULL) 을 한 커밋으로 확정한다.
+
+        빈 문자열 본문도 유효한 저장이다(Req 2.6). 문서 `status` 는 검사·변경하지 않으며 상태 전이도
+        수행하지 않는다(잠금·삭제 독립, §4.3·6.1). 저장 시각(`created_at`)은 repo 관례대로
+        `datetime.utcnow()` 를 쓰고 버전 생성에 그대로 전달한다. 응답은 영속된 버전 행을 반영하는
+        `DocumentVersionRead`(식별자·저장자·저장 시각) 이다.
+        """
+        doc = self._repository.get_for_update(db, document_id)
+        if doc is None:
+            raise DomainError(
+                code=ErrorCode.NOT_FOUND,
+                message="문서를 찾을 수 없습니다",
+                http_status=404,
+            )
+
+        if doc.lock_user_id != ctx.user_id:
+            # 미잠금(NULL)·타인 잠금 모두 보유자 아님 — insert 이전에 거부해 버전을 만들지 않는다.
+            # 아직 어떤 write 도 없었으므로 트랜잭션은 깨끗이 롤백된다(방어적 명시 롤백).
+            db.rollback()
+            raise DomainError(
+                code=ErrorCode.CONFLICT,
+                message="문서의 편집 잠금 보유자가 아닙니다",
+                http_status=409,
+            )
+
+        at = datetime.utcnow()
+        version = self._repository.insert_version(
+            db,
+            document_id=doc.id,
+            content=payload.content,
+            created_by=ctx.user_id,
+            at=at,
+        )
+        self._repository.set_current_version(db, doc, version.id)
+        self._repository.clear_lock(db, doc)
+        db.commit()
+
+        return DocumentVersionRead.model_validate(version)
