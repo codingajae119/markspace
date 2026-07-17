@@ -13,7 +13,7 @@
 > (INV-4, retire만). 공개 경로(행 36~37)는 인증 우회하되 토큰·게이트·status·WS 격리로 범위를 제한한다. s14는
 > 최상위이며 어떤 feature도 s14를 import하지 않는다. 새 DB 마이그레이션을 추가하지 않는다.
 
-- [ ] 1. Foundation: 모듈·스키마·설정·데이터 접근
+- [x] 1. Foundation: 모듈·스키마·설정·데이터 접근
 - [x] 1.1 sharing 모듈 스캐폴드·공유 스키마 정의·설정 additive 확장
   - `app/sharing/` 패키지 골격 생성. `s01` Base Schemas를 상속한 링크 응답 스키마(id·document_id·token·is_enabled·
     created_at·파생 share_url=`/public/{token}`), 토글 요청 스키마(is_enabled), 공개 렌더 응답 스키마(공유 문서를
@@ -39,7 +39,7 @@
   - _Requirements: 1.1, 2.1, 2.4, 2.5, 4.1, 5.1, 5.3, 5.6, 7.5_
   - _Boundary: ShareLinkRepository_
 
-- [ ] 2. Core: 발급·토글·공개 렌더·링크 파일 서빙·무효화 조정
+- [x] 2. Core: 발급·토글·공개 렌더·링크 파일 서빙·무효화 조정
 - [x] 2.1 (P) 공유 링크 발급·재발급·토글 유스케이스 구현
   - 발급/재발급 유스케이스: 대상 문서 존재 확인(부재→404), 문서 status가 active인지(비active→409)·소속 워크스페이스
     is_shareable가 true인지(게이트 off→409) 검사 후 새 토큰·활성 링크 발급(무효화 이후에도 새 토큰 재발급). 토글
@@ -87,7 +87,7 @@
   - _Boundary: ShareInvalidationSweep_
   - _Depends: 1.2_
 
-- [ ] 3. Integration: 라우터·스케줄러·부트스트랩 연결
+- [x] 3. Integration: 라우터·스케줄러·부트스트랩 연결
 - [x] 3.1 공유 4개 엔드포인트 구현 (행 34~37)
   - 공유 링크 발급(editor)·토글(editor)·공개 렌더(공개)·링크 경유 첨부 서빙(공개) 엔드포인트를 구현. 발급·토글은
     `s07` 문서→WS 어댑터(`ws_role_for_document(EDITOR)`)로 게이트(문서 미존재→404, viewer/비멤버→403, 비인증→401,
@@ -119,7 +119,7 @@
   - _Requirements: 7.4, 7.5_
   - _Depends: 3.1, 3.2_
 
-- [ ] 4. Validation: 통합·seam·불변식 검증
+- [x] 4. Validation: 통합·seam·불변식 검증
 - [x] 4.1 발급·토글·게이트·재발급 통합 테스트
   - 마이그레이션된 DB + 부팅 앱에서: (1) 게이트 on 워크스페이스의 active 문서에 editor가 발급→`GET /public/{token}`
     200→토글 off→동일 토큰 404→토글 on→동일 토큰 200(토큰 유지), (2) 게이트 off 워크스페이스에서 발급 409·활성화
@@ -148,7 +148,7 @@
     `s07` `active_descendants`·`MarkdownRenderer`를 재사용함(재구현 없음)이 확인된다
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 7.7_
   - _Depends: 3.3_
-- [ ] 4.4 (P) 링크 경유 첨부 서빙·연동 차단 seam 통합 테스트
+- [x] 4.4 (P) 링크 경유 첨부 서빙·연동 차단 seam 통합 테스트
   - 마이그레이션된 DB + 부팅 앱에서: 공유 문서(또는 active 하위)에 `s12`로 올린 첨부를 `GET /public/{token}/
     attachments/{aid}`로 다운로드→바이너리 반환(8.4); 게이트 off·문서 trashed 시 파일 접근도 404(8.5); 보관된 첨부는
     404(s12 규약 재사용); 다른 문서·다른 워크스페이스 첨부는 범위 밖 404(INV-6)를 검증하는 통합 테스트 작성
