@@ -9,7 +9,7 @@
 > 코드(`app/*`)·`config.yml`·마이그레이션·하위 하네스(`tests/integration_L4/*`·`L3`·`L2`·`L1`)는 수정하지 않는다 —
 > L4 하네스는 **재사용·확장**한다.
 
-- [ ] 1. Foundation: L5 실제 결합 검증 하네스 (L4 재사용·확장)
+- [x] 1. Foundation: L5 실제 결합 검증 하네스 (L4 재사용·확장)
 - [x] 1.1 L5 통합 테스트 하네스 구성 (L4 하네스 재사용 + 첨부 업로드/서빙·아카이브 스윕·파일시스템 관찰 픽스처)
   - `tests/integration_L5/conftest.py`에서 `s11` `tests/integration_L4`의 하네스 픽스처(실제 MySQL 8에 `alembic
     upgrade head` 적용·`s01` `create_app()` 부팅·admin 시드·세션 유지 `TestClient` 팩토리·고유 login_id 생성기·
@@ -51,7 +51,7 @@
   - _Boundary: Helpers_
   - _Depends: 1.1_
 
-- [ ] 2. Core: 계약 대조·첨부흐름·완전삭제결합·저장결합·격리비노출·아래계층 엣지 검증 스위트
+- [x] 2. Core: 계약 대조·첨부흐름·완전삭제결합·저장결합·격리비노출·아래계층 엣지 검증 스위트
 - [x] 2.1 (P) 누적 계약 대조 스위트 — attachment 스키마·API(32~33)·AttachmentRead/Create·에러·Base·Settings additive
   - `tests/integration_L5/test_cumulative_contract_conformance.py`에: (1) 마이그레이션된 `attachment` 컬럼
     (`workspace_id BIGINT FK NOT NULL`·`document_id BIGINT FK NOT NULL`·`file_path VARCHAR(1024) NOT NULL`·
@@ -148,8 +148,8 @@
   - _Boundary: CombinationLayerEdgeSuite_
   - _Depends: 1.2_
 
-- [ ] 3. Validation: 게이트 판정 및 재검증 트리거
-- [ ] 3.1 전체 스위트 결합 실행 및 게이트(L5→L6) 판정·재검증 트리거 기록
+- [x] 3. Validation: 게이트 판정 및 재검증 트리거
+- [x] 3.1 전체 스위트 결합 실행 및 게이트(L5→L6) 판정·재검증 트리거 기록
   - `uv run pytest tests/integration_L5` 전체를 실제 결합(마이그레이션 DB + 부팅 앱(s12 첨부 라우터·아카이브 스케줄러
     포함) + 실제 멤버십/문서/버전/첨부 데이터 + 실제 파일시스템 저장/보관 폴더 + 실제 `ArchivalSweepService` + 실제
     `RetentionSweepService` + 실제 `DocumentStateEngine`, mock 없음)에서 실행하여 Requirement 2~7 스위트가 전부
