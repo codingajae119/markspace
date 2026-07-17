@@ -142,7 +142,7 @@
   - _Depends: 1.2_
 
 - [ ] 3. Validation: 게이트 판정 및 재검증 트리거
-- [ ] 3.1 전체 스위트 결합 실행 및 게이트(L4→L5) 판정·재검증 트리거 기록
+- [x] 3.1 전체 스위트 결합 실행 및 게이트(L4→L5) 판정·재검증 트리거 기록
   - `uv run pytest tests/integration_L4` 전체를 실제 결합(마이그레이션 DB + 부팅 앱(s09·s10 라우터·스케줄러 포함) +
     실제 멤버십/문서/버전 데이터 + 실제 `DocumentStateEngine` + 실제 `RetentionSweepService` + APScheduler 결합, mock
     없음)에서 실행하여 Requirement 2~7 스위트가 전부 통과하면 게이트(G-1 규칙) 통과(=L5 `s12-attachment` impl 착수
