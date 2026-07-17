@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.sharing.repository import ShareLinkRepository
 
-__all__ = ["ShareInvalidationSweep"]
+__all__ = ["ShareInvalidationSweep", "run_invalidation_sweep"]
 
 logger = logging.getLogger(__name__)
 
@@ -76,3 +76,31 @@ class ShareInvalidationSweep:
                 continue
             retired += 1
         return retired
+
+
+def run_invalidation_sweep() -> int:
+    """무효화 스윕을 자기 세션으로 1회 실행하는 엔트리포인트 (design.md §ShareInvalidationScheduler,
+    Req 5.1). 스케줄 job 본체이자 테스트·수동/외부 cron 실행 경로(`uv run python -m
+    app.sharing.invalidation`)다.
+
+    `s01` 단일 세션 팩토리(`SessionLocal`)로 자기 세션을 열고, 실제 `ShareInvalidationSweep`
+    (기본 협력자 조립)로 무효화 스윕을 1회 수행한 뒤 commit 하고 retire 한 링크 수를 반환한다.
+    세션 수명(commit·close)은 엔트리포인트가 소유하고, 무효화 판정·retire 는 서비스에 위임한다.
+
+    세션 팩토리는 import 바인딩이 아니라 호출 시점에 `app.common.db.SessionLocal` 을
+    참조해(모듈 속성 접근) 테스트에서 테스트 DB 로 재바인딩 가능하게 한다.
+    """
+    from app.common import db as db_module
+
+    db = db_module.SessionLocal()
+    try:
+        service = ShareInvalidationSweep()
+        retired = service.invalidate_by_observation(db)
+        db.commit()
+        return retired
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":  # pragma: no cover - 수동/외부 cron 실행 진입점
+    run_invalidation_sweep()
