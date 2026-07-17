@@ -21,6 +21,8 @@ from app.config import get_settings
 from app.document.router import router as document_router
 from app.lock_version.router import router as lock_version_router
 from app.routers.health import router as health_router
+from app.sharing import scheduler as sharing_scheduler
+from app.sharing.router import router as sharing_router
 from app.trash import scheduler as trash_scheduler
 from app.trash.router import router as trash_router
 from app.workspace.admin_router import router as workspace_admin_router
@@ -29,16 +31,19 @@ from app.workspace.router import router as workspace_router
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    """앱 lifespan startup/shutdown 에 s10 보관 스윕·s12 아카이브 스윕 스케줄러를 연결한다 (Req 6.5, s12 7.4).
+    """앱 lifespan startup/shutdown 에 s10 보관 스윕·s12 아카이브 스윕·s14 무효화 스윕 스케줄러를 연결한다 (Req 6.5, s12 7.4, s14 7.4).
 
-    startup 에서 ``trash_scheduler.start(app)`` 와 ``attachment_scheduler.start(app)`` 를 호출하고
-    shutdown 에서 각각 ``stop()`` 으로 정리한다. 조립·lifespan 방식은 s01·s05·s07·s10 을 따른다.
+    startup 에서 ``trash_scheduler.start(app)``·``attachment_scheduler.start(app)``·
+    ``sharing_scheduler.start(app)`` 를 호출하고 shutdown 에서 각각 ``stop()`` 으로 정리한다.
+    조립·lifespan 방식은 s01·s05·s07·s10·s12 를 따른다.
     """
     trash_scheduler.start(app)
     attachment_scheduler.start(app)
+    sharing_scheduler.start(app)
     try:
         yield
     finally:
+        sharing_scheduler.stop()
         attachment_scheduler.stop()
         trash_scheduler.stop()
 
@@ -66,6 +71,7 @@ def create_app() -> FastAPI:
     app.include_router(lock_version_router)
     app.include_router(trash_router)
     app.include_router(attachment_router)
+    app.include_router(sharing_router)
     return app
 
 

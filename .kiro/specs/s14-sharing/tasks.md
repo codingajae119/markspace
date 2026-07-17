@@ -111,7 +111,7 @@
   - _Requirements: 5.1, 7.6_
   - _Boundary: ShareInvalidationScheduler_
   - _Depends: 2.4_
-- [ ] 3.3 s01 라우터 조립·lifespan에 공유 라우터·스케줄러 연결
+- [x] 3.3 s01 라우터 조립·lifespan에 공유 라우터·스케줄러 연결
   - `s01` 앱 조립 지점에 공유 라우터를 등록하고 앱 lifespan 시작/종료에 무효화 스케줄러 시작/종료 훅을 연결. 조립·
     lifespan 방식은 `s01`·`s05`·`s07`·`s10`·`s12`를 따르며 새 DB 마이그레이션을 추가하지 않음
   - 관찰 가능 완료: `uv run uvicorn app.main:app` 부팅 후 카탈로그 행 34~37 경로가 앱 라우트 목록에 노출되고,
