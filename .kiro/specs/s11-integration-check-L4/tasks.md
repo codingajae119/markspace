@@ -110,7 +110,7 @@
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
   - _Boundary: LockDeleteIndependenceSuite_
   - _Depends: 1.2_
-- [ ] 2.5 (P) 묶음 보관 타이머 독립성 스위트 — 만료분만 purge·독립 타이머·자식 선만료·멱등·WS 스코프 (INV-12)
+- [x] 2.5 (P) 묶음 보관 타이머 독립성 스위트 — 만료분만 purge·독립 타이머·자식 선만료·멱등·WS 스코프 (INV-12)
   - `tests/integration_L4/test_retention_sweep_independence.py`에 여러 묶음을 서로 다른 `trashed_at`으로 구성하고
     워크스페이스 `trash_retention_days`를 알려진 값으로 세팅한 뒤 부팅 앱과 동일 DB 세션의
     `RetentionSweepService.sweep_expired_bundles(db, now)`(또는 `run_sweep`)를 **`now` 주입**으로 호출: (1) `trashed_at
