@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.18",
+    "apscheduler>=3.10",
     "fastapi>=0.139",
     "itsdangerous>=2.2",
     "markdown-it-py>=4.2.0",
