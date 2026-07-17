@@ -1,9 +1,9 @@
 {
   "feature_name": "s13-integration-check-L5",
   "created_at": "2026-07-16T08:00:00Z",
-  "updated_at": "2026-07-16T08:40:00Z",
+  "updated_at": "2026-07-18T00:00:00Z",
   "language": "ko",
-  "phase": "tasks-generated",
+  "phase": "validated",
   "approvals": {
     "requirements": {
       "generated": true,
