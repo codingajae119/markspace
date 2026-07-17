@@ -25,7 +25,7 @@
     스코프로 열거되며 없으면 빈 목록을 반환함을 단위 테스트로 확인
   - _Requirements: 1.4, 4.3_
   - _Boundary: TrashRepository_
-- [ ] 1.3 (P) 묶음 id → workspace_id 권한 어댑터 구현
+- [x] 1.3 (P) 묶음 id → workspace_id 권한 어댑터 구현
   - 묶음 id(= 루트 문서 id)로부터 소속 workspace_id를 `s07` 문서→WS 조회로 확정(미존재→404)해 `s01`
     `require_ws_role(EDITOR)`에 주입하는 얇은 어댑터 구현. `/workspaces/{id}/trash`는 경로 id를 직접
     workspace_id로 사용. resolver 위계 비교·admin bypass 로직은 재구현하지 않음. 묶음 루트 유효성은 서비스
