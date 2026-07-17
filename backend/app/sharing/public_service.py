@@ -36,6 +36,8 @@ import re
 
 from sqlalchemy.orm import Session
 
+from app.attachment.repository import AttachmentRepository
+from app.attachment.service import AttachmentBinary, AttachmentService
 from app.common.errors import DomainError, ErrorCode
 from app.document.engine import DocumentStateEngine
 from app.document.renderer import MarkdownRenderer
@@ -70,11 +72,19 @@ class PublicShareService:
         document_repository: DocumentRepository | None = None,
         engine: DocumentStateEngine | None = None,
         renderer: MarkdownRenderer | None = None,
+        attachment_service: AttachmentService | None = None,
+        attachment_repository: AttachmentRepository | None = None,
     ) -> None:
         self._repository = repository or ShareLinkRepository()
         self._documents = document_repository or DocumentRepository()
         self._engine = engine or DocumentStateEngine(self._documents)
         self._renderer = renderer or MarkdownRenderer()
+        # s12 첨부 협력자(링크 경유 서빙 위임용). 저장·격리·보관 판정은 s12 소유이므로
+        # 재구현하지 않고 이 두 협력자에 위임한다(Req 6.5·7.7).
+        self._attachment_service = attachment_service or AttachmentService()
+        self._attachment_repository = (
+            attachment_repository or AttachmentRepository()
+        )
 
     def render_public_document(
         self, db: Session, token: str
@@ -122,6 +132,50 @@ class PublicShareService:
         # active_descendants 는 항상 root 를 포함하므로 root_node 는 확정된다.
         assert root_node is not None
         return PublicDocumentRead(root=root_node)
+
+    def serve_public_attachment(
+        self, db: Session, token: str, attachment_id: int
+    ) -> AttachmentBinary:
+        """토큰으로 공유 문서·현재 active 하위에 속한 미보관 첨부 바이너리를 서빙한다
+        (design.md §System Flows 링크 경유 첨부 서빙 flowchart, Req 6.1~6.5·7.7).
+
+        판정·위임 순서는 flowchart 를 그대로 따르며 모든 거부는 404 로 통일한다(정보 비노출):
+
+        1. **공개 유효성(실시간 게이트)**: `_resolve_valid_link` 로 토큰→링크·문서를 확정한다.
+           공개 렌더와 **동일한** 게이트라서 게이트 off·문서 trashed 면 파일 접근도 함께 차단
+           되고 무효 관측 시 그 자리에서 lazy retire 된다(무효/부재→404, Req 6.2).
+        2. **첨부 로드**: `AttachmentRepository.get`(s12)으로 첨부를 조회한다. 부재면 404 로 거부
+           한다(정보 비노출).
+        3. **소속·격리 검사**: `DocumentStateEngine.active_descendants` 로 **접근 시점**의 공유
+           문서 현재 active 서브트리(root 포함, trashed 서브트리 제외)를 동적 수집하고, 첨부가
+           그 서브트리 구성원 문서에 속하고(`att.document_id in member_ids`) 동일 워크스페이스
+           (`att.workspace_id == document.workspace_id`)일 때만 통과시킨다. 범위 밖·다른 WS 첨부는
+           404 로 비노출한다(Req 6.4·INV-6).
+        4. **s12 서빙 위임**: `AttachmentService.serve_attachment`(s12)에 위임한다. 보관 첨부는
+           그 위임이 role·경로 무관 404 로 차단하고(Req 6.3), 미보관이면 저장 파일을 스트리밍한다.
+
+        저장·격리·보관 판정은 s12 를 재사용하고 재구현하지 않는다(Req 6.5·7.7). 순서상 유효성→
+        부재→범위/WS→위임이며, 범위 안이지만 보관된 첨부는 4단계 위임에서 404 가 된다.
+        """
+        # 1. 공개 유효성(공유 렌더와 동일 게이트). 무효/부재 → helper 가 lazy retire 후 404.
+        _, document = self._resolve_valid_link(db, token)
+
+        # 2. 첨부 로드(s12). 부재 → 404(정보 비노출).
+        att = self._attachment_repository.get(db, attachment_id)
+        if att is None:
+            raise self._not_found()
+
+        # 3. 소속·격리: 접근 시점의 현재 active 서브트리 구성원이고 동일 WS 여야 한다(INV-6).
+        members = self._engine.active_descendants(db, document)
+        member_ids = {member.id for member in members}
+        if (
+            att.document_id not in member_ids
+            or att.workspace_id != document.workspace_id
+        ):
+            raise self._not_found()
+
+        # 4. 실제 바이너리·보관 차단은 s12 에 위임(보관 첨부는 role·경로 무관 404).
+        return self._attachment_service.serve_attachment(db, attachment_id)
 
     def _resolve_valid_link(
         self, db: Session, token: str
