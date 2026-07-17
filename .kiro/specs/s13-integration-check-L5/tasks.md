@@ -88,7 +88,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
   - _Boundary: AttachmentLifecycleFlowSuite_
   - _Depends: 1.2_
-- [ ] 2.3 (P) 보관 이동↔완전삭제 결합 스위트 — deleted 관측 → 보관 이동·물리삭제 부재·멱등·묶음 범위 (8.6, INV-4)
+- [x] 2.3 (P) 보관 이동↔완전삭제 결합 스위트 — deleted 관측 → 보관 이동·물리삭제 부재·멱등·묶음 범위 (8.6, INV-4)
   - `tests/integration_L5/test_purge_archive_combination.py`에: (1) 첨부 연결 문서를 trashed 후 `DELETE
     /trash/{bundleId}`(→ `purge_bundle`)로 `status=deleted` → `run_archival_sweep`/`archive_for_deleted_documents`
     실행 → 연결 미보관 첨부가 보관 폴더로 이동·`is_archived=true` DB·파일시스템 관찰 (4.1), (2) `now` 주입
