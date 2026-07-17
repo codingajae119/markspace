@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     db_name: str
     db_user: str
     default_trash_retention_days: int = 30
+    trash_sweep_interval_seconds: int = 3600  # 배치 실행 주기(초). 0 이하이면 인프로세스 스케줄러 비활성(외부 cron 신호)
     file_storage_root: str  # 첨부 파일 저장 루트(WS별 격리 하위 디렉터리)
     session_cookie_name: str = "session"
     session_max_age_seconds: int = 1209600  # 14d

@@ -34,7 +34,7 @@
     id→404, 보호 라우트 스텁에서 editor 미충족→403·admin→통과가 됨을 단위 테스트로 확인
   - _Requirements: 5.1, 5.4_
   - _Boundary: BundleWsAdapter_
-- [ ] 1.4 (P) 배치 실행 주기 설정을 단일 Settings에 additive 확장
+- [x] 1.4 (P) 배치 실행 주기 설정을 단일 Settings에 additive 확장
   - `config.yml`과 `s01` 공용 Settings에 배치 실행 주기(기본 3600초, 0 이하이면 인프로세스 스케줄러 비활성)
     필드를 additive로 추가. 보관일 기본값은 기존 `default_trash_retention_days`(30) 재사용. 모듈별 설정 파일·
     개별 로더를 신설하지 않음

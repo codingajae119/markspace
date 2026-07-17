@@ -4,6 +4,7 @@ db_port: 3306
 db_name: notion_lite
 db_user: root
 default_trash_retention_days: 30
+trash_sweep_interval_seconds: 3600
 file_storage_root: ./var/attachments
 session_cookie_name: session
 session_max_age_seconds: 1209600
