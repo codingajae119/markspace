@@ -27,7 +27,7 @@ from app.attachment.repository import AttachmentRepository
 from app.attachment.storage import AttachmentStorage
 from app.document.repository import DocumentRepository
 
-__all__ = ["ArchivalSweepService"]
+__all__ = ["ArchivalSweepService", "run_archival_sweep"]
 
 logger = logging.getLogger(__name__)
 
@@ -169,3 +169,33 @@ class ArchivalSweepService:
         return self.archive_for_deleted_documents(db) + self.archive_dereferenced_images(
             db
         )
+
+
+def run_archival_sweep() -> int:
+    """아카이브 스윕을 자기 세션으로 1회 실행하는 엔트리포인트 (design.md §ArchivalScheduler,
+    Req 4.1·5.1). 스케줄 job 본체이자 테스트·수동/외부 cron 실행 경로(`uv run python -m
+    app.attachment.archival`)다.
+
+    `s01` 단일 세션 팩토리(`SessionLocal`)로 자기 세션을 열고, 실제 `ArchivalSweepService`
+    (기본 협력자 조립)로 현재 시각(`datetime.utcnow()`) 기준 스윕을 1회 수행한 뒤 commit 하고
+    처리한 첨부 수를 반환한다. `now` 는 배치 실행 시점에 여기서만 산정하며 서비스에는 주입한다
+    (서비스 서명은 `now` 를 계속 인자로 받는다). 세션 수명(commit·close)은 엔트리포인트가
+    소유하고, 보관 판정·이동은 서비스에 위임한다.
+
+    세션 팩토리는 import 바인딩이 아니라 호출 시점에 `app.common.db.SessionLocal` 을
+    참조해(모듈 속성 접근) 테스트에서 테스트 DB 로 재바인딩 가능하게 한다.
+    """
+    from app.common import db as db_module
+
+    db = db_module.SessionLocal()
+    try:
+        service = ArchivalSweepService()
+        purged = service.sweep(db, now=datetime.utcnow())
+        db.commit()
+        return purged
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":  # pragma: no cover - 수동/외부 cron 실행 진입점
+    run_archival_sweep()
