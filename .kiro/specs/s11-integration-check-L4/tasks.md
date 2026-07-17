@@ -127,7 +127,7 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
   - _Boundary: RetentionSweepIndependenceSuite_
   - _Depends: 1.2_
-- [ ] 2.6 (P) 아래 계층 결합 엣지 스위트 — role별 접근 경계·admin override·작성자 보존·물리삭제 부재 (INV-1·2·3·4)
+- [x] 2.6 (P) 아래 계층 결합 엣지 스위트 — role별 접근 경계·admin override·작성자 보존·물리삭제 부재 (INV-1·2·3·4)
   - `tests/integration_L4/test_combination_layer_edge.py`에: (1) owner/editor/viewer/비멤버/admin 세션으로 잠금·버전·
     휴지통 라우트 접근 경계 관찰 → viewer 잠금·저장·취소·강제해제·휴지통 변경 거부(INV-2)·비멤버 차단(INV-1)·admin
     비멤버 WS 전면 접근(INV-3)이 아래 계층(s02 세션·s05 멤버십) 결합 위에서 성립 (7.1), (2) 문서·`document_version`을
