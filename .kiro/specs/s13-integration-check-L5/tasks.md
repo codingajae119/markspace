@@ -34,7 +34,7 @@
     `sweep(db, now)` 호출에서 결과를 반환하는 스모크 검증이 통과한다
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.6_
   - _Boundary: L5TestHarness_
-- [ ] 1.2 첨부·아카이브 스윕·파일시스템 시나리오 헬퍼 구성 (호출 래퍼, L4 헬퍼 재사용)
+- [x] 1.2 첨부·아카이브 스윕·파일시스템 시나리오 헬퍼 구성 (호출 래퍼, L4 헬퍼 재사용)
   - `tests/integration_L5/helpers.py`에 첨부 헬퍼(`POST /documents/{id}/attachments` multipart image/file 업로드·크기
     지정·`GET /attachments/{id}` 조회 래퍼), 이미지 참조 저장 헬퍼(첨부 `url`=`/attachments/{id}`을 포함/제외한
     markdown 본문으로 `POST /documents/{id}/save` 호출해 현재 버전 참조 생성/소멸), 아카이브 스윕 헬퍼(하네스 세션으로
@@ -163,3 +163,8 @@
     L6 착수 가부가 명확히 기록된다
   - _Requirements: 1.5, 8.1, 8.2, 8.3, 8.4_
   - _Depends: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
+
+## Implementation Notes
+
+- 1.2: `DocumentVersionRead`(app/lock_version/schemas.py)에는 `content` 필드가 없다 — 저장 응답으로 본문 참조 유무를 단언하지 말 것(vacuous). 참조 소멸 판정은 `ArchivalSweepService`/`ReferenceScanner`가 현재 버전 본문(`load_current_content`)으로 하므로, 2.4 스위트는 스윕 부수효과(is_archived·파일 이동)로 관찰한다.
+- 공통: 첨부 업로드 라우트는 **201 CREATED** 반환(`app/attachment/router.py`), tasks.md 스모크 서술의 "200"은 부정확 — 실제 계약(s01 카탈로그 32~33)·구현 기준 201로 단언. 계약 대조(2.1)는 s01 단일 소스 기준으로 드리프트를 판정.
