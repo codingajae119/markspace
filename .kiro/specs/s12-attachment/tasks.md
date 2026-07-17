@@ -79,7 +79,7 @@
   - _Requirements: 3.3, 6.2, 6.3_
   - _Boundary: AttachmentService_
   - _Depends: 1.2, 1.3_
-- [ ] 2.3 (P) 완전삭제 반응 보관 이동 조정 구현 (8.6)
+- [x] 2.3 (P) 완전삭제 반응 보관 이동 조정 구현 (8.6)
   - deleted 문서 반응 조정 구현: 미보관이며 소속 문서가 deleted인 첨부를 스코프 질의로 열거하고, 각 첨부를
     `AttachmentStorage.move_to_archive`로 보관 폴더로 이동(물리 삭제 없음)한 뒤 `mark_archived`로 is_archived=true·
     file_path 갱신. deleted 전이는 수행하지 않고 status='deleted' 관측으로만 판정, 이미 보관된 첨부는 스코프에서
