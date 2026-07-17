@@ -74,7 +74,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
   - _Boundary: CumulativeContractConformanceSuite_
   - _Depends: 1.1_
-- [ ] 2.2 (P) 첨부 생성·서빙·WS 격리 흐름 스위트 — 이미지 붙여넣기·파일 첨부·서빙·게이팅 (8.1·8.2·8.3, INV-1·2·6)
+- [x] 2.2 (P) 첨부 생성·서빙·WS 격리 흐름 스위트 — 이미지 붙여넣기·파일 첨부·서빙·게이팅 (8.1·8.2·8.3, INV-1·2·6)
   - `tests/integration_L5/test_attachment_lifecycle_flow.py`에 동일 WS의 owner/editor/viewer/비멤버/admin 세션으로:
     (1) editor가 이미지 업로드 → `kind=image`·파일로 저장(디스크 존재, base64 인라인 아님)·`AttachmentRead.url` =
     `/attachments/{id}` 반환 (3.1, 8.1), (2) editor가 비이미지 파일 업로드 → `kind=file`·`original_name` 보존·대상
