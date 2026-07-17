@@ -285,6 +285,14 @@ def test_no_restore_route_and_archived_stays_404_for_all_roles(
         path = getattr(route, "path", "") or ""
         if "attachment" not in path.lower():
             continue
+        # s14 링크 경유 공개 서빙(`GET /public/{token}/attachments/{aid}`, 카탈로그 행 37)은
+        # 경로에 "attachments" 를 포함하지만 s12 첨부 도메인(행 32~33)이 아니라 상위 계층 s14
+        # 공유 도메인의 공개 라우트다. 이 스위트는 s12 보관 격리(복원 경로 부재)를 검증하므로
+        # s14 공개 경로는 이 s12-한정 열거에서 제외한다(s14 는 s01 계약대로 행 37 을 노출할 뿐
+        # 보관 첨부의 un-archive/restore 경로가 아니며, s14 자체 통합 스위트가 링크 경유 서빙의
+        # 게이트·보관·격리 차단을 별도 검증한다).
+        if path.startswith("/public/"):
+            continue
         methods = set(getattr(route, "methods", None) or set())
         attachment_routes.setdefault(path, set()).update(methods)
 
