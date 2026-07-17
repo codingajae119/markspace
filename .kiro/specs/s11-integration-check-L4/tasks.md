@@ -80,7 +80,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
   - _Boundary: LockVersionFlowSuite_
   - _Depends: 1.2_
-- [ ] 2.3 (P) 휴지통 흐름 스위트 — 열람·복구·완전삭제·viewer거부·admin bypass·복구위치·원자성 (INV-2·10)
+- [x] 2.3 (P) 휴지통 흐름 스위트 — 열람·복구·완전삭제·viewer거부·admin bypass·복구위치·원자성 (INV-2·10)
   - `tests/integration_L4/test_trash_flow.py`에 editor가 문서 트리를 `DELETE /documents/{id}`로 trashed 시킨 뒤:
     (1) `GET /workspaces/{id}/trash` → `Page[TrashBundleRead]`로 trashed 묶음(본인 삭제분 외 WS 전체 포함)만 반환·각
     묶음 `expires_at = trashed_at + trash_retention_days` 포함 (4.1, 6.11), (2) `POST /trash/{bundleId}/restore` →
