@@ -571,3 +571,307 @@ def test_save_does_not_touch_status(sessionmaker_factory):
         assert reloaded.lock_user_id is None, "잠금 해제됨"
     finally:
         verify.close()
+
+
+# --- cancel_edit: 보유자 취소 → 잠금 해제, 버전 미생성 -------------------
+
+
+def test_cancel_edit_by_holder_clears_lock_and_creates_no_version(
+    sessionmaker_factory,
+):
+    """보유자 취소 → 잠금 필드 NULL, fresh 세션 재조회로 증명, 버전 미생성 (Req 3.1·3.4)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="cancel-holder")
+        ws = _make_workspace(seed, name="ws-cancel")
+        doc = _make_document(
+            seed,
+            workspace_id=ws.id,
+            created_by=user.id,
+            lock_user_id=user.id,
+            lock_acquired_at=datetime(2026, 7, 16, 9, 0, 0),
+        )
+        seed.commit()
+        doc_id, user_id = doc.id, user.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        ctx = AuthContext(user_id=user_id, is_admin=False)
+        result = _service().cancel_edit(session, ctx, doc_id)
+        assert result is None
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        reloaded = verify.get(Document, doc_id)
+        assert reloaded.lock_user_id is None, "잠금 해제되어야 한다"
+        assert reloaded.lock_acquired_at is None, "잠금 획득 시각도 NULL"
+        assert _count_versions(verify, doc_id) == 0, "취소는 버전을 만들지 않는다"
+    finally:
+        verify.close()
+
+
+# --- cancel_edit: 미잠금 문서 → 멱등 no-op -------------------------------
+
+
+def test_cancel_edit_on_unlocked_document_is_idempotent(sessionmaker_factory):
+    """미잠금 문서 취소 → 멱등 성공(변경 없음), 여전히 NULL, 버전 미생성 (Req 3.2·3.4)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="cancel-noop")
+        ws = _make_workspace(seed, name="ws-cancel-noop")
+        doc = _make_document(seed, workspace_id=ws.id, created_by=user.id)
+        seed.commit()
+        doc_id, user_id = doc.id, user.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        ctx = AuthContext(user_id=user_id, is_admin=False)
+        result = _service().cancel_edit(session, ctx, doc_id)
+        assert result is None
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        reloaded = verify.get(Document, doc_id)
+        assert reloaded.lock_user_id is None, "여전히 미잠금이어야 한다"
+        assert reloaded.lock_acquired_at is None
+        assert _count_versions(verify, doc_id) == 0, "취소는 버전을 만들지 않는다"
+    finally:
+        verify.close()
+
+
+# --- cancel_edit: 타인 잠금 → 409, 잠금 불변 ----------------------------
+
+
+def test_cancel_edit_on_other_holder_raises_conflict_and_leaves_lock(
+    sessionmaker_factory,
+):
+    """타인 잠금 문서 취소 → 409, 타인 잠금 불변, 버전 미생성 (Req 3.3·3.4)."""
+    other_at = datetime(2026, 7, 16, 8, 0, 0)
+    seed = sessionmaker_factory()
+    try:
+        holder = _make_user(seed, login_id="cancel-holder2")
+        requester = _make_user(seed, login_id="cancel-requester")
+        ws = _make_workspace(seed, name="ws-cancel-conflict")
+        doc = _make_document(
+            seed,
+            workspace_id=ws.id,
+            created_by=holder.id,
+            lock_user_id=holder.id,
+            lock_acquired_at=other_at,
+        )
+        seed.commit()
+        doc_id, holder_id, requester_id = doc.id, holder.id, requester.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        ctx = AuthContext(user_id=requester_id, is_admin=False)
+        with pytest.raises(DomainError) as excinfo:
+            _service().cancel_edit(session, ctx, doc_id)
+        assert excinfo.value.http_status == 409
+        assert excinfo.value.code == ErrorCode.CONFLICT
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        reloaded = verify.get(Document, doc_id)
+        assert reloaded.lock_user_id == holder_id, "타인 잠금은 변경되지 않아야 한다"
+        assert reloaded.lock_acquired_at == other_at
+        assert _count_versions(verify, doc_id) == 0, "취소 거부는 버전을 만들지 않는다"
+    finally:
+        verify.close()
+
+
+# --- cancel_edit: 문서 미존재 → 404 -------------------------------------
+
+
+def test_cancel_edit_missing_document_raises_not_found(sessionmaker_factory):
+    """존재하지 않는 문서 취소 → 404 not_found (Req 3 / §Error Handling)."""
+    session = sessionmaker_factory()
+    try:
+        ctx = AuthContext(user_id=1, is_admin=False)
+        with pytest.raises(DomainError) as excinfo:
+            _service().cancel_edit(session, ctx, 999999)
+        assert excinfo.value.http_status == 404
+        assert excinfo.value.code == ErrorCode.NOT_FOUND
+    finally:
+        session.close()
+
+
+# --- force_unlock: 비보유자 강제 해제 → 잠금 해제(보유자 무관) ----------
+
+
+def test_force_unlock_by_non_holder_clears_lock_and_creates_no_version(
+    sessionmaker_factory,
+):
+    """비보유자(타인) 강제 해제 → 보유자 무관 잠금 해제, 버전 미생성 (Req 4.1)."""
+    other_at = datetime(2026, 7, 16, 8, 0, 0)
+    seed = sessionmaker_factory()
+    try:
+        holder = _make_user(seed, login_id="force-holder")
+        actor = _make_user(seed, login_id="force-actor")
+        ws = _make_workspace(seed, name="ws-force")
+        doc = _make_document(
+            seed,
+            workspace_id=ws.id,
+            created_by=holder.id,
+            lock_user_id=holder.id,
+            lock_acquired_at=other_at,
+        )
+        seed.commit()
+        doc_id, actor_id = doc.id, actor.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        # actor 는 잠금 보유자가 아니지만 강제 해제는 보유자와 무관하게 성공해야 한다.
+        ctx = AuthContext(user_id=actor_id, is_admin=False)
+        result = _service().force_unlock(session, ctx, doc_id)
+        assert result is None
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        reloaded = verify.get(Document, doc_id)
+        assert reloaded.lock_user_id is None, "보유자 무관 잠금 해제되어야 한다"
+        assert reloaded.lock_acquired_at is None
+        assert _count_versions(verify, doc_id) == 0, "강제 해제는 버전을 만들지 않는다"
+    finally:
+        verify.close()
+
+
+# --- force_unlock: 미잠금 문서 → 멱등 no-op ------------------------------
+
+
+def test_force_unlock_on_unlocked_document_is_idempotent(sessionmaker_factory):
+    """미잠금 문서 강제 해제 → 멱등 성공, 여전히 NULL, 버전 미생성 (Req 4.3)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="force-noop")
+        ws = _make_workspace(seed, name="ws-force-noop")
+        doc = _make_document(seed, workspace_id=ws.id, created_by=user.id)
+        seed.commit()
+        doc_id, user_id = doc.id, user.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        ctx = AuthContext(user_id=user_id, is_admin=False)
+        result = _service().force_unlock(session, ctx, doc_id)
+        assert result is None
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        reloaded = verify.get(Document, doc_id)
+        assert reloaded.lock_user_id is None, "여전히 미잠금이어야 한다"
+        assert reloaded.lock_acquired_at is None
+        assert _count_versions(verify, doc_id) == 0, "강제 해제는 버전을 만들지 않는다"
+    finally:
+        verify.close()
+
+
+# --- force_unlock: 문서 미존재 → 404 ------------------------------------
+
+
+def test_force_unlock_missing_document_raises_not_found(sessionmaker_factory):
+    """존재하지 않는 문서 강제 해제 → 404 not_found (Req 4 / §Error Handling)."""
+    session = sessionmaker_factory()
+    try:
+        ctx = AuthContext(user_id=1, is_admin=False)
+        with pytest.raises(DomainError) as excinfo:
+            _service().force_unlock(session, ctx, 999999)
+        assert excinfo.value.http_status == 404
+        assert excinfo.value.code == ErrorCode.NOT_FOUND
+    finally:
+        session.close()
+
+
+# --- cancel/force: status 독립(trashed+locked) --------------------------
+
+
+def test_cancel_edit_does_not_touch_status(sessionmaker_factory):
+    """trashed+locked 문서 보유자 취소 → 잠금 해제, status 는 여전히 trashed, 버전 미생성 (§4.3·6.1)."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="cancel-statindep")
+        ws = _make_workspace(seed, name="ws-cancel-status")
+        doc = _make_document(
+            seed,
+            workspace_id=ws.id,
+            created_by=user.id,
+            status="trashed",
+            lock_user_id=user.id,
+            lock_acquired_at=datetime(2026, 7, 16, 9, 0, 0),
+        )
+        seed.commit()
+        doc_id, user_id = doc.id, user.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        ctx = AuthContext(user_id=user_id, is_admin=False)
+        _service().cancel_edit(session, ctx, doc_id)
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        reloaded = verify.get(Document, doc_id)
+        assert reloaded.status == "trashed", "status 는 cancel 로 변경되지 않아야 한다"
+        assert reloaded.lock_user_id is None, "status 와 무관하게 잠금 해제됨"
+        assert _count_versions(verify, doc_id) == 0
+    finally:
+        verify.close()
+
+
+def test_force_unlock_does_not_touch_status(sessionmaker_factory):
+    """trashed+locked 문서 강제 해제 → 잠금 해제, status 는 여전히 trashed, 버전 미생성 (§4.3·6.1)."""
+    seed = sessionmaker_factory()
+    try:
+        holder = _make_user(seed, login_id="force-statindep")
+        actor = _make_user(seed, login_id="force-status-actor")
+        ws = _make_workspace(seed, name="ws-force-status")
+        doc = _make_document(
+            seed,
+            workspace_id=ws.id,
+            created_by=holder.id,
+            status="trashed",
+            lock_user_id=holder.id,
+            lock_acquired_at=datetime(2026, 7, 16, 9, 0, 0),
+        )
+        seed.commit()
+        doc_id, actor_id = doc.id, actor.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        ctx = AuthContext(user_id=actor_id, is_admin=False)
+        _service().force_unlock(session, ctx, doc_id)
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        reloaded = verify.get(Document, doc_id)
+        assert reloaded.status == "trashed", "status 는 force_unlock 로 변경되지 않아야 한다"
+        assert reloaded.lock_user_id is None, "status 와 무관하게 잠금 해제됨"
+        assert _count_versions(verify, doc_id) == 0
+    finally:
+        verify.close()

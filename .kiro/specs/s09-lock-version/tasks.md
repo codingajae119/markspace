@@ -56,7 +56,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 6.1_
   - _Boundary: LockVersionService_
   - _Depends: 1.2_
-- [ ] 2.3 취소·강제해제(cancel_edit·force_unlock) 구현
+- [x] 2.3 취소·강제해제(cancel_edit·force_unlock) 구현
   - `service.py`에 `cancel_edit`(보유자→`clear_lock`·버전 미생성; 미잠금→멱등 no-op 성공; 타인 잠금→409)과
     `force_unlock`(보유자 무관 `clear_lock`·버전 미생성; 미잠금→멱등 성공; 권한 게이트는 라우터의
     `require_ws_role(OWNER)`가 담당) 구현. 두 동작 모두 `document_version`을 생성하지 않고 status를 바꾸지 않음
