@@ -76,7 +76,7 @@
   - _Boundary: LockVersionService_
   - _Depends: 1.2_
 
-- [ ] 3. Integration: 라우터·부트스트랩 연결
+- [x] 3. Integration: 라우터·부트스트랩 연결
 - [x] 3.1 LockVersionRouter 5개 엔드포인트 구현
   - `router.py`에 `POST /documents/{id}/lock`(EDITOR→DocumentLockRead), `POST /documents/{id}/save`(EDITOR,
     DocumentSaveRequest→DocumentVersionRead), `POST /documents/{id}/cancel`(EDITOR→204),
@@ -89,7 +89,7 @@
   - _Requirements: 1.1, 1.5, 1.6, 2.1, 2.5, 3.1, 3.5, 4.1, 4.2, 5.1, 5.5, 7.1, 7.3, 7.4_
   - _Boundary: LockVersionRouter_
   - _Depends: 2.1, 2.2, 2.3, 2.4_
-- [ ] 3.2 s01 라우터 조립 지점에 잠금·버전 라우터 연결
+- [x] 3.2 s01 라우터 조립 지점에 잠금·버전 라우터 연결
   - `s01` `create_app()`의 feature 라우터 조립 지점(`app/main.py` 또는 `app/routers/__init__.py`)에
     `include_router(lock_version.router)` 추가. 조립 방식은 `s01`·`s05`·`s07`을 따름
   - 관찰 가능 완료: `uv run uvicorn app.main:app` 부팅 후 카탈로그 행 24~28 경로

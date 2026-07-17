@@ -15,6 +15,7 @@ from app.auth.router import router as auth_router
 from app.common.errors import register_error_handlers
 from app.config import get_settings
 from app.document.router import router as document_router
+from app.lock_version.router import router as lock_version_router
 from app.routers.health import router as health_router
 from app.workspace.admin_router import router as workspace_admin_router
 from app.workspace.router import router as workspace_router
@@ -40,6 +41,7 @@ def create_app() -> FastAPI:
     app.include_router(workspace_router)
     app.include_router(workspace_admin_router)
     app.include_router(document_router)
+    app.include_router(lock_version_router)
     return app
 
 
