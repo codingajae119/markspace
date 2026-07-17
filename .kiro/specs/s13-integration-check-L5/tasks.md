@@ -132,7 +132,7 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
   - _Boundary: ArchiveIsolationSuite_
   - _Depends: 1.2_
-- [ ] 2.6 (P) 아래 계층 결합 엣지 스위트 — role별 접근 경계·admin override·WS 격리·삭제 사용자·물리삭제 부재 (INV-1·2·3·4·6)
+- [x] 2.6 (P) 아래 계층 결합 엣지 스위트 — role별 접근 경계·admin override·WS 격리·삭제 사용자·물리삭제 부재 (INV-1·2·3·4·6)
   - `tests/integration_L5/test_combination_layer_edge.py`에: (1) owner/editor/viewer/비멤버/admin 세션으로 첨부 업로드·
     서빙 접근 경계 관찰 → viewer 업로드 거부(INV-2)·비멤버 차단(INV-1)·admin 비멤버 WS 첨부 업로드·서빙 접근 성공
     (INV-3)이 아래 계층(s02 세션·s05 멤버십) 결합 위에서 성립 (7.1), (2) 워크스페이스 A의 첨부를 B에만 소속된(A 비멤버)
