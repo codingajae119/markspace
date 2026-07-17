@@ -98,7 +98,7 @@
   - _Depends: 3.1_
 
 - [ ] 4. Validation: 통합·불변식 검증
-- [ ] 4.1 잠금→저장 왕복·권한 게이팅 통합 테스트
+- [x] 4.1 잠금→저장 왕복·권한 게이팅 통합 테스트
   - 마이그레이션된 DB + 부팅 앱에서: (1) editor A `POST /lock`→editor B `POST /lock` 시 409("편집 중")→A
     `POST /save`(content)로 새 버전 생성·`current_version_id` 갱신·잠금 해제→B `POST /lock` 성공(INV-9),
     (2) `s05` 멤버십 기반으로 viewer는 lock/save/cancel 403·editor 통과·admin bypass, force-unlock은
