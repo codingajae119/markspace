@@ -9,7 +9,7 @@
 > 마이그레이션·하위 하네스(`tests/integration_L3/*`·`L2`·`L1`)는 수정하지 않는다 — L3 하네스는 **재사용·확장**한다.
 
 - [ ] 1. Foundation: L4 실제 결합 검증 하네스 (L3 재사용·확장)
-- [ ] 1.1 L4 통합 테스트 하네스 구성 (L3 하네스 재사용 + 두 editor 세션·잠금/휴지통/스윕 시나리오 픽스처)
+- [x] 1.1 L4 통합 테스트 하네스 구성 (L3 하네스 재사용 + 두 editor 세션·잠금/휴지통/스윕 시나리오 픽스처)
   - `tests/integration_L4/conftest.py`에서 `s08` `tests/integration_L3`의 하네스 픽스처(실제 MySQL 8에 `alembic
     upgrade head` 적용·`s01` `create_app()` 부팅·admin 시드·세션 유지 `TestClient` 팩토리·고유 login_id 생성기·
     워크스페이스 생성·멤버 추가(role)·role별 세션 클라이언트·문서 트리 생성·부팅 앱과 동일 `SessionLocal`/`get_db`
