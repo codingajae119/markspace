@@ -10,7 +10,7 @@
 > 없음(INV-4, 보관 이동만). 보관=영구삭제 간주·복원 없음·admin 포함 비노출(INV-7). s12는 `s14`를 import하지
 > 않고 `s09`/`s10`을 import하지 않는다(그들의 결과 상태만 관측). 새 DB 마이그레이션을 추가하지 않는다.
 
-- [ ] 1. Foundation: 모듈·스키마·설정·저장·데이터 접근·참조 판정·권한 어댑터
+- [x] 1. Foundation: 모듈·스키마·설정·저장·데이터 접근·참조 판정·권한 어댑터
 - [x] 1.1 attachment 모듈 스캐폴드·첨부 스키마 정의·설정 additive 확장
   - `app/attachment/` 패키지 골격 생성. `s01` Base Schemas(`ORMReadModel`)를 상속한 첨부 응답 스키마(id·
     workspace_id·document_id·kind(image/file)·original_name·is_archived·created_at·참조 url) 정의. url은 저장하지
@@ -50,7 +50,7 @@
     단위 테스트로 확인
   - _Requirements: 5.1, 5.2_
   - _Boundary: ReferenceScanner_
-- [ ] 1.5 (P) 첨부 id → workspace_id 권한 어댑터 구현
+- [x] 1.5 (P) 첨부 id → workspace_id 권한 어댑터 구현
   - 첨부 id로부터 `attachment.workspace_id`를 조회(미존재→404)해 `s01` `require_ws_role(VIEWER)`에 주입하는 얇은
     어댑터(`ws_role_for_attachment`) 구현. `/documents/{id}/attachments` 업로드 경로는 `s07` `ws_role_for_document
     (EDITOR)`를 재사용. resolver 위계 비교·admin bypass 로직은 재구현하지 않음
