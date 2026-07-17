@@ -33,7 +33,7 @@
     테스트로 확인
   - _Requirements: 1.2, 3.1, 4.2, 6.1, 6.5_
   - _Boundary: AttachmentStorage_
-- [ ] 1.3 (P) AttachmentRepository 구현 (첨부 r/w·조정 스코프 질의)
+- [x] 1.3 (P) AttachmentRepository 구현 (첨부 r/w·조정 스코프 질의)
   - `s01` attachment·document·document_version 모델·세션 기반으로 첨부 삽입(is_archived=false)·단건 조회·보관
     표시(mark_archived: file_path를 보관 경로로 갱신·is_archived=true)와 조정 스코프 질의를 구현: (a) 미보관이며
     소속 문서가 deleted인 첨부 열거(8.6 스코프), (b) 미보관 image이며 소속 문서가 active/trashed이고 current_version이
@@ -173,3 +173,10 @@
 - `AttachmentStorage`가 반환하는 `file_path`는 **루트 상대 경로**(`{workspace_id}/{uuid}.ext`)라
   DB는 루트 독립 참조만 보유한다. 디스크 파일명은 서버 생성 uuid(경로 트래버설 방지), 원본명은
   DB `original_name`에만 보존. 물리 삭제 없음(INV-4) — `move_to_archive`는 `shutil.move`만.
+- `AttachmentRepository` 쓰기 메서드(`insert`·`mark_archived`)는 `DocumentRepository` 관례대로
+  `db.commit()`한다(스윕의 첨부 단위 커밋+예외격리와 업로드 요청 경로 모두에 정합).
+  document/document_version은 **읽기 전용 조인**으로만 사용(status/current_version_id/버전 무변경, 관측만).
+- (4.3 통합 테스트용 보강 메모) 8.7 스코프 단위 테스트는 문서당 버전 1개만 시드해 잘못된 조인
+  (예: `DocumentVersion.document_id` 기준)을 판별하지 못한다. 소스 조인은
+  `document.current_version_id == DocumentVersion.id`로 정확하나, 4.3 통합에서 현재 버전 문서에
+  더 오래된 버전을 하나 더 두어 wrong-version-join 회귀를 잡도록 한다.
