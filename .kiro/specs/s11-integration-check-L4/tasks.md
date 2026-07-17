@@ -8,7 +8,7 @@
 > 개별 spec design이 아니라 **`s01-contract-foundation` 단일 소스**다. 애플리케이션 코드(`app/*`)·`config.yml`·
 > 마이그레이션·하위 하네스(`tests/integration_L3/*`·`L2`·`L1`)는 수정하지 않는다 — L3 하네스는 **재사용·확장**한다.
 
-- [ ] 1. Foundation: L4 실제 결합 검증 하네스 (L3 재사용·확장)
+- [x] 1. Foundation: L4 실제 결합 검증 하네스 (L3 재사용·확장)
 - [x] 1.1 L4 통합 테스트 하네스 구성 (L3 하네스 재사용 + 두 editor 세션·잠금/휴지통/스윕 시나리오 픽스처)
   - `tests/integration_L4/conftest.py`에서 `s08` `tests/integration_L3`의 하네스 픽스처(실제 MySQL 8에 `alembic
     upgrade head` 적용·`s01` `create_app()` 부팅·admin 시드·세션 유지 `TestClient` 팩토리·고유 login_id 생성기·
@@ -44,7 +44,7 @@
   - _Boundary: Helpers_
   - _Depends: 1.1_
 
-- [ ] 2. Core: 계약 대조·잠금흐름·휴지통흐름·독립·스윕·아래계층 엣지 검증 스위트
+- [x] 2. Core: 계약 대조·잠금흐름·휴지통흐름·독립·스윕·아래계층 엣지 검증 스위트
 - [x] 2.1 (P) 누적 계약 대조 스위트 — lock 필드·document_version·API(24~31)·에러·Base·Settings additive
   - `tests/integration_L4/test_cumulative_contract_conformance.py`에: (1) 마이그레이션된 `document` lock 컬럼
     (`lock_user_id BIGINT FK NULL`·`lock_acquired_at DATETIME NULL`·`current_version_id BIGINT FK NULL`)과
@@ -141,7 +141,7 @@
   - _Boundary: CombinationLayerEdgeSuite_
   - _Depends: 1.2_
 
-- [ ] 3. Validation: 게이트 판정 및 재검증 트리거
+- [x] 3. Validation: 게이트 판정 및 재검증 트리거
 - [x] 3.1 전체 스위트 결합 실행 및 게이트(L4→L5) 판정·재검증 트리거 기록
   - `uv run pytest tests/integration_L4` 전체를 실제 결합(마이그레이션 DB + 부팅 앱(s09·s10 라우터·스케줄러 포함) +
     실제 멤버십/문서/버전 데이터 + 실제 `DocumentStateEngine` + 실제 `RetentionSweepService` + APScheduler 결합, mock
