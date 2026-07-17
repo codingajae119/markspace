@@ -43,7 +43,7 @@
     소멸 후보 image(+현재 버전 메타)만 반환하며 이미 보관된 첨부는 제외됨을 단위 테스트로 확인
   - _Requirements: 1.3, 3.2, 4.1, 4.4, 4.5, 5.1, 5.5_
   - _Boundary: AttachmentRepository_
-- [ ] 1.4 (P) ReferenceScanner 구현 (현재 버전 참조 판정)
+- [x] 1.4 (P) ReferenceScanner 구현 (현재 버전 참조 판정)
   - 문서 현재 버전 본문에 첨부 참조 URL 규약(`/attachments/{id}`)이 등장하는지 판정하는 순수 함수 구현. 첨부 id
     경계를 정확히 구분해 `/attachments/12`가 `/attachments/123`을 오탐하지 않도록 처리
   - 관찰 가능 완료: 참조를 포함한 본문은 True, 미포함 본문은 False를 반환하고, id 경계 오탐(부분 일치)이 없음을
