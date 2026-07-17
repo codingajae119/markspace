@@ -26,7 +26,7 @@
     중첩 트리로 직렬화되고 새 DB 마이그레이션이 추가되지 않음을 확인
   - _Requirements: 2.1, 3.1, 4.1, 7.1, 7.5, 7.6_
   - _Boundary: SharingSchemas, Settings (s01 additive)_
-- [ ] 1.2 (P) ShareLinkRepository 구현 (r/w·토큰 생성·retire·무효화 스코프)
+- [x] 1.2 (P) ShareLinkRepository 구현 (r/w·토큰 생성·retire·무효화 스코프)
   - `s01` share_link·document·workspace 모델·세션 기반으로 문서 단위 링크 데이터 접근을 구현: 문서 id·토큰으로
     링크 조회, 발급/재발급 upsert(행이 없으면 생성·있으면 갱신하되 **항상 새 토큰 생성 + is_enabled=true**), 토글용
     상태 전환(is_enabled만 바꾸고 **토큰 유지**), retire(is_enabled=false + **토큰 교체**로 이전 토큰 영구 무효화),
