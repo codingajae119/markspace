@@ -144,15 +144,15 @@ class WorkspaceService:
     def delete_workspace(self, db: Session, workspace_id: int) -> None:
         """워크스페이스를 삭제한다 — 빈 워크스페이스만 허용 (Req 2.5·2.7·1.6).
 
-        대상을 로드해 없으면 404 로 거부한다. 그렇지 않으면 멤버십을 전부 제거한 뒤 워크스페이스를
-        물리 삭제한다(단일 논리 트랜잭션). 문서가 남은 비-empty 워크스페이스는 s01 FK
-        `ON DELETE RESTRICT` 위반으로 물리 DELETE 가 `IntegrityError` 를 일으키며, 이를 rollback
-        후 `DomainError(CONFLICT, 409)` 로 변환해 거부한다(INV-4·FK 정합, design.md 사후조건:
-        비-empty 삭제는 409 이며 아무것도 제거되지 않는다).
-
-        L2 시점에는 문서 테이블이 없어 항상 빈 워크스페이스이며 409 경로는 s07 문서 도입 이후
-        실효화된다(단위 테스트는 mock IntegrityError 로 변환 경로를 검증, 실 end-to-end 409 는
-        체크포인트 s08 로 이연 — design.md Revalidation Triggers / Testing Strategy).
+        대상을 로드해 없으면 404 로 거부한다. 그렇지 않으면 멤버십 전체 제거와 워크스페이스 물리
+        삭제를 단일 트랜잭션으로 발행한다: 두 repo 호출에 `commit=False` 를 전달해 어느 것도 개별
+        commit 하지 않게 하고, 마지막에 단일 `db.commit()` 으로 함께 영속화한다. 문서가 남은
+        비-empty 워크스페이스는 s01 FK `ON DELETE RESTRICT` 위반으로 이 단일 commit 이
+        `IntegrityError` 를 일으키며, 이를 rollback 후 `DomainError(CONFLICT, 409)` 로 변환해
+        거부한다. 멤버십 제거와 워크스페이스 삭제가 아직 커밋되지 않은 하나의 트랜잭션 안에 있으므로
+        단일 rollback 이 멤버십 제거까지 되돌린다 — 아무것도 제거되지 않는다(INV-4·FK 정합,
+        design.md §Invariants 단일 트랜잭션 사후조건). empty 워크스페이스는 멤버십과 워크스페이스가
+        같은 트랜잭션에서 삭제되므로 멤버→워크스페이스 FK 가 막지 않고 단일 commit 이 성공해 204 다.
         """
         workspace = self._ws_repo.get_by_id(db, workspace_id)
         if workspace is None:
@@ -163,8 +163,9 @@ class WorkspaceService:
             )
 
         try:
-            self._member_repo.remove_all_for_workspace(db, workspace_id)
-            self._ws_repo.delete(db, workspace)
+            self._member_repo.remove_all_for_workspace(db, workspace_id, commit=False)
+            self._ws_repo.delete(db, workspace, commit=False)
+            db.commit()
         except IntegrityError as exc:
             db.rollback()
             raise DomainError(

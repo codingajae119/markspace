@@ -125,15 +125,21 @@ class WorkspaceRepository:
         db.refresh(ws)
         return ws
 
-    def delete(self, db: Session, ws: Workspace) -> None:
-        """워크스페이스 행을 물리적으로 제거하고 commit 한다(INV-4 비대상, Req 2.5).
+    def delete(self, db: Session, ws: Workspace, commit: bool = True) -> None:
+        """워크스페이스 행을 물리적으로 제거하고(기본) commit 한다(INV-4 비대상, Req 2.5).
 
         workspace 는 INV-4 비대상 엔티티이므로 물리 DELETE 가 정당하다. 멤버십 선삭제와
         문서 참조 FK `ON DELETE RESTRICT` 위반(비-empty)→409 변환은 서비스의 책임이며,
         리포지토리의 `delete` 는 DELETE 만 발행한다.
+
+        `commit=False` 로 호출하면 DELETE 만 flush 대상으로 스테이징하고 commit 은 호출자에게
+        위임한다. 이는 멤버십 선삭제와 워크스페이스 DELETE 를 단일 트랜잭션으로 묶어 비-empty
+        FK RESTRICT 위반 시 하나의 rollback 으로 아무것도 제거되지 않게 하려는 서비스의 요구
+        (design.md §Invariants 단일 트랜잭션)를 위한 것이다.
         """
         db.delete(ws)
-        db.commit()
+        if commit:
+            db.commit()
 
 
 class MembershipRepository:
@@ -208,15 +214,23 @@ class MembershipRepository:
         db.delete(member)
         db.commit()
 
-    def remove_all_for_workspace(self, db: Session, workspace_id: int) -> None:
-        """워크스페이스의 모든 멤버 행을 물리적으로 제거하고 commit 한다(Req 3.6).
+    def remove_all_for_workspace(
+        self, db: Session, workspace_id: int, commit: bool = True
+    ) -> None:
+        """워크스페이스의 모든 멤버 행을 물리적으로 제거하고(기본) commit 한다(Req 3.6).
 
         워크스페이스 삭제 시 멤버십 선삭제에 사용된다(INV-4 비대상, 물리 삭제 정당).
+
+        `commit=False` 로 호출하면 bulk DELETE 만 발행하고 commit 은 호출자에게 위임한다.
+        이는 멤버십 선삭제와 이어지는 워크스페이스 DELETE 를 단일 트랜잭션으로 묶어, 비-empty
+        FK RESTRICT 위반 시 하나의 rollback 으로 멤버십 제거까지 되돌리려는 서비스의 요구
+        (design.md §Invariants 단일 트랜잭션 / 409 시 아무것도 제거되지 않음)를 위한 것이다.
         """
         db.query(WorkspaceMember).filter(
             WorkspaceMember.workspace_id == workspace_id
         ).delete()
-        db.commit()
+        if commit:
+            db.commit()
 
     def user_exists(self, db: Session, user_id: int) -> bool:
         """user 행이 존재하면 True 를 반환한다(Req 3.2).

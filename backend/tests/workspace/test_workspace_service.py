@@ -149,13 +149,16 @@ class _FakeWorkspaceRepo:
             setattr(ws, key, value)
         return ws
 
-    def delete(self, db, ws: Workspace) -> None:
+    def delete(self, db, ws: Workspace, commit: bool = True) -> None:
         assert isinstance(db, _FakeDb)
         self.delete_calls.append(ws)
         if self._raise_on_delete:
             # FK ON DELETE RESTRICT 위반(비-empty 워크스페이스)을 모사한다.
             raise IntegrityError("DELETE", {}, Exception("FK RESTRICT"))
-        db.commit()
+        # 서비스는 단일 트랜잭션을 위해 commit=False 로 호출하고 자신이 commit 한다.
+        # commit=True(직접 호출 계약 기본값)일 때만 여기서 commit 한다.
+        if commit:
+            db.commit()
 
 
 class _FakeMembershipRepo:
@@ -180,11 +183,17 @@ class _FakeMembershipRepo:
         )
         return object()
 
-    def remove_all_for_workspace(self, db, workspace_id: int) -> None:
+    def remove_all_for_workspace(
+        self, db, workspace_id: int, commit: bool = True
+    ) -> None:
         assert isinstance(db, _FakeDb)
         self.remove_all_calls.append(workspace_id)
         db._ensure_snapshot()
         db.members = [m for m in db.members if m["workspace_id"] != workspace_id]
+        # 서비스는 단일 트랜잭션을 위해 commit=False 로 호출한다(스냅샷은 유지되어
+        # 이후 rollback 이 멤버십 제거를 되돌린다). commit=True 일 때만 promote 한다.
+        if commit:
+            db.commit()
 
 
 # --- create_workspace ---------------------------------------------------------
