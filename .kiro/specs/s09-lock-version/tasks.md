@@ -36,7 +36,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. Core: 잠금·버전 서비스
-- [ ] 2.1 편집 시작(start_edit) 구현 (INV-9·멱등·충돌)
+- [x] 2.1 편집 시작(start_edit) 구현 (INV-9·멱등·충돌)
   - `service.py` `LockVersionService.start_edit` 구현: `get_for_update`로 문서 로드(미존재→404); `lock_user_id`
     분기 — NULL→`acquire_lock`(요청자·현재 시각), 요청자 본인→기존 잠금 유지 멱등 성공, 타인→409(다른
     사용자가 편집 중); `DocumentLockRead` 반환. 문서 `status` 검사하지 않음(§4.3)
