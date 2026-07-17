@@ -35,7 +35,7 @@ import app.models  # noqa: F401 — side-effect: Base.metadata 채움
 from app.attachment.archival import ArchivalSweepService
 from app.attachment.storage import AttachmentStorage
 from app.common.db import Base
-from app.models import Attachment, Document, User, Workspace
+from app.models import Attachment, Document, DocumentVersion, User, Workspace
 
 TEST_DB_NAME = "notion_lite_test"
 
@@ -128,6 +128,30 @@ def _make_attachment(
     session.add(att)
     session.flush()
     return att
+
+
+def _make_version(session, *, document_id, created_by, content, created_at):
+    """DocumentVersion 행을 삽입하고 flush 한다(8.7 현재 버전 본문 시드용).
+
+    현재 버전 본문에 `/attachments/{id}` 토큰을 담아 참조 관측을, created_at 을 조절해
+    붙여넣기 보호 판정을 시드한다. DateTime(0) 초 정밀도이므로 초 단위 시각만 쓴다.
+    """
+    ver = DocumentVersion(
+        document_id=document_id,
+        content=content,
+        created_by=created_by,
+        created_at=created_at,
+    )
+    session.add(ver)
+    session.flush()
+    return ver
+
+
+def _set_current_version(session, doc, version):
+    """문서의 current_version_id 를 지정 버전으로 설정하고 flush 한다(현재 버전 관측 시드용)."""
+    doc.current_version_id = version.id
+    session.add(doc)
+    session.flush()
 
 
 @pytest.fixture
@@ -565,3 +589,489 @@ def test_archive_isolates_per_attachment_failure(sessionmaker_factory, roots):
     # 실패 첨부의 파일은 저장 위치에 그대로 있고, 성공 첨부만 보관으로 이동됐다.
     assert fail_file.is_file()
     assert (archive_root / f"{ws_id}/{Path(ok_rel).name}").is_file()
+
+
+# ======================================================================
+# 저장 참조 소멸 이미지 아카이브(8.7) — archive_dereferenced_images
+# (Task 2.4 / Req 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 7.7)
+#
+# design.md §System Flows "저장 참조 소멸 아카이브 (8.7)" 판정을 실제 DB + tmp 저장소로
+# 검증한다. 판정은 현재 버전 본문 참조 관측으로만 하며(붙여넣기 보호 포함) s12 는 저장·버전
+# 생성·상태 전이를 수행하지 않는다.
+# ======================================================================
+
+# 붙여넣기 보호가 통과(proceed)하도록 att.created_at <= current_version.created_at.
+_CUR_VER_AT = datetime(2026, 7, 17, 10, 0, 0)
+_ATT_BEFORE = datetime(2026, 7, 17, 9, 0, 0)   # <= 현재 버전(저장 반영됨) → proceed
+_ATT_AFTER = datetime(2026, 7, 17, 11, 0, 0)   # > 현재 버전(미저장 새 붙여넣기) → skip
+
+
+# --- 참조 소멸 image: 보관 이동 + 물리 삭제 없음(Req 5.1) ------------------
+
+
+def test_dereferenced_image_is_archived(sessionmaker_factory, roots):
+    """현재 버전이 참조하지 않는 image(att.created_at<=현재버전)가 보관 이동·is_archived=true 되고
+    파일이 물리 삭제되지 않는다(Req 5.1·5.2, INV-4). 반환 건수 1."""
+    storage_root, archive_root = roots
+    data = b"\x89PNG\r\n\x1a\n-dereferenced-image"
+
+    session = sessionmaker_factory()
+    try:
+        user = _make_user(session, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(session, name=f"ws-{uuid4().hex}")
+        doc = _make_document(
+            session, workspace_id=ws.id, created_by=user.id, status="active"
+        )
+        rel_path = f"{ws.id}/{uuid4().hex}.png"
+        att = _make_attachment(
+            session,
+            workspace_id=ws.id,
+            document_id=doc.id,
+            file_path=rel_path,
+            is_archived=False,
+            created_at=_ATT_BEFORE,
+        )
+        # 현재 버전 본문은 이 첨부를 참조하지 않는다(다른 첨부만 언급).
+        ver = _make_version(
+            session,
+            document_id=doc.id,
+            created_by=user.id,
+            content="본문에 다른 이미지 /attachments/999999 만 있고 대상은 없음",
+            created_at=_CUR_VER_AT,
+        )
+        _set_current_version(session, doc, ver)
+        session.commit()
+        att_id = att.id
+        ws_id = ws.id
+    finally:
+        session.close()
+
+    storage_file = _save_file(storage_root, rel_path, data)
+    assert storage_file.is_file()
+
+    session = sessionmaker_factory()
+    try:
+        service = ArchivalSweepService()
+        moved = service.archive_dereferenced_images(session)
+    finally:
+        session.close()
+
+    assert moved == 1, "참조 소멸 image 1건이 보관 이동되어야 한다"
+
+    verify = sessionmaker_factory()
+    try:
+        row = verify.get(Attachment, att_id)
+        assert row.is_archived is True, "참조 소멸 image 는 is_archived=true"
+        assert row.file_path == f"{ws_id}/{Path(rel_path).name}"
+    finally:
+        verify.close()
+
+    archived_file = archive_root / f"{ws_id}/{Path(rel_path).name}"
+    assert archived_file.is_file(), "보관 파일은 물리적으로 존재해야 한다(INV-4)"
+    assert archived_file.read_bytes() == data
+    assert not storage_file.exists(), "저장 위치의 파일은 보관 위치로 이동되어야 한다"
+
+
+# --- 현재 버전이 참조하는 image: 보관하지 않음(Req 5.5) --------------------
+
+
+def test_referenced_image_is_kept(sessionmaker_factory, roots):
+    """현재 버전 본문이 `/attachments/{id}` 로 참조하는 image 는 보관 이동하지 않는다(Req 5.5)."""
+    storage_root, archive_root = roots
+
+    session = sessionmaker_factory()
+    try:
+        user = _make_user(session, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(session, name=f"ws-{uuid4().hex}")
+        doc = _make_document(
+            session, workspace_id=ws.id, created_by=user.id, status="active"
+        )
+        rel_path = f"{ws.id}/{uuid4().hex}.png"
+        att = _make_attachment(
+            session,
+            workspace_id=ws.id,
+            document_id=doc.id,
+            file_path=rel_path,
+            is_archived=False,
+            created_at=_ATT_BEFORE,
+        )
+        # 현재 버전 본문이 이 첨부를 참조한다.
+        ver = _make_version(
+            session,
+            document_id=doc.id,
+            created_by=user.id,
+            content=f"![img](/attachments/{att.id}) 여전히 참조 중",
+            created_at=_CUR_VER_AT,
+        )
+        _set_current_version(session, doc, ver)
+        session.commit()
+        att_id = att.id
+    finally:
+        session.close()
+
+    storage_file = _save_file(storage_root, rel_path, b"referenced-bytes")
+
+    session = sessionmaker_factory()
+    try:
+        service = ArchivalSweepService()
+        moved = service.archive_dereferenced_images(session)
+    finally:
+        session.close()
+
+    assert moved == 0, "현재 버전이 참조하는 image 는 보관 대상이 아니다"
+
+    verify = sessionmaker_factory()
+    try:
+        row = verify.get(Attachment, att_id)
+        assert row.is_archived is False, "참조되는 image 는 불변"
+        assert row.file_path == rel_path
+    finally:
+        verify.close()
+
+    assert storage_file.is_file(), "파일은 저장 위치에 그대로 있어야 한다"
+    assert not (archive_root / rel_path).exists()
+
+
+# --- 붙여넣기 보호: 미저장 새 붙여넣기 image 는 보관하지 않음(Req 5.3) -------
+
+
+def test_unsaved_paste_image_is_not_archived(sessionmaker_factory, roots):
+    """att.created_at > current_version.created_at 인 미저장 새 붙여넣기 image 는 참조되지 않아도
+    보관 이동하지 않는다(붙여넣기 보호, Req 5.3)."""
+    storage_root, archive_root = roots
+
+    session = sessionmaker_factory()
+    try:
+        user = _make_user(session, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(session, name=f"ws-{uuid4().hex}")
+        doc = _make_document(
+            session, workspace_id=ws.id, created_by=user.id, status="active"
+        )
+        rel_path = f"{ws.id}/{uuid4().hex}.png"
+        # 첨부가 현재 버전보다 나중에 생성됨(방금 붙여넣었으나 아직 저장 안 됨).
+        att = _make_attachment(
+            session,
+            workspace_id=ws.id,
+            document_id=doc.id,
+            file_path=rel_path,
+            is_archived=False,
+            created_at=_ATT_AFTER,
+        )
+        # 현재 버전 본문은 이 첨부를 참조하지 않는다(아직 저장 안 됨).
+        ver = _make_version(
+            session,
+            document_id=doc.id,
+            created_by=user.id,
+            content="아직 이 붙여넣기가 반영되지 않은 이전 저장 본문",
+            created_at=_CUR_VER_AT,
+        )
+        _set_current_version(session, doc, ver)
+        session.commit()
+        att_id = att.id
+    finally:
+        session.close()
+
+    storage_file = _save_file(storage_root, rel_path, b"unsaved-paste-bytes")
+
+    session = sessionmaker_factory()
+    try:
+        service = ArchivalSweepService()
+        moved = service.archive_dereferenced_images(session)
+    finally:
+        session.close()
+
+    assert moved == 0, "미저장 새 붙여넣기 image 는 보관 대상이 아니다(붙여넣기 보호)"
+
+    verify = sessionmaker_factory()
+    try:
+        row = verify.get(Attachment, att_id)
+        assert row.is_archived is False, "미저장 붙여넣기 image 는 불변"
+        assert row.file_path == rel_path
+    finally:
+        verify.close()
+
+    assert storage_file.is_file()
+    assert not (archive_root / rel_path).exists()
+
+
+# --- 이미지 한정: 일반 파일(kind='file')은 8.7 대상 아님(Req 5.6) ----------
+
+
+def test_dereferenced_general_file_is_not_archived_by_87(sessionmaker_factory, roots):
+    """참조되지 않는 일반 파일(kind='file')은 archive_dereferenced_images 스코프에서 제외되어
+    보관 이동하지 않는다(이미지 한정, Req 5.6). 일반 파일은 8.6 으로만 처리된다."""
+    storage_root, archive_root = roots
+
+    session = sessionmaker_factory()
+    try:
+        user = _make_user(session, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(session, name=f"ws-{uuid4().hex}")
+        doc = _make_document(
+            session, workspace_id=ws.id, created_by=user.id, status="active"
+        )
+        rel_path = f"{ws.id}/{uuid4().hex}.bin"
+        att = _make_attachment(
+            session,
+            workspace_id=ws.id,
+            document_id=doc.id,
+            kind="file",  # 일반 파일 — 8.7 스코프 제외
+            file_path=rel_path,
+            original_name="doc.pdf",
+            is_archived=False,
+            created_at=_ATT_BEFORE,
+        )
+        # 현재 버전이 참조하지 않아도 image 가 아니라 보관 대상이 아니다.
+        ver = _make_version(
+            session,
+            document_id=doc.id,
+            created_by=user.id,
+            content="일반 파일을 참조하지 않는 본문",
+            created_at=_CUR_VER_AT,
+        )
+        _set_current_version(session, doc, ver)
+        session.commit()
+        att_id = att.id
+    finally:
+        session.close()
+
+    storage_file = _save_file(storage_root, rel_path, b"general-file-bytes")
+
+    session = sessionmaker_factory()
+    try:
+        service = ArchivalSweepService()
+        moved = service.archive_dereferenced_images(session)
+    finally:
+        session.close()
+
+    assert moved == 0, "일반 파일은 8.7 참조 소멸 아카이브 대상이 아니다"
+
+    verify = sessionmaker_factory()
+    try:
+        row = verify.get(Attachment, att_id)
+        assert row.is_archived is False, "일반 파일은 8.7 로 보관되지 않는다"
+        assert row.file_path == rel_path
+    finally:
+        verify.close()
+
+    assert storage_file.is_file()
+    assert not (archive_root / rel_path).exists()
+
+
+# --- wrong-version-join 방어: 현재 버전만으로 판정 -------------------------
+
+
+def test_judgment_uses_current_version_not_older_version(sessionmaker_factory, roots):
+    """현재 버전 문서에 참조하던 더 오래된 버전과 참조 안 하는 현재(최신) 버전이 둘 다 있을 때,
+    판정은 현재 버전만 사용해 image 를 보관한다(잘못된 버전 조인 회귀 방어)."""
+    storage_root, archive_root = roots
+    data = b"current-version-judgment"
+
+    session = sessionmaker_factory()
+    try:
+        user = _make_user(session, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(session, name=f"ws-{uuid4().hex}")
+        doc = _make_document(
+            session, workspace_id=ws.id, created_by=user.id, status="active"
+        )
+        rel_path = f"{ws.id}/{uuid4().hex}.png"
+        att = _make_attachment(
+            session,
+            workspace_id=ws.id,
+            document_id=doc.id,
+            file_path=rel_path,
+            is_archived=False,
+            created_at=_ATT_BEFORE,
+        )
+        # 더 오래된 버전은 이 첨부를 참조했다(과거).
+        _make_version(
+            session,
+            document_id=doc.id,
+            created_by=user.id,
+            content=f"과거 버전이 참조 ![img](/attachments/{att.id})",
+            created_at=datetime(2026, 7, 17, 8, 0, 0),
+        )
+        # 현재(최신) 버전은 더 이상 참조하지 않는다.
+        current = _make_version(
+            session,
+            document_id=doc.id,
+            created_by=user.id,
+            content="현재 버전은 그 이미지를 참조하지 않음",
+            created_at=_CUR_VER_AT,
+        )
+        _set_current_version(session, doc, current)
+        session.commit()
+        att_id = att.id
+        ws_id = ws.id
+    finally:
+        session.close()
+
+    _save_file(storage_root, rel_path, data)
+
+    session = sessionmaker_factory()
+    try:
+        service = ArchivalSweepService()
+        moved = service.archive_dereferenced_images(session)
+    finally:
+        session.close()
+
+    assert moved == 1, "현재 버전이 참조하지 않으므로 보관 이동되어야 한다(현재 버전만 판정)"
+
+    verify = sessionmaker_factory()
+    try:
+        row = verify.get(Attachment, att_id)
+        assert row.is_archived is True
+        assert row.file_path == f"{ws_id}/{Path(rel_path).name}"
+    finally:
+        verify.close()
+
+    assert (archive_root / f"{ws_id}/{Path(rel_path).name}").is_file()
+
+
+# --- 통합 스윕: 8.6 then 8.7, 멱등 ----------------------------------------
+
+
+def test_sweep_runs_both_reactions_and_is_idempotent(sessionmaker_factory, roots):
+    """sweep(db, now) 가 완전삭제 반응(8.6)과 참조 소멸(8.7)을 모두 수행해 합산 건수를 반환하고,
+    두 번째 실행은 0 을 반환한다(멱등, Req 5.4)."""
+    storage_root, archive_root = roots
+    deleted_data = b"deleted-doc-8.6"
+    deref_data = b"dereferenced-8.7"
+
+    session = sessionmaker_factory()
+    try:
+        user = _make_user(session, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(session, name=f"ws-{uuid4().hex}")
+
+        # 8.6 대상: deleted 문서의 미보관 첨부.
+        deleted_doc = _make_document(
+            session, workspace_id=ws.id, created_by=user.id, status="deleted"
+        )
+        deleted_rel = f"{ws.id}/{uuid4().hex}.png"
+        deleted_att = _make_attachment(
+            session,
+            workspace_id=ws.id,
+            document_id=deleted_doc.id,
+            file_path=deleted_rel,
+            is_archived=False,
+        )
+
+        # 8.7 대상: active 문서의 참조 소멸 image.
+        active_doc = _make_document(
+            session, workspace_id=ws.id, created_by=user.id, status="active"
+        )
+        deref_rel = f"{ws.id}/{uuid4().hex}.png"
+        deref_att = _make_attachment(
+            session,
+            workspace_id=ws.id,
+            document_id=active_doc.id,
+            file_path=deref_rel,
+            is_archived=False,
+            created_at=_ATT_BEFORE,
+        )
+        ver = _make_version(
+            session,
+            document_id=active_doc.id,
+            created_by=user.id,
+            content="현재 버전은 그 이미지를 참조하지 않음",
+            created_at=_CUR_VER_AT,
+        )
+        _set_current_version(session, active_doc, ver)
+        session.commit()
+        deleted_id = deleted_att.id
+        deref_id = deref_att.id
+        ws_id = ws.id
+    finally:
+        session.close()
+
+    _save_file(storage_root, deleted_rel, deleted_data)
+    _save_file(storage_root, deref_rel, deref_data)
+
+    now = datetime(2026, 7, 17, 12, 0, 0)
+    service = ArchivalSweepService()
+
+    session = sessionmaker_factory()
+    try:
+        first = service.sweep(session, now)
+    finally:
+        session.close()
+
+    session = sessionmaker_factory()
+    try:
+        second = service.sweep(session, now)
+    finally:
+        session.close()
+
+    assert first == 2, "sweep 은 8.6 1건 + 8.7 1건 = 2건을 처리해야 한다"
+    assert second == 0, "두 번째 sweep 은 이미 보관되어 0(멱등)"
+
+    verify = sessionmaker_factory()
+    try:
+        assert verify.get(Attachment, deleted_id).is_archived is True
+        assert verify.get(Attachment, deref_id).is_archived is True
+    finally:
+        verify.close()
+
+    assert (archive_root / f"{ws_id}/{Path(deleted_rel).name}").is_file()
+    assert (archive_root / f"{ws_id}/{Path(deref_rel).name}").is_file()
+
+
+# --- 상태/버전 무변경(관측만, Req 7.7) ------------------------------------
+
+
+def test_sweep_does_not_mutate_document_state(sessionmaker_factory, roots):
+    """sweep 후에도 문서 status·current_version_id 가 불변이다(s12 는 상태 전이·버전 생성 없음,
+    Req 5.4·7.7)."""
+    storage_root, _ = roots
+
+    session = sessionmaker_factory()
+    try:
+        user = _make_user(session, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(session, name=f"ws-{uuid4().hex}")
+        doc = _make_document(
+            session, workspace_id=ws.id, created_by=user.id, status="active"
+        )
+        rel_path = f"{ws.id}/{uuid4().hex}.png"
+        _make_attachment(
+            session,
+            workspace_id=ws.id,
+            document_id=doc.id,
+            file_path=rel_path,
+            is_archived=False,
+            created_at=_ATT_BEFORE,
+        )
+        ver = _make_version(
+            session,
+            document_id=doc.id,
+            created_by=user.id,
+            content="참조 없음",
+            created_at=_CUR_VER_AT,
+        )
+        _set_current_version(session, doc, ver)
+        session.commit()
+        doc_id = doc.id
+        ver_id = ver.id
+    finally:
+        session.close()
+
+    _save_file(storage_root, rel_path, b"state-immutable")
+
+    session = sessionmaker_factory()
+    try:
+        service = ArchivalSweepService()
+        service.sweep(session, datetime(2026, 7, 17, 12, 0, 0))
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        row = verify.get(Document, doc_id)
+        assert row.status == "active", "s12 는 문서 status 를 전이하지 않는다"
+        assert row.current_version_id == ver_id, "s12 는 current_version_id 를 바꾸지 않는다"
+        # 버전이 새로 생성되지 않았음을 확인(버전 1개 유지).
+        count = verify.scalar(
+            text("SELECT COUNT(*) FROM document_version WHERE document_id = :d"),
+            {"d": doc_id},
+        )
+        assert count == 1, "s12 는 버전을 생성하지 않는다"
+    finally:
+        verify.close()

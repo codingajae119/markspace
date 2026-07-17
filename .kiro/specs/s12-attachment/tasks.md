@@ -59,7 +59,7 @@
   - _Requirements: 3.4, 3.6, 7.3_
   - _Boundary: AttWsAdapter_
 
-- [ ] 2. Core: 첨부 업로드·서빙 및 보관 조정(관측 기반)
+- [x] 2. Core: 첨부 업로드·서빙 및 보관 조정(관측 기반)
 - [x] 2.1 첨부 업로드 유스케이스 구현 (이미지 붙여넣기·파일 첨부)
   - 업로드 유스케이스 구현: 대상 문서 존재 확인(부재→404), 소속 workspace_id를 클라이언트 입력이 아닌 대상
     문서에서 확정, 업로드 크기 한도 초과 시 거부(422), `AttachmentStorage.save`로 WS 격리 위치에 파일 저장(붙여넣기
@@ -90,7 +90,7 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 7.7_
   - _Boundary: ArchivalSweepService_
   - _Depends: 1.2, 1.3_
-- [ ] 2.4 (P) 저장 참조 소멸 이미지 아카이브 조정 + 통합 스윕 구현 (8.7)
+- [x] 2.4 (P) 저장 참조 소멸 이미지 아카이브 조정 + 통합 스윕 구현 (8.7)
   - 참조 소멸 조정 구현: 미보관 image이며 current_version이 있는 첨부를 스코프 질의로 열거하고, 붙여넣기 보호로
     `attachment.created_at > current_version.created_at`(미저장 새 붙여넣기)인 이미지는 skip, 현재 버전 본문을 `s07`
     `load_current_content`로 로드해 `ReferenceScanner.is_referenced`가 False면 보관 이동·is_archived=true, 현재
