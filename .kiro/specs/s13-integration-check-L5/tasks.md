@@ -104,7 +104,7 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
   - _Boundary: PurgeArchiveCombinationSuite_
   - _Depends: 1.2_
-- [ ] 2.4 (P) 참조 소멸↔버전 저장 결합 스위트 — 이미지 보관 이동·붙여넣기 보호·현재참조 유지 미보관·이미지 한정 (8.7)
+- [x] 2.4 (P) 참조 소멸↔버전 저장 결합 스위트 — 이미지 보관 이동·붙여넣기 보호·현재참조 유지 미보관·이미지 한정 (8.7)
   - `tests/integration_L5/test_save_dereference_combination.py`에: (1) 이미지 참조를 포함한 본문으로 저장 → 참조를
     제거한 새 본문으로 재저장(s09 새 버전·current 갱신) → `run_archival_sweep`/`archive_dereferenced_images` 실행 →
     그 이미지가 보관 이동·`is_archived=true` (5.1), (2) 현재 버전 본문에 `/attachments/{id}` 토큰이 존재하면 보관하지
