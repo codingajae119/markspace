@@ -36,7 +36,7 @@
   - _Boundary: Helpers_
   - _Depends: 1.1_
 
-- [ ] 2. Core: 계약 대조·권한 게이팅·계층 이동·bundle 캐스케이드·복구/완전삭제·엣지케이스 검증 스위트
+- [x] 2. Core: 계약 대조·권한 게이팅·계층 이동·bundle 캐스케이드·복구/완전삭제·엣지케이스 검증 스위트
 - [x] 2.1 (P) 문서 계약 대조 스위트 — 스키마·API(18~23)·status·에러·Base 규약
   - `tests/integration_L3/test_document_contract_conformance.py`에: (1) 마이그레이션된 `document`(workspace_id/
     parent_id/title/status ENUM(active/trashed/deleted)/sort_order DECIMAL/current_version_id/trashed_at/
@@ -100,7 +100,7 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
   - _Boundary: BundleRestorePurgeSuite_
   - _Depends: 1.2_
-- [ ] 2.6 (P) 결합 엣지케이스 스위트 — trashed_at 초 단위 묶음 경계·삭제 사용자 작성자 보존·문서 보유 WS 삭제 거부 (INV-4·FK RESTRICT)
+- [x] 2.6 (P) 결합 엣지케이스 스위트 — trashed_at 초 단위 묶음 경계·삭제 사용자 작성자 보존·문서 보유 WS 삭제 거부 (INV-4·FK RESTRICT)
   - `tests/integration_L3/test_combination_edge.py`에: (1) 부모-자식이 동일 초에 trashed될 수 있는 경계(자식 먼저 삭제
     → 곧바로 부모 삭제)를 구성해 각 삭제가 자기 묶음 구성원을 삭제 시점에 결정적으로 확정하고 `identify_bundles`/
     `get_bundle` 재구성이 루트+동일 trashed_at 연결 서브트리 기준으로 독립 묶음을 오병합 없이 식별 (7.1), 초 단위 경계
@@ -136,3 +136,4 @@
 
 ## Implementation Notes
 - **DATETIME(0) 초정밀도 라운딩 (task 2.4)**: `trashed_at`(`sa.DateTime()` → MySQL `DATETIME(0)`)은 소수 초를 **버림이 아니라 반올림**한다. 서로 다른 삭제를 독립 묶음으로 관측하려면 두 삭제의 **저장된(재조회)** `trashed_at` 초가 확실히 달라야 하며, 단순히 1초 경계만 넘기면 `.6s`·다음초 `.4s` 가 같은 초로 반올림돼 자식이 부모 묶음으로 흡수된다. 해결: 자식의 **저장된** `trashed_at` + 2s 여유만큼 대기한 뒤 부모 삭제(margin-based wait keyed on stored value). task 2.6(초 단위 경계 오병합)이 같은 초 흡수를 정면으로 검증하므로 이 라운딩 특성을 그대로 활용.
+- **s05 워크스페이스 삭제 원자성 회귀 포착·수정 (task 2.6, 상위 spec 라우팅)**: L3 7.5 검증이 s05 실 결함을 포착 — `WorkspaceService.delete_workspace` 가 멤버십 제거(`remove_all_for_workspace` 내부 commit)를 워크스페이스 물리 삭제 **이전에 커밋**해, 비-empty(문서 보유) 워크스페이스 삭제가 FK `ON DELETE RESTRICT` IntegrityError→rollback 될 때 이미 커밋된 멤버십 제거는 되돌지 못함 → 409 인데도 멤버십(오너 포함) 물리 소실(데이터 손실). s05 design §Invariants "단일 서비스 트랜잭션" 위반. **수정(원인 spec s05)**: `remove_all_for_workspace`·`WorkspaceRepository.delete` 에 `commit: bool = True` 추가, 서비스가 둘을 `commit=False` 로 호출 후 try 안에서 단일 `db.commit()` → 비-empty 는 한 번의 rollback 으로 멤버십 복원(아무것도 제거 안 됨), empty 는 204. FK RESTRICT 를 거부 트리거로 유지(문서 카운트 선검사 미도입). s05 단위 테스트 fake 가 독립 commit 을 모델링하지 않아 통과했던 fidelity gap 을 L3 mock-free 실 DB 오라클이 노출. 재검증 트리거: s05 수정이므로 L3 및 이후 체크포인트 누적 재실행 대상.
