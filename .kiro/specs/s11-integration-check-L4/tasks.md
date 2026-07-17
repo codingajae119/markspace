@@ -45,7 +45,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. Core: 계약 대조·잠금흐름·휴지통흐름·독립·스윕·아래계층 엣지 검증 스위트
-- [ ] 2.1 (P) 누적 계약 대조 스위트 — lock 필드·document_version·API(24~31)·에러·Base·Settings additive
+- [x] 2.1 (P) 누적 계약 대조 스위트 — lock 필드·document_version·API(24~31)·에러·Base·Settings additive
   - `tests/integration_L4/test_cumulative_contract_conformance.py`에: (1) 마이그레이션된 `document` lock 컬럼
     (`lock_user_id BIGINT FK NULL`·`lock_acquired_at DATETIME NULL`·`current_version_id BIGINT FK NULL`)과
     `document_version`(`document_id` FK·`content`·`created_by` FK·`created_at`·INDEX(document_id, created_at))이 s01
