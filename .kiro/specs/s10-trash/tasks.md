@@ -79,7 +79,7 @@
   - _Depends: 1.2_
 
 - [ ] 3. Integration: 라우터·스케줄러·부트스트랩 연결
-- [ ] 3.1 휴지통 3개 엔드포인트 구현
+- [x] 3.1 휴지통 3개 엔드포인트 구현
   - 휴지통 목록(editor, 워크스페이스 경로) · 묶음 복구(editor, 묶음 경로) · 묶음 완전삭제(editor, 묶음 경로)
     엔드포인트를 구현. 목록은 경로 id를 workspace_id로 사용하고, 복구·완전삭제는 묶음→WS 어댑터로 workspace_id를
     주입해 editor 이상만 통과(viewer/비멤버→403, admin bypass, 비인증→401, WS 단위 판정). 완전삭제 엔드포인트는
@@ -127,3 +127,6 @@
     식별·완전삭제 primitive만으로 동작함(INV-12·10)이 확인된다
   - _Requirements: 4.1, 4.2, 4.4, 4.5, 4.6, 4.7, 6.1_
   - _Depends: 3.2_
+
+## Implementation Notes
+- 3.1 (Req 1.8 정합 갭, L4 재검증 항목): `GET /workspaces/{id}/trash`는 `require_ws_role(EDITOR)` 게이트로만 판정하므로 **존재하지 않는 워크스페이스는 404가 아니라 403**(비멤버 처리; admin은 빈 목록 200)을 낸다. design.md §Error Handling 표는 WS 부재에 404를 적었으나 §TrashRouter API Contract가 지정한 게이트(require_ws_role, 존재 선검사 없음)는 구조상 404를 낼 수 없다. s07 `GET /workspaces/{workspace_id}/documents`도 동일하게 403(L3 통과)이고, 403은 워크스페이스 존재를 비멤버에게 노출하지 않는 anti-enumeration 관점에서 오히려 옳다(Req 5.2 정합). 라우터 경계 안에서 404를 내려면 존재 선검사 재구현+존재 누설이 필요하므로 upstream(s01/s05) 게이트 계약 소관으로 남긴다. s11(L4)에서 재검증.
