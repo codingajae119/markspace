@@ -119,7 +119,7 @@
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
   - _Boundary: SaveDereferenceCombinationSuite_
   - _Depends: 1.2_
-- [ ] 2.5 (P) 보관 격리·비노출 스위트 — role 무관 404(admin 포함·권한 이전)·복원 없음·보관 WS 격리·단조증가 (INV-7)
+- [x] 2.5 (P) 보관 격리·비노출 스위트 — role 무관 404(admin 포함·권한 이전)·복원 없음·보관 WS 격리·단조증가 (INV-7)
   - `tests/integration_L5/test_archive_isolation.py`에 8.6/8.7 실제 스윕으로 첨부를 보관 처리한 뒤: (1) 보관된 첨부를
     viewer·editor·owner가 `GET /attachments/{id}`로 조회하면 모두 404(role 무관) (6.1, 8.10), (2) admin도 404이며 이
     보관 차단이 `require_ws_role` 권한 판정에 도달하기 전에 적용됨(보관 첨부는 소속 WS 멤버 여부와 무관하게 404) (6.2,
