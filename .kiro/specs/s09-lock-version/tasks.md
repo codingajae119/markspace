@@ -9,7 +9,7 @@
 > (§4.3). 잠금 판정 근거는 `lock_user_id` 단일 컬럼(INV-9). `s10`/`s12`/`s14`를 import하지 않는다.
 
 - [ ] 1. Foundation: 모듈·스키마·데이터 접근
-- [ ] 1.1 lock_version 모듈 스캐폴드·스키마 정의
+- [x] 1.1 lock_version 모듈 스캐폴드·스키마 정의
   - `app/lock_version/` 패키지(`__init__.py`, `router.py`, `service.py`, `repository.py`, `schemas.py`)
     골격 생성
   - `schemas.py`에 `s01` Base Schemas를 상속한 `DocumentSaveRequest`(content: markdown 본문, 빈 문자열 허용),
