@@ -65,7 +65,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
   - _Boundary: CumulativeContractConformanceSuite_
   - _Depends: 1.1_
-- [ ] 2.2 (P) 잠금·버전 흐름 스위트 — 시작→차단→저장·해제→취소→강제해제→타임아웃없음→버전무한·게이팅 (INV-9)
+- [x] 2.2 (P) 잠금·버전 흐름 스위트 — 시작→차단→저장·해제→취소→강제해제→타임아웃없음→버전무한·게이팅 (INV-9)
   - `tests/integration_L4/test_lock_version_flow.py`에 동일 WS의 두 editor(A·B)·owner·viewer·비멤버·admin 세션으로:
     (1) A `POST /lock` 성공 → B `POST /lock` 409("편집 중")·문서당 잠금 최대 1인 (3.1, INV-9, 5.2), (2) A `POST
     /save`(content) → 새 `document_version` 생성·`current_version_id` 갱신·잠금 해제 → B `POST /lock` 성공 (3.2, 5.3),
