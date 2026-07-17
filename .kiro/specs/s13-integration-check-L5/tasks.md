@@ -10,7 +10,7 @@
 > L4 하네스는 **재사용·확장**한다.
 
 - [ ] 1. Foundation: L5 실제 결합 검증 하네스 (L4 재사용·확장)
-- [ ] 1.1 L5 통합 테스트 하네스 구성 (L4 하네스 재사용 + 첨부 업로드/서빙·아카이브 스윕·파일시스템 관찰 픽스처)
+- [x] 1.1 L5 통합 테스트 하네스 구성 (L4 하네스 재사용 + 첨부 업로드/서빙·아카이브 스윕·파일시스템 관찰 픽스처)
   - `tests/integration_L5/conftest.py`에서 `s11` `tests/integration_L4`의 하네스 픽스처(실제 MySQL 8에 `alembic
     upgrade head` 적용·`s01` `create_app()` 부팅·admin 시드·세션 유지 `TestClient` 팩토리·고유 login_id 생성기·
     워크스페이스 생성·멤버 추가(role)·role별 세션 클라이언트·문서 트리 생성·부팅 앱과 동일 `SessionLocal`/`get_db`
