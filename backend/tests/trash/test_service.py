@@ -29,6 +29,7 @@ from sqlalchemy.orm import sessionmaker
 
 import app.models  # noqa: F401 — side-effect: Base.metadata 채움
 from app.common.db import Base
+from app.common.errors import DomainError
 from app.document.engine import DocumentStateEngine
 from app.document.repository import DocumentRepository
 from app.models import Document, User, Workspace
@@ -458,3 +459,294 @@ def test_list_trash_projection_pure_unit():
     assert item.expires_at == t + timedelta(days=30)
     assert item.member_count == 2
     assert {m.id for m in item.members} == {11, 12}
+
+
+# --- restore: 묶음 복구 위임(엔진 restore_bundle) -------------------------
+
+
+def test_restore_returns_bundle_to_active_and_leaves_trash(sessionmaker_factory):
+    """복구는 엔진 복구 primitive 를 묶음 루트에 호출해 묶음 전체를 active 로 되돌린다
+    (Req 2.1·2.2). 복구 후 구성원은 status=active·trashed_at=NULL 이고 그 루트는
+    더 이상 `identify_bundles` 에 열거되지 않는다(휴지통에서 사라짐).
+
+    복구 위치·순서·자동 재중첩 규칙은 엔진이 결정하므로(Req 2.2) 여기서는 위임 결과
+    (전체 active 화·휴지통 이탈)만 관찰한다.
+    """
+    engine = DocumentStateEngine(DocumentRepository())
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(seed, name=f"ws-{uuid4().hex}")
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id,
+            title=f"R-{uuid4().hex}",
+        )
+        child = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=root.id,
+            title=f"C-{uuid4().hex}", sort_order=Decimal("2000"),
+        )
+        seed.commit()
+        engine.trash_document(seed, root)
+        ws_id, root_id, child_id = ws.id, root.id, child.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        result = _service().restore(session, root_id)
+        session.commit()
+    finally:
+        session.close()
+
+    assert result is None, "restore 는 None 을 반환해야 한다(라우터가 204 매핑)"
+
+    verify = sessionmaker_factory()
+    try:
+        members = (
+            verify.query(Document)
+            .filter(Document.id.in_([root_id, child_id]))
+            .all()
+        )
+        assert {m.status for m in members} == {"active"}, "구성원 전체 active 복구"
+        assert all(m.trashed_at is None for m in members), "trashed_at NULL 복구"
+
+        engine2 = DocumentStateEngine(DocumentRepository())
+        bundle_roots = {
+            b.root_document_id for b in engine2.identify_bundles(verify, ws_id)
+        }
+        assert root_id not in bundle_roots, "복구된 묶음은 휴지통에서 사라져야 한다"
+    finally:
+        verify.close()
+
+
+def test_restore_only_affects_requested_bundle(sessionmaker_factory):
+    """한 묶음의 복구가 다른 독립 묶음을 함께 되살리지 않는다(Req 2.4).
+
+    두 독립 묶음 A·B 를 만들고 A 만 복구한다. B 는 여전히 trashed 로 남고 그 trashed_at
+    도 변하지 않아야 한다.
+    """
+    t_b = datetime(2026, 5, 2, 10, 0, 0)
+    engine = DocumentStateEngine(DocumentRepository())
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(seed, name=f"ws-{uuid4().hex}")
+        root_a = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id,
+            title=f"A-{uuid4().hex}",
+        )
+        root_b = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id,
+            title=f"B-{uuid4().hex}", sort_order=Decimal("2000"),
+        )
+        seed.commit()
+        engine.trash_document(seed, root_a)
+        bundle_b = engine.trash_document(seed, root_b)
+        _pin_trashed_at(seed, bundle_b.members, t_b)
+        ws_id, root_a_id, root_b_id = ws.id, root_a.id, root_b.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        _service().restore(session, root_a_id)
+        session.commit()
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        b = verify.query(Document).filter(Document.id == root_b_id).one()
+        assert b.status == "trashed", "복구되지 않은 독립 묶음 B 는 여전히 trashed"
+        assert b.trashed_at == t_b, "B 의 trashed_at 은 변하지 않아야 한다"
+
+        a = verify.query(Document).filter(Document.id == root_a_id).one()
+        assert a.status == "active", "요청된 묶음 A 만 복구되어야 한다"
+    finally:
+        verify.close()
+
+
+def test_restore_invalid_root_propagates_404(sessionmaker_factory):
+    """유효하지 않은 묶음 루트 복구는 엔진의 404 DomainError 를 전파한다(Req 2.3).
+
+    (a) 존재하지 않는 id, (b) 존재하지만 묶음 루트가 아닌 구성원(자식) id — 둘 다
+    엔진 `get_bundle` 이 404 를 던지고 서비스는 이를 삼키지 않고 전파해야 한다.
+    """
+    engine = DocumentStateEngine(DocumentRepository())
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(seed, name=f"ws-{uuid4().hex}")
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id,
+            title=f"R-{uuid4().hex}",
+        )
+        child = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=root.id,
+            title=f"C-{uuid4().hex}", sort_order=Decimal("2000"),
+        )
+        seed.commit()
+        engine.trash_document(seed, root)
+        child_id = child.id
+    finally:
+        seed.close()
+
+    svc = _service()
+
+    session = sessionmaker_factory()
+    try:
+        with pytest.raises(DomainError) as exc_missing:
+            svc.restore(session, 99_999_999)
+        assert exc_missing.value.http_status == 404
+    finally:
+        session.close()
+
+    session2 = sessionmaker_factory()
+    try:
+        with pytest.raises(DomainError) as exc_nonroot:
+            svc.restore(session2, child_id)
+        assert exc_nonroot.value.http_status == 404, "비루트 구성원→404"
+    finally:
+        session2.close()
+
+
+# --- purge: 묶음 완전삭제 위임(엔진 purge_bundle) -------------------------
+
+
+def test_purge_transitions_bundle_to_deleted_terminal(sessionmaker_factory):
+    """완전삭제는 엔진 완전삭제 primitive 를 묶음 루트에 호출해 묶음 전체를 즉시
+    deleted(종착)로 전환한다(Req 3.1·3.3). 완전삭제 후 구성원은 status=deleted 이고
+    그 루트는 `identify_bundles`(trashed 만 열거)에서 사라진다.
+    """
+    engine = DocumentStateEngine(DocumentRepository())
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(seed, name=f"ws-{uuid4().hex}")
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id,
+            title=f"R-{uuid4().hex}",
+        )
+        child = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=root.id,
+            title=f"C-{uuid4().hex}", sort_order=Decimal("2000"),
+        )
+        seed.commit()
+        engine.trash_document(seed, root)
+        ws_id, root_id, child_id = ws.id, root.id, child.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        result = _service().purge(session, root_id)
+        session.commit()
+    finally:
+        session.close()
+
+    assert result is None, "purge 는 None 을 반환해야 한다(라우터가 204 매핑)"
+
+    verify = sessionmaker_factory()
+    try:
+        members = (
+            verify.query(Document)
+            .filter(Document.id.in_([root_id, child_id]))
+            .all()
+        )
+        assert {m.status for m in members} == {"deleted"}, "구성원 전체 deleted 종착"
+
+        engine2 = DocumentStateEngine(DocumentRepository())
+        bundle_roots = {
+            b.root_document_id for b in engine2.identify_bundles(verify, ws_id)
+        }
+        assert root_id not in bundle_roots, "완전삭제된 묶음은 목록에서 사라져야 한다"
+    finally:
+        verify.close()
+
+
+def test_purge_only_affects_requested_bundle(sessionmaker_factory):
+    """완전삭제는 요청된 묶음에만 적용되고 다른 독립 묶음의 상태·타이머에 영향이 없다
+    (Req 3.2). 두 묶음 중 하나만 purge 하면 나머지는 여전히 trashed·동일 trashed_at 이다.
+    """
+    t_b = datetime(2026, 5, 3, 11, 0, 0)
+    engine = DocumentStateEngine(DocumentRepository())
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(seed, name=f"ws-{uuid4().hex}")
+        root_a = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id,
+            title=f"A-{uuid4().hex}",
+        )
+        root_b = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id,
+            title=f"B-{uuid4().hex}", sort_order=Decimal("2000"),
+        )
+        seed.commit()
+        engine.trash_document(seed, root_a)
+        bundle_b = engine.trash_document(seed, root_b)
+        _pin_trashed_at(seed, bundle_b.members, t_b)
+        root_a_id, root_b_id = root_a.id, root_b.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        _service().purge(session, root_a_id)
+        session.commit()
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        b = verify.query(Document).filter(Document.id == root_b_id).one()
+        assert b.status == "trashed", "완전삭제되지 않은 독립 묶음 B 는 여전히 trashed"
+        assert b.trashed_at == t_b, "B 의 trashed_at(타이머 기준)은 불변이어야 한다"
+
+        a = verify.query(Document).filter(Document.id == root_a_id).one()
+        assert a.status == "deleted", "요청된 묶음 A 만 완전삭제되어야 한다"
+    finally:
+        verify.close()
+
+
+def test_purge_invalid_root_propagates_404(sessionmaker_factory):
+    """유효하지 않은 묶음 루트 완전삭제는 엔진의 404 DomainError 를 전파한다(Req 3.5).
+
+    존재하지 않는 id 와 비루트 구성원(자식) id 모두 404 로 거부되어야 한다.
+    """
+    engine = DocumentStateEngine(DocumentRepository())
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(seed, name=f"ws-{uuid4().hex}")
+        root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id,
+            title=f"R-{uuid4().hex}",
+        )
+        child = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id, parent_id=root.id,
+            title=f"C-{uuid4().hex}", sort_order=Decimal("2000"),
+        )
+        seed.commit()
+        engine.trash_document(seed, root)
+        child_id = child.id
+    finally:
+        seed.close()
+
+    svc = _service()
+
+    session = sessionmaker_factory()
+    try:
+        with pytest.raises(DomainError) as exc_missing:
+            svc.purge(session, 99_999_999)
+        assert exc_missing.value.http_status == 404
+    finally:
+        session.close()
+
+    session2 = sessionmaker_factory()
+    try:
+        with pytest.raises(DomainError) as exc_nonroot:
+            svc.purge(session2, child_id)
+        assert exc_nonroot.value.http_status == 404, "비루트 구성원→404"
+    finally:
+        session2.close()

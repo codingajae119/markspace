@@ -6,8 +6,8 @@
 원자성, INV-10·11·12)은 엔진이 단일 구현으로 소유하며, 이 서비스는 그 규칙을 재구현하지
 않고 primitive 를 호출·투영만 한다(Req 6.1). status/trashed_at 을 직접 갱신하지 않는다.
 
-이 task(2.1)는 **목록 투영**(`list_trash`)만 구현한다. 복구(`restore`)·완전삭제(`purge`)는
-후속 task(2.2)가 같은 클래스에 추가한다.
+**목록 투영**(`list_trash`, task 2.1)에 더해 **복구**(`restore`)·**완전삭제**(`purge`,
+task 2.2)를 엔진 primitive(`restore_bundle`·`purge_bundle`) 위임으로 제공한다.
 
 경계(design.md §Dependency Direction): 엔진·리포지토리는 생성자 주입하고 DB 세션은
 메서드별 인자로 전달받는다(`app/document/service.py` 의 저장소/서비스 주입 규약과 정합).
@@ -33,7 +33,7 @@ class TrashService:
     엔진(`identify_bundles`·후속 `restore_bundle`·`purge_bundle`)과 리포지토리
     (`get_retention_days`)를 생성자 주입하고 DB 세션은 메서드별 인자로 전달받는다.
     상태 전이·묶음 규칙은 엔진만 수행하며 이 서비스는 위임·투영만 한다(INV-10·11·12 보장은
-    엔진 소관). 이 task 는 `list_trash` 만 소유한다.
+    엔진 소관). `list_trash`(목록 투영)·`restore`(복구)·`purge`(완전삭제)를 소유한다.
     """
 
     def __init__(
@@ -80,3 +80,39 @@ class TrashService:
             items=projected[offset : offset + limit],
             total=len(projected),
         )
+
+    def restore(self, db: Session, bundle_id: int) -> None:
+        """휴지통 묶음을 복구해 묶음 전체를 active 로 되돌린다 — 엔진 복구 primitive 위임
+        (design.md §System Flows 묶음 복구 행 30, Req 2.1~2.4).
+
+        엔진 `restore_bundle(db, bundle_id)` 을 묶음 루트(`bundle_id` = 루트 문서 id)에
+        그대로 호출한다(Req 2.1). 복구 위치(부모 밑/root)·정렬 순서 복원·자동 재중첩 여부는
+        엔진이 단일 구현으로 결정하므로 여기서 재구현하지 않고 위임한다(Req 2.2). 엔진이
+        `get_bundle` 로 구성원을 확정하며 요청된 묶음의 trashed 서브트리만 훑으므로 다른
+        독립 묶음은 함께 되살아나지 않는다(Req 2.4).
+
+        유효하지 않은 묶음 루트(문서 미존재·비trashed·비루트 구성원)면 엔진이
+        `DomainError(NOT_FOUND, http_status=404)` 를 던지며, 이 서비스는 그 예외를 삼키지
+        않고 그대로 전파한다(Req 2.3). 상태 전이(status/trashed_at)는 엔진만 수행하며 이
+        서비스는 직접 갱신하지 않고 물리 삭제도 하지 않는다(Req 6.1). 첨부 보관 이동·공유
+        무효화는 소유하지 않는다(Req 3.7 범위 밖). 라우터가 성공을 204 로 매핑하도록
+        `None` 을 반환한다.
+        """
+        self._engine.restore_bundle(db, bundle_id)
+
+    def purge(self, db: Session, bundle_id: int) -> None:
+        """휴지통 묶음을 즉시 완전삭제해 묶음 전체를 deleted(종착)로 전환한다 — 엔진
+        완전삭제 primitive 위임(design.md §System Flows 완전삭제 행 31, Req 3.1~3.3·3.5·3.7).
+
+        엔진 `purge_bundle(db, bundle_id)` 을 묶음 루트에 그대로 호출해 물리 삭제 없이 즉시
+        deleted 로 종착 전환한다(Req 3.1·3.3). 엔진 `get_bundle` 이 동일 trashed_at 연결
+        서브트리로 범위를 한정하므로 요청된 묶음에만 적용되고 다른 독립 묶음의 상태·보관
+        타이머에는 영향이 없다(Req 3.2).
+
+        유효하지 않은 묶음 루트면 엔진이 `DomainError(NOT_FOUND, http_status=404)` 를
+        던지며 이 서비스는 그대로 전파한다(Req 3.5). 완전삭제를 문서 상태 전이에 한정하고
+        첨부 파일 보관 이동·공유 링크 무효화는 소유하지 않는다(Req 3.7). 상태 전이는 엔진만
+        수행하며 이 서비스는 status/trashed_at 을 직접 갱신하지 않는다(Req 6.1). 라우터가
+        성공을 204 로 매핑하도록 `None` 을 반환한다.
+        """
+        self._engine.purge_bundle(db, bundle_id)
