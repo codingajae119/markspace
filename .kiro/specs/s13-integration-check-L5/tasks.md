@@ -52,7 +52,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. Core: 계약 대조·첨부흐름·완전삭제결합·저장결합·격리비노출·아래계층 엣지 검증 스위트
-- [ ] 2.1 (P) 누적 계약 대조 스위트 — attachment 스키마·API(32~33)·AttachmentRead/Create·에러·Base·Settings additive
+- [x] 2.1 (P) 누적 계약 대조 스위트 — attachment 스키마·API(32~33)·AttachmentRead/Create·에러·Base·Settings additive
   - `tests/integration_L5/test_cumulative_contract_conformance.py`에: (1) 마이그레이션된 `attachment` 컬럼
     (`workspace_id BIGINT FK NOT NULL`·`document_id BIGINT FK NOT NULL`·`file_path VARCHAR(1024) NOT NULL`·
     `original_name VARCHAR(255) NOT NULL`·`kind ENUM('image','file') NOT NULL`·`is_archived BOOLEAN NOT NULL DEFAULT
