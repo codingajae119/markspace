@@ -120,8 +120,8 @@
   - _Boundary: CombinationEdgeSuite_
   - _Depends: 1.2_
 
-- [ ] 3. Validation: 게이트 판정 및 재검증 트리거
-- [ ] 3.1 전체 스위트 결합 실행 및 게이트(L3→L4) 판정·재검증 트리거 기록
+- [x] 3. Validation: 게이트 판정 및 재검증 트리거
+- [x] 3.1 전체 스위트 결합 실행 및 게이트(L3→L4) 판정·재검증 트리거 기록
   - `uv run pytest tests/integration_L3` 전체를 실제 결합(마이그레이션 DB + 부팅 앱 + 실제 멤버십/문서 데이터 + 실제
     `DocumentStateEngine`, mock 없음)에서 실행하여 Requirement 2~7 스위트가 전부 통과하면 게이트(G-1 규칙) 통과
     (=L4 `s09-lock-version`·`s10-trash` impl 착수 선행 조건 충족)로, 하나라도 실패하면 미통과(=L4 착수 차단)로 판정.
