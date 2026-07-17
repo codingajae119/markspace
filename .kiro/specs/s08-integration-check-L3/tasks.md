@@ -86,7 +86,7 @@
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
   - _Boundary: BundleDeleteCascadeSuite_
   - _Depends: 1.2_
-- [ ] 2.5 (P) bundle 복구·완전삭제 스위트 — 복구 위치·완전삭제 원자성·묶음 독립·상태/잠금 독립 (INV-10·12)
+- [x] 2.5 (P) bundle 복구·완전삭제 스위트 — 복구 위치·완전삭제 원자성·묶음 독립·상태/잠금 독립 (INV-10·12)
   - `tests/integration_L3/test_bundle_restore_purge.py`에 API(`DELETE`)로 묶음을 trashed로 만든 뒤 부팅 앱과 동일 DB
     세션의 엔진 primitive를 직접 호출: (1) 부모 active 묶음 `restore_bundle(root)` → 루트 원래 부모 밑 복귀·sort_order
     원위치(또는 폴백) 복원·구성원 active·trashed_at=NULL (6.1, 6.5.1·6.7.1), (2) 부모 non-active/부재 묶음 복구 →
