@@ -6,5 +6,8 @@ db_user: root
 default_trash_retention_days: 30
 trash_sweep_interval_seconds: 3600
 file_storage_root: ./var/attachments
+attachment_archive_root: ./var/attachments_archive
+attachment_sweep_interval_seconds: 3600
+attachment_max_bytes: 26214400
 session_cookie_name: session
 session_max_age_seconds: 1209600

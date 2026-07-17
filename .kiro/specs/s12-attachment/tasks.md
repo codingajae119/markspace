@@ -11,7 +11,7 @@
 > 않고 `s09`/`s10`을 import하지 않는다(그들의 결과 상태만 관측). 새 DB 마이그레이션을 추가하지 않는다.
 
 - [ ] 1. Foundation: 모듈·스키마·설정·저장·데이터 접근·참조 판정·권한 어댑터
-- [ ] 1.1 attachment 모듈 스캐폴드·첨부 스키마 정의·설정 additive 확장
+- [x] 1.1 attachment 모듈 스캐폴드·첨부 스키마 정의·설정 additive 확장
   - `app/attachment/` 패키지 골격 생성. `s01` Base Schemas(`ORMReadModel`)를 상속한 첨부 응답 스키마(id·
     workspace_id·document_id·kind(image/file)·original_name·is_archived·created_at·참조 url) 정의. url은 저장하지
     않고 응답 시 산정되는 `/attachments/{id}` 파생 규약임을 명시. 업로드는 multipart(file + 선택 kind) 규약으로 둠

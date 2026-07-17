@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     default_trash_retention_days: int = 30
     trash_sweep_interval_seconds: int = 3600  # 배치 실행 주기(초). 0 이하이면 인프로세스 스케줄러 비활성(외부 cron 신호)
     file_storage_root: str  # 첨부 파일 저장 루트(WS별 격리 하위 디렉터리)
+    # s12-attachment additive 확장(비파괴적). 저장 루트는 file_storage_root 재사용.
+    attachment_archive_root: str = "./var/attachments_archive"  # 보관 폴더 루트(WS별 격리)
+    attachment_sweep_interval_seconds: int = 3600  # 아카이브 스윕 주기(초). 0 이하이면 인프로세스 스케줄러 비활성(외부 cron 신호)
+    attachment_max_bytes: int = 26214400  # 업로드 크기 한도(바이트, 기본 25MiB)
     session_cookie_name: str = "session"
     session_max_age_seconds: int = 1209600  # 14d
 
