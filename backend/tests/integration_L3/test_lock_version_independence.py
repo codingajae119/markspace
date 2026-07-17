@@ -416,12 +416,18 @@ def test_no_rollback_or_past_version_body_route_exists():
         f"개별 버전 본문/복원 경로가 있으면 안 된다(rollback·과거 본문 미제공, 5.3): {version_item_paths}"
     )
 
-    # (b) rollback/restore 를 뜻하는 경로 부재(버전 복원 라우트 없음).
+    # (b) 버전 rollback/restore 를 뜻하는 경로 부재(버전 복원 라우트 없음).
+    #     s10 휴지통 묶음 복구(`/trash/{bundleId}/restore`, 행 30)는 **버전** rollback 이 아니라
+    #     묶음 status 복구(trashed→active)로 별개 기능이므로 이 가드 대상이 아니다 — s10 조립 이후
+    #     `/trash/*` 경로는 제외하고 s09 버전 표면에 rollback/restore 가 없음만 검증한다.
     restore_paths = [
-        p for p in paths if "rollback" in p.lower() or "restore" in p.lower()
+        p
+        for p in paths
+        if ("rollback" in p.lower() or "restore" in p.lower())
+        and not p.startswith("/trash")
     ]
     assert restore_paths == [], (
-        f"rollback/restore 라우트가 있으면 안 된다(복원 기능 미도입, 5.3): {restore_paths}"
+        f"버전 rollback/restore 라우트가 있으면 안 된다(복원 기능 미도입, 5.3): {restore_paths}"
     )
 
     # s09 가 노출하는 유일한 버전 경로는 목록(`/documents/{id}/versions`) GET 뿐이다.

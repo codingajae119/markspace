@@ -99,7 +99,7 @@
   - _Requirements: 4.1, 6.7_
   - _Boundary: RetentionScheduler_
   - _Depends: 2.3, 1.4_
-- [ ] 3.3 s01 라우터 조립·lifespan에 휴지통 라우터·스케줄러 연결
+- [x] 3.3 s01 라우터 조립·lifespan에 휴지통 라우터·스케줄러 연결
   - `s01` 앱 조립 지점에 휴지통 라우터를 등록하고 앱 lifespan 시작/종료에 스케줄러 시작/종료 훅을 연결. 조립·
     lifespan 방식은 `s01`·`s05`·`s07`을 따르며 새 DB 마이그레이션을 추가하지 않음
   - 관찰 가능 완료: `uv run uvicorn app.main:app` 부팅 후 카탈로그 행 29~31 경로가 앱 라우트 목록에 노출되고,
@@ -130,3 +130,4 @@
 
 ## Implementation Notes
 - 3.1 (Req 1.8 정합 갭, L4 재검증 항목): `GET /workspaces/{id}/trash`는 `require_ws_role(EDITOR)` 게이트로만 판정하므로 **존재하지 않는 워크스페이스는 404가 아니라 403**(비멤버 처리; admin은 빈 목록 200)을 낸다. design.md §Error Handling 표는 WS 부재에 404를 적었으나 §TrashRouter API Contract가 지정한 게이트(require_ws_role, 존재 선검사 없음)는 구조상 404를 낼 수 없다. s07 `GET /workspaces/{workspace_id}/documents`도 동일하게 403(L3 통과)이고, 403은 워크스페이스 존재를 비멤버에게 노출하지 않는 anti-enumeration 관점에서 오히려 옳다(Req 5.2 정합). 라우터 경계 안에서 404를 내려면 존재 선검사 재구현+존재 누설이 필요하므로 upstream(s01/s05) 게이트 계약 소관으로 남긴다. s11(L4)에서 재검증.
+- 3.3 (조립 seam 재검증 + caplog 플레이크): s10 라우터를 `create_app()`에 조립하자 **앞선 L3 누적 체크포인트(s08)**의 "s10 라우트 아직 부재" 부정 단정 2건이 정당하게 무효화됨(테스트 주석이 이 재검증을 예고). 실 불변식을 보존하며 최소 수정: (1) `test_document_contract_conformance.py`의 `_FORBIDDEN_RESTORE_ROUTE_SHAPES`에서 s10 소유 `/workspaces/{}/trash*` shape를 제거하고 문서 단위 복원 금지(`/documents/{}/restore|untrash|undelete`)로 좁힘(문서-계층 INV-7 가드는 오히려 강화). (2) `test_lock_version_independence.py`의 rollback/restore 경로 검사에 `and not p.startswith("/trash")`를 추가해 s09 **버전** rollback 부재만 검증(묶음 복구는 s10 별개 기능). s07/s09 프로덕션 코드는 무변경. 또한 `test_retention.py::test_sweep_isolates_per_bundle_exception`의 순서 의존 플레이크(=Alembic `fileConfig(disable_existing_loggers=True)`가 `app.trash.retention` 로거를 disabled 처리 → caplog 미포착)를 로거 재활성화+`at_level(logger=...)` 스코프로 결정화. 전체 스위트 948 passed.

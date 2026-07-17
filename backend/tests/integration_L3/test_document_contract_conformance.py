@@ -715,16 +715,20 @@ def test_observed_status_values_within_s01_enum_set(ws_scenario, engine_access):
 # Group 5 — status 전이·종착·물리삭제 부재 (Req 2.6, INV-4·INV-7)
 # =============================================================================
 
-# s01 카탈로그상 문서 status 를 되돌릴(복원) 라우터 경로는 없다(INV-7 종착). s10(휴지통)이
-# 소유할 복구·완전삭제 라우트(행 29~31)는 이 계층에 아직 배치되지 않았으며, 라우터가 노출하는
-# 문서 status 전이는 삭제(active→trashed)뿐이어야 한다. 아래 정규화 경로가 관측되면 종착 계약이
-# 드리프트한 것이다.
+# s01 카탈로그상 **문서(document) 라우터**는 문서 status 를 되돌릴(복원) 경로를 노출하지
+# 않는다(INV-7 종착): s07 문서 라우터가 노출하는 status 전이는 삭제(active→trashed)뿐이고
+# 문서 단위 복원 라우트가 없다. 아래 정규화 경로가 관측되면 문서 종착 계약이 드리프트한 것이다.
+#
+# 주의(s10 조립 이후): 휴지통 복구·완전삭제 라우트(카탈로그 행 29~31: `/workspaces/{id}/trash`
+# GET·`/trash/{bundleId}/restore` POST·`/trash/{bundleId}` DELETE)는 이제 s10 이 **정당하게**
+# 소유·조립한다. 이들은 **묶음(bundle)** 단위 trashed→active 복구/trashed→deleted 완전삭제이며
+# deleted 종착(INV-7)을 위반하지 않는다(deleted 에서 되돌리는 경로가 아니다). 따라서 이 문서-
+# 계층 가드는 s10 휴지통 라우트를 금지 목록에 포함하지 않고, 문서 단위 복원 경로 부재만 검증한다.
 _FORBIDDEN_RESTORE_ROUTE_SHAPES = {
     ("/documents/{}/restore", "post"),
     ("/documents/{}/trash", "delete"),
-    ("/workspaces/{}/trash", "get"),
-    ("/workspaces/{}/trash/{}/restore", "post"),
-    ("/workspaces/{}/trash/{}", "delete"),
+    ("/documents/{}/untrash", "post"),
+    ("/documents/{}/undelete", "post"),
 }
 
 
@@ -739,11 +743,14 @@ def _document_status(harness, document_id: int) -> str | None:
 
 
 def test_router_exposes_only_active_to_trashed_transition_no_restore(harness):
-    """라우터가 노출하는 문서 status 전이는 삭제(active→trashed)뿐이고 복구 경로가 없음(2.6, INV-7).
+    """문서(document) 라우터가 노출하는 status 전이는 삭제(active→trashed)뿐이고 문서 단위 복구
+    경로가 없음(2.6, INV-7).
 
-    s01 카탈로그 18~23 에는 문서를 trashed/deleted 에서 되돌리는 라우트가 없다(deleted 종착).
-    부팅 앱 OpenAPI 에 복구/휴지통 계열 경로가 노출되지 않음을 정규화 경로로 확인해, trashed→
-    deleted 종착(INV-7)이 라우터 표면에서 복원 경로 부재로 구조적으로 성립함을 보증한다.
+    s01 카탈로그 18~23(문서 라우터)에는 문서를 trashed/deleted 에서 되돌리는 문서 단위 라우트가
+    없다(deleted 종착). 부팅 앱 OpenAPI 에 문서 단위 복원/undelete 경로가 노출되지 않음을 정규화
+    경로로 확인해, trashed→deleted 종착(INV-7)이 문서 라우터 표면에서 복원 경로 부재로 구조적으로
+    성립함을 보증한다. (묶음 단위 휴지통 복구·완전삭제(행 29~31)는 s10 이 정당하게 소유하며 deleted
+    에서 되돌리는 경로가 아니므로 이 가드 대상이 아니다.)
     """
     paths = harness.app.openapi()["paths"]
     observed = {
@@ -753,7 +760,7 @@ def test_router_exposes_only_active_to_trashed_transition_no_restore(harness):
     }
     leaked = _FORBIDDEN_RESTORE_ROUTE_SHAPES & observed
     assert not leaked, (
-        f"deleted 종착(INV-7) 드리프트: 복구/휴지통 계열 라우트가 노출됨={sorted(leaked)} "
+        f"deleted 종착(INV-7) 드리프트: 문서 단위 복원 라우트가 노출됨={sorted(leaked)} "
         "(s01 카탈로그 18~23 은 문서 복원 라우트를 포함하지 않는다)"
     )
 

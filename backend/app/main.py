@@ -7,6 +7,8 @@
 거친다(8.5, 8.6).
 """
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -17,13 +19,29 @@ from app.config import get_settings
 from app.document.router import router as document_router
 from app.lock_version.router import router as lock_version_router
 from app.routers.health import router as health_router
+from app.trash import scheduler as trash_scheduler
+from app.trash.router import router as trash_router
 from app.workspace.admin_router import router as workspace_admin_router
 from app.workspace.router import router as workspace_router
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """앱 lifespan startup/shutdown 에 s10 보관 스윕 스케줄러를 연결한다 (Req 6.5).
+
+    startup 에서 ``trash_scheduler.start(app)`` 를 호출하고 shutdown 에서 ``stop()`` 으로
+    정리한다. 조립·lifespan 방식은 s01·s05·s07 을 따른다.
+    """
+    trash_scheduler.start(app)
+    try:
+        yield
+    finally:
+        trash_scheduler.stop()
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title=settings.app_name)
+    app = FastAPI(title=settings.app_name, lifespan=_lifespan)
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.session_secret,
@@ -42,6 +60,7 @@ def create_app() -> FastAPI:
     app.include_router(workspace_admin_router)
     app.include_router(document_router)
     app.include_router(lock_version_router)
+    app.include_router(trash_router)
     return app
 
 

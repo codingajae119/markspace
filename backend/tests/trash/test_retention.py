@@ -540,9 +540,18 @@ def test_sweep_isolates_per_bundle_exception(sessionmaker_factory, caplog):
 
     svc = RetentionSweepService(engine=_FlakyEngine(), repository=TrashRepository())
 
+    # 앞선 스위트(L1/L3 하네스)가 alembic env.py 의 fileConfig(기본
+    # disable_existing_loggers=True)를 태우면 import 시점에 만들어진
+    # `app.trash.retention` 로거가 disabled 되어 caplog 이 레코드를 잡지 못한다(순서
+    # 의존 플레이크). 캡처 직전에 해당 로거를 명시적으로 재활성화하고 at_level 을 그
+    # 로거로 스코프해 실행 순서와 무관하게 결정적으로 관측한다.
+    retention_logger = logging.getLogger("app.trash.retention")
+    retention_logger.disabled = False
+    retention_logger.propagate = True
+
     session = sessionmaker_factory()
     try:
-        with caplog.at_level(logging.ERROR):
+        with caplog.at_level(logging.ERROR, logger="app.trash.retention"):
             purged = svc.sweep_expired_bundles(session, now)
     finally:
         session.close()
