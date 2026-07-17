@@ -102,7 +102,7 @@
   - _Boundary: ArchivalSweepService_
   - _Depends: 1.3, 1.4, 2.3_
 
-- [ ] 3. Integration: 라우터·스케줄러·부트스트랩 연결
+- [x] 3. Integration: 라우터·스케줄러·부트스트랩 연결
 - [x] 3.1 첨부 2개 엔드포인트 구현 (행 32~33)
   - 첨부 업로드(editor, 문서 경로, multipart) · 첨부 조회 서빙(viewer, 첨부 경로, 바이너리) 엔드포인트를 구현.
     업로드는 `s07` 문서→WS 어댑터(`ws_role_for_document(EDITOR)`)로 게이트(문서 미존재→404, viewer/비멤버→403,
@@ -125,7 +125,7 @@
   - _Requirements: 4.1, 5.1, 7.6_
   - _Boundary: ArchivalScheduler_
   - _Depends: 2.4_
-- [ ] 3.3 s01 라우터 조립·lifespan에 첨부 라우터·스케줄러 연결
+- [x] 3.3 s01 라우터 조립·lifespan에 첨부 라우터·스케줄러 연결
   - `s01` 앱 조립 지점에 첨부 라우터를 등록하고 앱 lifespan 시작/종료에 아카이브 스케줄러 시작/종료 훅을 연결.
     조립·lifespan 방식은 `s01`·`s05`·`s07`·`s10`을 따르며 새 DB 마이그레이션을 추가하지 않음
   - 관찰 가능 완료: `uv run uvicorn app.main:app` 부팅 후 카탈로그 행 32~33 경로가 앱 라우트 목록에 노출되고,
@@ -185,3 +185,6 @@
   §Tech Stack의 multipart 규약을 실동작시키는 최소 필수 의존성(design의 "신규 외부 의존성 없음"은
   이 지점에서 부정확). pyproject.toml·uv.lock 변경이 커밋에 포함됨. kind는 라우터에서 content-type
   추론(image/*→IMAGE, 그 외→FILE, 명시 Form 우선). 보관 첨부 404는 서비스가 처리(라우터 무처리).
+- (3.3/통합 테스트용) 이 FastAPI 버전은 `include_router` 결과를 `_IncludedRouter`로 lazy 보관해
+  `app.routes` 순회가 하위 경로를 top-level Route로 평탄화하지 않는다(→ `[]`). 라우트 노출 검증의
+  권위 표면은 `app.openapi()["paths"]`다. 통합/조립 테스트는 openapi paths로 경로 존재를 확인할 것.
