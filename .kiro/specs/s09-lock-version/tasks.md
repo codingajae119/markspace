@@ -8,7 +8,7 @@
 > 동작). 문서·버전은 물리 삭제하지 않는다(INV-4). **잠금·버전 동작은 문서 `status`를 검사·변경하지 않는다**
 > (§4.3). 잠금 판정 근거는 `lock_user_id` 단일 컬럼(INV-9). `s10`/`s12`/`s14`를 import하지 않는다.
 
-- [ ] 1. Foundation: 모듈·스키마·데이터 접근
+- [x] 1. Foundation: 모듈·스키마·데이터 접근
 - [x] 1.1 lock_version 모듈 스캐폴드·스키마 정의
   - `app/lock_version/` 패키지(`__init__.py`, `router.py`, `service.py`, `repository.py`, `schemas.py`)
     골격 생성
@@ -20,7 +20,7 @@
     오류를 냄을 단위 테스트로 확인. 새 마이그레이션·새 의존성이 추가되지 않았음을 확인
   - _Requirements: 1.1, 2.1, 2.6, 5.1, 5.4, 7.2, 7.5_
   - _Boundary: LockVersionSchemas_
-- [ ] 1.2 LockVersionRepository 구현 (lock 필드·버전·행 잠금)
+- [x] 1.2 LockVersionRepository 구현 (lock 필드·버전·행 잠금)
   - `repository.py`에 `s01` `document`·`document_version` 모델·`get_db` 기반 `get`,
     `get_for_update`(`SELECT ... FOR UPDATE` 행 잠금), `acquire_lock`(lock_user_id=요청자·lock_acquired_at=at),
     `clear_lock`(lock_user_id·lock_acquired_at=NULL), `insert_version`(content·created_by·created_at, flush로
