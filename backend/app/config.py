@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     attachment_archive_root: str = "./var/attachments_archive"  # 보관 폴더 루트(WS별 격리)
     attachment_sweep_interval_seconds: int = 3600  # 아카이브 스윕 주기(초). 0 이하이면 인프로세스 스케줄러 비활성(외부 cron 신호)
     attachment_max_bytes: int = 26214400  # 업로드 크기 한도(바이트, 기본 25MiB)
+    # s14-sharing additive 확장(비파괴적). 새 DB 마이그레이션·모듈별 설정 파일 없음.
+    share_token_bytes: int = 32  # 공유 토큰 생성 바이트 수(secrets.token_urlsafe, token VARCHAR(64) 내 적재)
+    share_invalidation_sweep_interval_seconds: int = 3600  # 무효화 스윕 주기(초). 0 이하이면 인프로세스 스케줄러 비활성(외부 cron 신호)
     session_cookie_name: str = "session"
     session_max_age_seconds: int = 1209600  # 14d
 

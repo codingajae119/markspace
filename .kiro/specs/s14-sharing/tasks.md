@@ -14,7 +14,7 @@
 > 최상위이며 어떤 feature도 s14를 import하지 않는다. 새 DB 마이그레이션을 추가하지 않는다.
 
 - [ ] 1. Foundation: 모듈·스키마·설정·데이터 접근
-- [ ] 1.1 sharing 모듈 스캐폴드·공유 스키마 정의·설정 additive 확장
+- [x] 1.1 sharing 모듈 스캐폴드·공유 스키마 정의·설정 additive 확장
   - `app/sharing/` 패키지 골격 생성. `s01` Base Schemas를 상속한 링크 응답 스키마(id·document_id·token·is_enabled·
     created_at·파생 share_url=`/public/{token}`), 토글 요청 스키마(is_enabled), 공개 렌더 응답 스키마(공유 문서를
     루트로 하는 읽기 전용 중첩 트리: 노드는 id·title·content_html·children)를 정의. 공개 스키마는 workspace_id·
