@@ -555,3 +555,68 @@ def test_sweep_isolates_per_bundle_exception(sessionmaker_factory, caplog):
         "purge 가 실패한 묶음은 전이되지 않고 trashed 로 남는다"
     )
     assert caplog.records, "격리된 예외는 조용히 삼키지 않고 로그로 남겨야 한다"
+
+
+# --- run_sweep 엔트리포인트: 자기 세션으로 스윕 1회 수행(Task 3.2 / Req 4.1) ---
+
+
+def test_run_sweep_entrypoint_purges_expired_with_own_session(
+    sessionmaker_factory, monkeypatch
+):
+    """`run_sweep()` 엔트리포인트는 자기 세션(SessionLocal)을 열어 현재 시각(utcnow)
+    기준 스윕을 1회 수행하고 처리한 묶음 수를 반환한다(design.md §RetentionScheduler,
+    Req 4.1). 테스트·수동/외부 cron 실행 경로를 검증한다.
+
+    run_sweep 은 모듈 레벨 `app.common.db.SessionLocal` 로 자기 세션을 여므로, 테스트
+    DB 로 향하도록 그 세션 팩토리를 테스트 세션 팩토리로 재바인딩한다(격리 전제). now 를
+    주입받지 않고 내부에서 utcnow 를 산정하므로, 만료 묶음은 `retention_days + 1일` 이전,
+    미만료 묶음은 최근으로 trashed_at 을 핀 고정해 결정적으로 검증한다.
+    """
+    import app.common.db as db_module
+
+    retention = 30
+    # run_sweep 은 실제 utcnow 를 쓰므로 그 시점 기준으로 trashed_at 을 고정한다.
+    real_now = datetime.utcnow().replace(microsecond=0)
+
+    engine = DocumentStateEngine(DocumentRepository())
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id=f"u-{uuid4().hex[:12]}")
+        ws = _make_workspace(
+            seed, name=f"ws-{uuid4().hex}", trash_retention_days=retention
+        )
+        expired_root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id,
+            title=f"exp-{uuid4().hex}", sort_order=Decimal("1000"),
+        )
+        fresh_root = _make_document(
+            seed, workspace_id=ws.id, created_by=user.id,
+            title=f"fresh-{uuid4().hex}", sort_order=Decimal("2000"),
+        )
+        seed.commit()
+
+        b_exp = engine.trash_document(seed, expired_root)
+        _pin_trashed_at(
+            seed, b_exp.members, real_now - timedelta(days=retention + 1)
+        )
+        b_fresh = engine.trash_document(seed, fresh_root)
+        _pin_trashed_at(seed, b_fresh.members, real_now - timedelta(days=1))
+
+        expired_id, fresh_id = expired_root.id, fresh_root.id
+    finally:
+        seed.close()
+
+    from app.trash.retention import run_sweep
+
+    # run_sweep 이 자기 세션을 여는 모듈 레벨 팩토리를 테스트 DB 로 재바인딩한다.
+    monkeypatch.setattr(db_module, "SessionLocal", sessionmaker_factory)
+
+    purged = run_sweep()
+
+    assert purged >= 1, "만료 묶음이 있으면 run_sweep 은 처리 묶음 수(>=1)를 반환한다"
+    assert _status_of(sessionmaker_factory, expired_id) == "deleted", (
+        "만료 묶음은 run_sweep 의 자기 세션 스윕으로 deleted 전환되어야 한다"
+    )
+    assert _status_of(sessionmaker_factory, fresh_id) == "trashed", (
+        "미만료 묶음은 run_sweep 에 영향받지 않고 trashed 로 유지되어야 한다"
+    )

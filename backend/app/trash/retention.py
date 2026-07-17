@@ -25,9 +25,10 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from app.document.engine import DocumentStateEngine
+from app.document.repository import DocumentRepository
 from app.trash.repository import TrashRepository
 
-__all__ = ["RetentionSweepService"]
+__all__ = ["RetentionSweepService", "run_sweep"]
 
 logger = logging.getLogger(__name__)
 
@@ -102,3 +103,36 @@ class RetentionSweepService:
                     continue
                 purged += 1
         return purged
+
+
+def run_sweep() -> int:
+    """스윕을 자기 세션으로 1회 실행하는 엔트리포인트 (design.md §RetentionScheduler,
+    Req 4.1). 스케줄 job 본체이자 테스트·수동/외부 cron 실행 경로(`uv run python -m
+    app.trash.retention`)다.
+
+    `s01` 단일 세션 팩토리(`SessionLocal`)로 자기 세션을 열고, 실제 `RetentionSweepService`
+    (엔진·리포지토리 조립)로 현재 시각(`datetime.utcnow()`) 기준 스윕을 1회 수행한 뒤
+    commit 하고 처리한 묶음 수를 반환한다. `now` 는 배치 실행 시점에 여기서만 산정하며
+    서비스에는 주입한다(서비스 서명은 `now` 를 계속 인자로 받는다). 세션 수명(commit·close)은
+    엔트리포인트가 소유하고, 만료 판정·상태 전이는 서비스·엔진에 위임한다.
+
+    세션 팩토리는 import 바인딩이 아니라 호출 시점에 `app.common.db.SessionLocal` 을
+    참조해(모듈 속성 접근) 테스트에서 테스트 DB 로 재바인딩 가능하게 한다.
+    """
+    from app.common import db as db_module
+
+    db = db_module.SessionLocal()
+    try:
+        service = RetentionSweepService(
+            engine=DocumentStateEngine(DocumentRepository()),
+            repository=TrashRepository(),
+        )
+        purged = service.sweep_expired_bundles(db, now=datetime.utcnow())
+        db.commit()
+        return purged
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":  # pragma: no cover - 수동/외부 cron 실행 진입점
+    run_sweep()
