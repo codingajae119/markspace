@@ -174,7 +174,7 @@
   - _Depends: 6.1_
 
 - [ ] 7. 앱 조립 및 검증
-- [ ] 7.1 부트스트랩 조립 및 navigator 주입 (통합)
+- [x] 7.1 부트스트랩 조립 및 navigator 주입 (통합)
   - `src/main.tsx`에서 `ErrorBoundary` → `SessionProvider` → `CurrentWorkspaceProvider` → (`composeProviders`
     Provider 합성 슬롯) → `RouterProvider`(`composeRouter(RouteModule[])`) 순으로 조립하고, 라우터 준비 시
     `setNavigator`로 네비게이션 핸들을 주입하여 401 인터셉터가 실제 라우팅으로 결선되게 함. 현재 WS 앰비언트

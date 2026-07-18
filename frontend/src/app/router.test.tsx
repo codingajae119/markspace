@@ -85,7 +85,7 @@ describe("보호/게스트 라우트 프레임", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/docs/5");
   });
 
-  it("인증 상태면 보호 자식(Outlet)이 렌더된다 (AC 2.1)", () => {
+  it("인증 상태면 보호 자식(Outlet)이 AppLayout 프레임 안에 렌더된다 (AC 2.1, 7.2)", () => {
     setSession({
       status: "authenticated",
       user: { id: 1, login_id: "alice", name: "Alice", email: null, is_admin: false },
@@ -94,7 +94,12 @@ describe("보호/게스트 라우트 프레임", () => {
 
     renderAt(["/docs/5"], { protectedRoutes: [docsChild] });
 
-    expect(screen.getByText("doc content")).toBeInTheDocument();
+    // 자식 콘텐츠가 렌더되고(Outlet), 인증 영역 공통 레이아웃(AppLayout)의 main 프레임 안에 놓인다.
+    const layoutMain = screen.getByRole("main");
+    expect(layoutMain).toBeInTheDocument();
+    const child = screen.getByText("doc content");
+    expect(child).toBeInTheDocument();
+    expect(layoutMain).toContainElement(child);
     expect(screen.queryByText("login")).not.toBeInTheDocument();
   });
 
