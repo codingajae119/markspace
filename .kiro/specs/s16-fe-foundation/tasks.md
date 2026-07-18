@@ -144,7 +144,7 @@
   - _Requirements: 9.1, 11.1, 11.2_
   - _Boundary: SharedTypes_
   - _Depends: 1.1_
-- [ ] 5.4 읽기 전용 prose 스타일(ReadOnlyProse) 구현 (P)
+- [x] 5.4 읽기 전용 prose 스타일(ReadOnlyProse) 구현 (P)
   - `src/shared/editor/prose.css`(공용 prose 스타일)·`ReadOnlyProse.tsx`(html 또는 children을 공용 prose로
     감쌈)를 구현하여 `EditorWrapper(mode:'read')`와 s22 공개 `content_html` 뷰가 동일 스타일을 소비
   - 관찰 가능한 완료: `ReadOnlyProse`가 sanitized html/children을 공용 prose 스타일로 렌더하고, read 모드와
