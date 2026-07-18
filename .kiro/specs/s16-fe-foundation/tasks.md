@@ -60,7 +60,7 @@
   - _Requirements: 2.2, 2.3_
   - _Boundary: Routes_
   - _Depends: 1.1_
-- [ ] 3.2 세션 컨텍스트 부트스트랩(SessionProvider + useSession) 구현
+- [x] 3.2 세션 컨텍스트 부트스트랩(SessionProvider + useSession) 구현
   - `src/app/session/SessionProvider.tsx`·`useSession.ts`에서 `GET /auth/me`(`skipAuthRedirect:true`) →
     성공 시 `GET /me/settings` 부트스트랩, `SessionState`(loading|authenticated|unauthenticated) + `user`
     (is_admin 포함) + `settings` + `refresh()` 노출
