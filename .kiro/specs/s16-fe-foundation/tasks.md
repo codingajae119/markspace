@@ -106,7 +106,7 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.6_
   - _Boundary: RolePermissions_
   - _Depends: 1.1_
-- [ ] 4.2 선언형 게이팅 컴포넌트 RequireRole 구현 (P)
+- [x] 4.2 선언형 게이팅 컴포넌트 RequireRole 구현 (P)
   - `src/shared/auth/RequireRole.tsx`에서 `minimum`·`currentRole`·`fallback`·`children`을 받아 `hasWorkspaceRole`
     (isAdmin은 `useSession`에서 취득) 충족 시에만 children 렌더
   - 관찰 가능한 완료: viewer 컨텍스트에서 editor 요구 children 미노출, admin 컨텍스트에서 노출됨(UI 테스트로 확인)
