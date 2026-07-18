@@ -69,7 +69,7 @@
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
   - _Boundary: SessionProvider_
   - _Depends: 2.3_
-- [ ] 3.3 보호/게스트 라우트 프레임 구현
+- [x] 3.3 보호/게스트 라우트 프레임 구현
   - `src/app/router.tsx`·`ProtectedRoute.tsx`에서 라우트 트리를 정의: 게스트 라우트(`/share/:token`, 가드 없음)와
     보호 영역(`ProtectedRoute` → loading 유보 / unauthenticated면 `returnTo` 보존 리다이렉트 / authenticated면
     `AppLayout`+자식). 하위 spec 화면 등록 지점 노출
@@ -199,3 +199,6 @@
   - _Requirements: 1.1, 1.2_
   - _Boundary: Scaffold_
   - _Depends: 7.1_
+
+## Implementation Notes
+- (3.3) React Router **데이터 라우터**(`createBrowserRouter`/`createMemoryRouter`)는 내비게이션마다 `new Request(url, {signal})`를 만드는데, jsdom/undici 환경에서 다른 realm의 `AbortSignal`을 거부해 `<Navigate>` 리다이렉트가 테스트에서 크래시한다(프로덕션 실브라우저는 단일 realm이라 정상). 라우팅/가드 통합 테스트는 `createMemoryRouter` 대신 history 기반 `MemoryRouter`+`useRoutes(createAppRoutes(...))`로 동일 라우트 설정을 마운트해 우회한다. 앱 부팅은 `createAppRouter`→`createBrowserRouter` 사용. (s17~s22 라우트 테스트 시 재사용)
