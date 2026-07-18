@@ -88,7 +88,7 @@
   - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
   - _Boundary: CurrentWorkspaceProvider, useCurrentWorkspace_
   - _Depends: 3.2, 5.3_
-- [ ] 3.5 라우트/Provider 등록 메커니즘(RouteModule 취합 + Provider 합성 슬롯) 구현 (P)
+- [x] 3.5 라우트/Provider 등록 메커니즘(RouteModule 취합 + Provider 합성 슬롯) 구현 (P)
   - `src/app/routeModule.ts`(`RouteModule`{scope,routes} 타입 + `composeRouter(modules)` 취합, 보호/게스트 슬롯
     분류)·`src/app/providers.tsx`(`composeProviders` 합성 슬롯)를 구현. feature는 라우터/main 수기 편집 없이
     `RouteModule[]` export만으로 등록
