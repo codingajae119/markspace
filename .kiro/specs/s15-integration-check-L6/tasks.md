@@ -10,7 +10,7 @@
 > 코드(`app/*`)·`config.yml`·마이그레이션·하위 하네스(`tests/integration_L5/*`·`L4`·`L3`·`L2`·`L1`)는 수정하지 않는다 —
 > L5 하네스는 **재사용·확장**한다.
 
-- [ ] 1. Foundation: L6 실제 전체 결합 검증 하네스 (L5 재사용·확장)
+- [x] 1. Foundation: L6 실제 전체 결합 검증 하네스 (L5 재사용·확장)
 - [x] 1.1 L6 통합 테스트 하네스 구성 (L5 하네스 재사용 + 공유 발급/토글·공개 렌더/공개 파일·무효화 스윕·게이트 토글·share_link 관찰 픽스처)
   - `tests/integration_L6/conftest.py`에서 `s13` `tests/integration_L5`의 하네스 픽스처(실제 MySQL 8에 `alembic
     upgrade head` 적용·`s01` `create_app()` 부팅·admin 시드·세션 유지 `TestClient` 팩토리·고유 login_id 생성기·
@@ -54,7 +54,7 @@
   - _Boundary: Helpers_
   - _Depends: 1.1_
 
-- [ ] 2. Core: 계약 대조·공유흐름·무효화재발급·링크파일·전계층불변식·관통여정 검증 스위트
+- [x] 2. Core: 계약 대조·공유흐름·무효화재발급·링크파일·전계층불변식·관통여정 검증 스위트
 - [x] 2.1 (P) 누적 전체 계약 대조 스위트 — share_link 스키마·API(34~37)·전체 API 표면·ShareLinkRead/Update·PublicDocumentRead·에러·Base·Settings additive
   - `tests/integration_L6/test_cumulative_contract_conformance.py`에: (1) 마이그레이션된 `share_link` 컬럼(`id BIGINT
     PK`·`document_id BIGINT FK NOT NULL`·`token VARCHAR(64) NOT NULL UNIQUE`·`is_enabled BOOLEAN NOT NULL DEFAULT
@@ -153,8 +153,8 @@
   - _Boundary: EndToEndJourneySuite_
   - _Depends: 1.2_
 
-- [ ] 3. Validation: 게이트 판정 및 재검증 트리거 (L6 종단 = 전체 시스템 GO)
-- [ ] 3.1 전체 스위트 결합 실행 및 게이트(L6 종단) 판정·재검증 트리거 기록
+- [x] 3. Validation: 게이트 판정 및 재검증 트리거 (L6 종단 = 전체 시스템 GO)
+- [x] 3.1 전체 스위트 결합 실행 및 게이트(L6 종단) 판정·재검증 트리거 기록
   - `uv run pytest tests/integration_L6` 전체를 실제 전체 결합(마이그레이션 DB + 부팅 앱(s14 공유 라우터·무효화
     스케줄러 포함) + 실제 멤버십/문서/버전/첨부/공유 링크 데이터 + 실제 파일시스템 저장/보관 폴더 + 실제
     `ShareInvalidationSweep` + 실제 `DocumentStateEngine`/`RetentionSweepService`/`ArchivalSweepService`, mock 없음)
