@@ -129,7 +129,7 @@
   - _Requirements: 7.1, 7.4, 7.5_
   - _Boundary: UiPrimitives_
   - _Depends: 1.2, 2.1_
-- [ ] 5.2 전역 앱 레이아웃 및 에러 경계 구현 (P)
+- [x] 5.2 전역 앱 레이아웃 및 에러 경계 구현 (P)
   - `src/app/AppLayout.tsx`(인증 영역 공통 프레임, children 슬롯)·`src/app/ErrorBoundary.tsx`(렌더 예외 포착 →
     복구 화면)를 구현
   - 관찰 가능한 완료: 자식에서 던진 렌더 예외가 앱 전체 크래시 없이 복구 화면으로 표시됨(UI 테스트로 확인)
