@@ -15,10 +15,12 @@
  * 된다(이 파일 수기 편집 없이 가산 등록). `composeRouter` 는 아직 존재하지 않으므로 import
  * 하지 않는다 — 이 모듈은 자립적이며 지금 테스트 가능하다.
  *
- * ## 플레이스홀더 경계
+ * ## 플레이스홀더 경계 (동일 path additive 라우트가 플레이스홀더를 치환)
  * `/login` 화면은 s17, `/share/:token` 뷰는 s22 소유다. 프레임이 지금 렌더·리다이렉트
- * 가능하도록 각 경로에 최소 인라인 플레이스홀더만 둔다(실제 화면은 하위 spec 이 슬롯으로
- * 치환/등록). 보호 영역에도 루트 index 플레이스홀더를 두어 프레임이 단독으로 렌더 가능하다.
+ * 가능하도록 각 경로에 최소 인라인 플레이스홀더만 둔다. 하위 spec 이 **동일 path** 의 게스트
+ * 라우트를 `guestRoutes` 로 등록하면 해당 built-in 플레이스홀더는 그 실제 화면으로 **치환**된다
+ * (플레이스홀더가 실제 화면을 가리지 않도록 path 기준으로 override). 보호 영역에도 루트 index
+ * 플레이스홀더를 두어 프레임이 단독으로 렌더 가능하다.
  *
  * ## AppLayout(5.2) 경계
  * 인증 영역 공통 레이아웃 `AppLayout` 은 task 5.2 소유이며 아직 존재하지 않는다. 이 task 는
@@ -66,14 +68,27 @@ export interface AppRouteExtensions {
  * 트리 구조:
  * - `/login` (플레이스홀더, s17) · `/share/:token`(게스트, 가드 없음, s22) + `guestRoutes` 슬롯
  * - `ProtectedRoute` 레이아웃(가드): 루트 index 플레이스홀더 + `protectedRoutes` 슬롯
+ *
+ * 하위 spec 이 동일 path 의 게스트 라우트를 등록하면 그 built-in 플레이스홀더를 대체(치환)한다.
+ * 플레이스홀더가 먼저 등록되어 실제 화면을 가리는(shadow) 것을 막기 위해 path 로 override 한다.
  */
 export function createAppRoutes(ext: AppRouteExtensions = {}): RouteObject[] {
   const { protectedRoutes = [], guestRoutes = [] } = ext;
 
-  return [
-    // 게스트/공개 최상위 라우트 — 인증 가드 없음(AC 2.4, 4.3).
+  // 하위 spec 이 동일 path 의 게스트 라우트를 등록하면 그 built-in 플레이스홀더를 대체(치환)한다.
+  const overriddenGuestPaths = new Set(
+    guestRoutes
+      .map((route) => route.path)
+      .filter((path): path is string => typeof path === "string"),
+  );
+  // 게스트/공개 최상위 라우트 — 인증 가드 없음(AC 2.4, 4.3). 동일 path additive 라우트가 있으면 제외.
+  const builtInGuest: RouteObject[] = [
     { path: ROUTES.login, element: <LoginPlaceholder /> },
     { path: ROUTES.share, element: <SharePlaceholder /> },
+  ].filter((route) => typeof route.path !== "string" || !overriddenGuestPaths.has(route.path));
+
+  return [
+    ...builtInGuest,
     ...guestRoutes,
     // 보호 영역 — 세션 가드 레이아웃. 자식은 `<Outlet />` 로 렌더된다(AppLayout 래핑은 5.2/7.1).
     {

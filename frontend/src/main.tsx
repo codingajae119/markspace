@@ -29,13 +29,14 @@ import { composeProviders } from "@/app/providers";
 import type { ProviderComponent } from "@/app/providers";
 import { composeRouter } from "@/app/routeModule";
 import type { RouteModule } from "@/app/routeModule";
+import { authRoutes } from "@/features/auth/routes";
 import { SessionProvider } from "@/app/session/SessionProvider";
 import { CurrentWorkspaceProvider } from "@/app/workspace-context/CurrentWorkspaceProvider";
 import "@/index.css";
 
-// feature 라우트 등록 슬롯 — s16 은 프레임만 소유하므로 빈 배열. s17~s22 가 자기 RouteModule 을
-// 여기에 가산 등록한다(`router.tsx`/`main.tsx` 수기 편집 없이, AC 10.1).
-const featureRouteModules: RouteModule[] = [];
+// feature 라우트 등록 슬롯 — s17 이 로그인·비밀번호 변경 화면을 authRoutes(RouteModule[])로 가산
+// 등록한다(게스트=로그인, 보호=비밀번호 변경). 후속 spec(s18~s22)은 여기에 자기 모듈을 이어 붙인다.
+const featureRouteModules: RouteModule[] = authRoutes;
 
 // feature Provider 합성 슬롯 — s16 은 도입할 feature Provider 가 없어 빈 배열(AC 10.3).
 const featureProviders: ProviderComponent[] = [];

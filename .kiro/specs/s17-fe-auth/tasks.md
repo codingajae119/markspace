@@ -85,8 +85,8 @@
   - _Boundary: LogoutButton_
   - _Depends: 2.2_
 
-- [ ] 4. Integration: 라우트 등록 결선
-- [ ] 4.1 authRoutes 등록 결선 (로그인=게스트 프레임 · 비밀번호 변경=보호 프레임)
+- [x] 4. Integration: 라우트 등록 결선
+- [x] 4.1 authRoutes 등록 결선 (로그인=게스트 프레임 · 비밀번호 변경=보호 프레임)
   - `routes.tsx`: 로그인 페이지를 s16 게스트 접근 가능 프레임의 `ROUTES.login`에, 비밀번호 변경 페이지를 s16 보호
     프레임 하위 경로에 대응시키는 라우트 정의를 제공하고 s16 라우터 등록 지점에 결선. 경로 상수는 s16 `ROUTES` 사용
     (하드코딩 금지). 프레임/가드/`returnTo` 규약은 재정의하지 않음. 이는 여러 컴포넌트를 s16 프레임에 결합하는 명시적
@@ -115,3 +115,9 @@
   - _Requirements: 6.2, 6.3, 6.4, 6.5_
   - _Boundary: (전체 feature/auth)_
   - _Depends: 4.1_
+
+## Implementation Notes
+
+- **s16 소비 경로 실측 정정(전 태스크)**: 정본 `AuthUser`는 배럴 부재로 `@/app/session/SessionProvider`에서 import(디자인 문서의 `@/app/session`는 미존재). `verbatimModuleSyntax:true`라 타입 전용은 `import type` 강제.
+- **task 4.1 — s16 라우터 seam 수정(사용자 승인)**: s16 `createAppRoutes`가 `/login`·`/share/:token` 플레이스홀더를 배열 선두에 하드코딩하고 additive `guestRoutes`를 뒤에 append하는 구조라, append된 실제 `LoginPage`가 플레이스홀더에 가려져 렌더되지 않음을 probe로 확인. 사용자 승인 하에 `createAppRoutes`를 "동일 path의 additive guest 라우트가 built-in 플레이스홀더를 치환"하도록 최소 수정(가드/scope/returnTo/`ProtectedRoute`/`createAppRouter` 불변). 등록은 `main.tsx` `featureRouteModules = authRoutes` seam으로 결선. 기존 s16 router.test 4개 불변 통과 + 치환 테스트 1개 추가. 비밀번호 변경 경로는 s17 소유 상수 `CHANGE_PASSWORD_PATH="/settings/password"`(라우트 객체는 보호 레이아웃 하위 상대경로 `"settings/password"`). 이 seam은 s22(`/share/:token` 실제 뷰)도 동일하게 재사용.
+- **컴포넌트 "초기화" 테스트 함정(task 3.2)**: 입력 클리어 같은 전이 동작 테스트는 먼저 비어있지 않은 값을 주입해 증명해야 함(정적 succeeded=true + 빈 입력은 no-op 통과 → mutation으로 적발됨). 후속 UI 테스트도 전이 전 상태를 명시적으로 세팅할 것.

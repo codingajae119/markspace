@@ -6,6 +6,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 
 import { createAppRoutes } from "@/app/router";
 import type { AppRouteExtensions } from "@/app/router";
+import { ROUTES } from "@/app/routes";
 import { useSession } from "@/app/session/useSession";
 import type { SessionContextValue, SessionState } from "@/app/session/SessionProvider";
 
@@ -111,5 +112,19 @@ describe("보호/게스트 라우트 프레임", () => {
     expect(screen.getByText("share")).toBeInTheDocument();
     expect(screen.queryByText("login")).not.toBeInTheDocument();
     expect(screen.getByTestId("location")).toHaveTextContent("/share/abc");
+  });
+
+  it("동일 path additive 게스트 라우트가 built-in /login 플레이스홀더를 치환한다 (override)", () => {
+    setSession({ status: "unauthenticated" });
+
+    // 하위 spec(s17)이 ROUTES.login 에 실제 화면을 등록하면 built-in 플레이스홀더가 대체되어야 한다.
+    renderAt(["/login"], {
+      guestRoutes: [{ path: ROUTES.login, element: <div>real login page</div> }],
+    });
+
+    // 치환된 실제 element 가 렌더되고, built-in 플레이스홀더(<div>login</div>)는 더 이상 노출되지 않는다.
+    expect(screen.getByText("real login page")).toBeInTheDocument();
+    expect(screen.queryByText("login")).not.toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent("/login");
   });
 });
