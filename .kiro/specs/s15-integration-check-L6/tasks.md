@@ -77,7 +77,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
   - _Boundary: CumulativeContractConformanceSuite_
   - _Depends: 1.1_
-- [ ] 2.2 (P) 공유 발급·토글·공개 렌더·동적 하위 흐름 스위트 — 게이트·게이팅 (7.1~7.7, INV-1·2·3)
+- [x] 2.2 (P) 공유 발급·토글·공개 렌더·동적 하위 흐름 스위트 — 게이트·게이팅 (7.1~7.7, INV-1·2·3)
   - `tests/integration_L6/test_share_lifecycle_flow.py`에 게이트 on WS의 owner/editor/viewer/비멤버/admin 세션 + 익명
     공개 클라이언트로: (1) 게이트 on·문서 active면 editor 발급 200(`ShareLinkRead`·활성 토큰)·게이트 off면 발급 409·
     비활성 링크 활성화 토글 409 (3.1, 7.1·7.2·7.3), (2) 익명 클라이언트가 `GET /public/{token}`으로 문서+현재 active
