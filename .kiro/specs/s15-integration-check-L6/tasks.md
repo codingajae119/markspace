@@ -55,7 +55,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. Core: 계약 대조·공유흐름·무효화재발급·링크파일·전계층불변식·관통여정 검증 스위트
-- [ ] 2.1 (P) 누적 전체 계약 대조 스위트 — share_link 스키마·API(34~37)·전체 API 표면·ShareLinkRead/Update·PublicDocumentRead·에러·Base·Settings additive
+- [x] 2.1 (P) 누적 전체 계약 대조 스위트 — share_link 스키마·API(34~37)·전체 API 표면·ShareLinkRead/Update·PublicDocumentRead·에러·Base·Settings additive
   - `tests/integration_L6/test_cumulative_contract_conformance.py`에: (1) 마이그레이션된 `share_link` 컬럼(`id BIGINT
     PK`·`document_id BIGINT FK NOT NULL`·`token VARCHAR(64) NOT NULL UNIQUE`·`is_enabled BOOLEAN NOT NULL DEFAULT
     TRUE`·`created_at DATETIME NOT NULL`)과 UNIQUE 제약이 s01 물리 모델과 일치하고 s14가 새 마이그레이션을 추가하지
