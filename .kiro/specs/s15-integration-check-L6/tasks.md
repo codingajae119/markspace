@@ -108,7 +108,7 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
   - _Boundary: InvalidationReissueSuite_
   - _Depends: 1.2_
-- [ ] 2.4 (P) 링크 경유 첨부 접근·연동 차단 스위트 — 스트리밍·게이트/status 차단·보관·범위/격리 (8.4·8.5, INV-6·7)
+- [x] 2.4 (P) 링크 경유 첨부 접근·연동 차단 스위트 — 스트리밍·게이트/status 차단·보관·범위/격리 (8.4·8.5, INV-6·7)
   - `tests/integration_L6/test_link_attachment_access.py`에: (1) 공유 문서(또는 active 하위)에 `s12`로 올린 첨부를 익명
     `GET /public/{token}/attachments/{aid}`로 조회 → 바이너리 반환(이미지 로딩·파일 다운로드)·공개 렌더 HTML의
     `/attachments/{id}` 참조가 `/public/{token}/attachments/{id}`로 재작성 (5.1, 8.4), (2) 게이트 off·문서 trashed 시
