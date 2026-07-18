@@ -137,7 +137,7 @@
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
   - _Boundary: FullStackInvariantSuite_
   - _Depends: 1.2_
-- [ ] 2.6 (P) 대표 전 계층 관통 e2e 여정 스위트 — auth → workspace → document → lock/version → trash → attachment → sharing
+- [x] 2.6 (P) 대표 전 계층 관통 e2e 여정 스위트 — auth → workspace → document → lock/version → trash → attachment → sharing
   - `tests/integration_L6/test_end_to_end_journey.py`에 하나의 사용자 여정으로: (1) admin이 사용자 생성(s03)→사용자
     로그인(s02)→owner로 워크스페이스·문서·하위문서 구성(s05·s07) (7.1), (2) 문서 편집 잠금(s09)→이미지 붙여넣기(s12)→
     저장(s09 새 버전)→게이트 on WS에서 공유 발급(s14)→익명 접근자가 `GET /public/{token}` 문서·`GET /public/{token}/
