@@ -57,7 +57,7 @@
   - _Boundary: useChangePassword_
   - _Depends: 1.1_
 
-- [ ] 3. UI: 인증 화면·컴포넌트
+- [x] 3. UI: 인증 화면·컴포넌트
 - [x] 3.1 LoginForm · LoginPage 구현 (자격 입력 · 인라인 에러 · 로딩) (P)
   - `components/LoginForm.tsx`: `login_id`·`password` 입력과 제출 컨트롤. 제출 시 `useLogin().submit`, 진행 중 제출
     비활성 + `Spinner`, `error`를 s16 `ErrorMessage`로 인라인 표시(401 자격/비활동/삭제 공통 메시지·기타 4xx/5xx 동일
@@ -77,7 +77,7 @@
   - _Requirements: 4.1, 4.3, 4.4, 4.5, 4.6_
   - _Boundary: ChangePasswordPage_
   - _Depends: 2.3_
-- [ ] 3.3 LogoutButton 구현 (트리거 · 진행 중 비활성) (P)
+- [x] 3.3 LogoutButton 구현 (트리거 · 진행 중 비활성) (P)
   - `components/LogoutButton.tsx`: `useLogout().submit`를 트리거하는 액션 컨트롤(s16 `Button` 소비). 진행 중 비활성.
     배치 위치(레이아웃/헤더)는 소비 화면이 결정하므로 재사용 가능한 단일 버튼 컴포넌트로 제공.
   - 관찰 가능 완료: 클릭 시 `useLogout().submit`가 호출되고 진행 중 버튼이 비활성화됨을 컴포넌트 테스트로 확인.
