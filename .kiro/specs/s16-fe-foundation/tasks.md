@@ -16,7 +16,7 @@
   - 관찰 가능한 완료: `frontend/`에서 dev 서버가 기동되어 루트 화면이 렌더되고, `tsc --noEmit`이 오류 없이 통과
   - _Requirements: 1.1, 1.2, 1.5_
   - _Boundary: Scaffold_
-- [ ] 1.2 단일 설정 파일과 Tailwind 전역 진입 구성
+- [x] 1.2 단일 설정 파일과 Tailwind 전역 진입 구성
   - `src/config.ts`(`apiConfig.baseUrl`을 단일 Vite env `VITE_API_BASE_URL`에서 읽음)·`.env.example`·
     `src/index.css`(`@import "tailwindcss";`)를 생성하고 `main.tsx`에서 전역 CSS import
   - 관찰 가능한 완료: 하드코딩 base URL 상수가 코드 전역에 없고, `apiConfig.baseUrl`이 단일 지점에서만 노출되며,
