@@ -37,7 +37,7 @@
     호출에서 결과를 반환하는 스모크 검증이 통과한다
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.6_
   - _Boundary: L6TestHarness_
-- [ ] 1.2 공유·무효화 스윕·공개 접근·게이트 토글 시나리오 헬퍼 구성 (호출 래퍼, L5 헬퍼 재사용)
+- [x] 1.2 공유·무효화 스윕·공개 접근·게이트 토글 시나리오 헬퍼 구성 (호출 래퍼, L5 헬퍼 재사용)
   - `tests/integration_L6/helpers.py`에 공유 헬퍼(`POST /documents/{id}/share` 발급/재발급·`PATCH /documents/{id}/share`
     토글 래퍼·`ShareLinkRead` 관찰), 공개 접근 헬퍼(비인증 클라이언트로 `GET /public/{token}` 공개 렌더·`GET
     /public/{token}/attachments/{aid}` 링크 경유 파일 조회 래퍼, 상태코드·트리·바이너리·content-type 관찰), 게이트 토글
