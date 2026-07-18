@@ -163,7 +163,7 @@
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
   - _Boundary: EditorWrapper_
   - _Depends: 1.2, 5.4_
-- [ ] 6.2 EditorWrapper capability 확장(붙여넣기/드롭 훅·삽입/치환·커스텀 렌더러) 구현
+- [x] 6.2 EditorWrapper capability 확장(붙여넣기/드롭 훅·삽입/치환·커스텀 렌더러) 구현
   - `EditorWrapper`에 `onImagePaste(file)`·`onFileDrop(file)` 이벤트 구독 슬롯, `EditorHandle.insert`/
     `replaceRange`(업로드 placeholder→최종 참조 치환), `renderers.customImageRenderer`/`customHTMLRenderer`
     오버라이드(edit·read 양 모드 공통)를 추가. 실제 업로드·blob 인증 로딩 동작은 미구현(s21 소비 계약만)

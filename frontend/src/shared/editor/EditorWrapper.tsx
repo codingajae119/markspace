@@ -1,5 +1,5 @@
 /**
- * Toast UI Editor 단일 래퍼 (s16 단일 소유, Requirements 8.1~8.5).
+ * Toast UI Editor 단일 래퍼 (s16 단일 소유, Requirements 8.1~8.8).
  *
  * 편집(`mode:"edit"`)·읽기(`mode:"read"`) 렌더 경로를 **단일 컴포넌트**로 통일한다.
  * 하위 feature 는 Editor/Viewer 를 직접 고르지 않는다(렌더 경로 이원화 금지 — 8.1, 8.3):
@@ -9,6 +9,15 @@
  * `onReady(handle)` 로 초기 콘텐츠 주입·현재 콘텐츠 조회 인터페이스(`EditorHandle`)를
  * 노출하여 s20(편집 생명주기)·s19/s22(읽기 뷰)가 저장·표시 로직을 결선한다(8.4).
  *
+ * capability 슬롯(8.6~8.8) — s20(편집)·s21(첨부)이 **Toast 인스턴스를 포크하지 않고**
+ * 단일 래퍼를 소비하도록 다음을 노출한다:
+ *   - 붙여넣기/드롭 구독 훅 `onImagePaste`·`onFileDrop`(8.6): Toast `addImageBlobHook`
+ *     (붙여넣기/드롭 이미지)·에디터 루트 DOM `drop`(일반 파일)에서 `File` 을 그대로 전달.
+ *   - `EditorHandle.insert`/`replaceRange`(8.7): 커서 삽입·범위 치환(s21 업로드 placeholder
+ *     → 최종 `/attachments/{id}` 참조 치환). 읽기 모드는 편집 인스턴스가 없어 no-op.
+ *   - `renderers.customImageRenderer`/`customHTMLRenderer`(8.8): edit·read **양 모드에서
+ *     동일 override** 를 Toast `customHTMLRenderer` 로 위임(렌더 경로 이원화 없음).
+ *
  * React 19 호환: `@toast-ui/react-editor`(React 16~18 peer)를 쓰지 않고 vanilla
  * `@toast-ui/editor` 클래스를 `ref` 컨테이너에 인스턴스화하고 cleanup 에서 destroy 한다.
  *
@@ -17,8 +26,8 @@
  *
  * POLICY NOT IMPLEMENTED (계약만 노출, 동작은 후속 spec 소유):
  *   - 자동저장(문서 이탈 시 1회)·lock 생명주기 등 편집 정책 **동작** → s20(8.5).
- *   - 붙여넣기/드롭 훅·삽입/치환 콜백·커스텀 렌더러 오버라이드(capability 슬롯) → task 6.2
- *     (s21 소비). 본 파일은 6.2 가 props/handle 을 깔끔히 확장하도록 인터페이스를 열어둔다.
+ *   - 실제 업로드·blob 인증 로딩 **동작** → s21. 본 래퍼는 파일 전달 슬롯·콜백·렌더러
+ *     override 결선만 제공하며, 업로드/placeholder 치환/blob 로딩 정책은 구현하지 않는다.
  */
 
 import { useEffect, useRef, type ReactElement } from "react";
@@ -28,6 +37,10 @@ import { useEffect, useRef, type ReactElement } from "react";
 // 값 import 는 런타임 클래스만 받고, 실제 타입은 패키지가 제공하는 선언 파일
 // (`types/index.d.ts`, default = Editor 클래스)에서 직접 가져와 `any` 없이 재부여한다.
 import type EditorClass from "../../../node_modules/@toast-ui/editor/types/index";
+import type {
+  CustomHTMLRenderer,
+  LinkMdNode,
+} from "../../../node_modules/@toast-ui/editor/types/index";
 // @ts-expect-error — exports 맵의 types 컨디션 부재로 값 import 는 타입지정 불가(TS7016). 위 EditorClass 로 정식 타입 확보.
 import EditorRuntime from "@toast-ui/editor";
 
@@ -38,15 +51,36 @@ import "@toast-ui/editor/dist/toastui-editor-viewer.css";
 
 import { ReadOnlyProse } from "./ReadOnlyProse";
 
+/** Toast 위치 좌표 `[line, ch]`(래퍼가 Toast API 형태로 정규화). */
+export type EditorPos = [line: number, ch: number];
+
 /**
- * 콘텐츠 in/out 을 위한 안정적 명령형 핸들(8.4).
+ * 콘텐츠 in/out·삽입/치환을 위한 안정적 명령형 핸들(8.4, 8.7).
  *
- * 현재는 `getMarkdown()` 만 노출한다. 콘텐츠 삽입/치환 콜백(`insert`·`replaceRange`)은
- * capability 슬롯(task 6.2)에서 이 인터페이스를 확장하여 추가한다.
+ * `insert`/`replaceRange` 는 편집(`mode:"edit"`) 인스턴스의 mutation 이다. 읽기
+ * (`mode:"read"`) 모드에는 편집 인스턴스가 없어 무해한 no-op 으로 노출한다.
  */
 export interface EditorHandle {
   /** 현재 콘텐츠를 markdown 으로 조회한다(s20 저장 결선용). */
   getMarkdown(): string;
+  /** 커서 위치에 텍스트 삽입(s21 업로드 placeholder 삽입). 읽기 모드 no-op. */
+  insert(text: string): void;
+  /** `from`~`to` 범위를 치환(s21 placeholder→최종 참조 치환). 읽기 모드 no-op. */
+  replaceRange(from: EditorPos, to: EditorPos, text: string): void;
+}
+
+/** `(ref) => HTMLElement` 이미지 렌더 override(s21 이 인증 blob 로딩으로 구현). */
+export type CustomImageRenderer = (ref: string) => HTMLElement;
+
+/**
+ * 첨부/이미지 커스텀 렌더러 오버라이드(edit·read 양 모드 공통).
+ * `/attachments/{id}` 참조 → 인증 blob 로딩 렌더는 s21 이 소비 계약으로 구현한다.
+ */
+export interface CustomRenderers {
+  /** 상위 이미지 override — 래퍼가 Toast image 노드 컨버터로 결선한다. */
+  customImageRenderer?: CustomImageRenderer;
+  /** Toast `customHTMLRenderer` 형태 — 래퍼가 그대로 위임한다. */
+  customHTMLRenderer?: unknown;
 }
 
 export interface EditorWrapperProps {
@@ -56,6 +90,51 @@ export interface EditorWrapperProps {
   initialContent?: string;
   /** 인스턴스 준비 시 콘텐츠 핸들을 제공한다(8.4). */
   onReady?: (handle: EditorHandle) => void;
+  /** 붙여넣기/드롭 이미지 구독(s21 업로드 브리지) — File 을 그대로 전달(8.6). */
+  onImagePaste?: (file: File) => void;
+  /** 드롭 파일 구독(s21 업로드 브리지) — File 을 그대로 전달(8.6). */
+  onFileDrop?: (file: File) => void;
+  /** 커스텀 렌더러 override — edit·read 양 모드에서 동일 소비(8.8). */
+  renderers?: CustomRenderers;
+}
+
+/**
+ * Toast `addImageBlobHook` 은 `Blob | File` 을 전달한다. 붙여넣기는 통상 File 이지만
+ * Blob 인 경우 File 로 승격하여 `onImagePaste(file: File)` 계약을 만족시킨다.
+ */
+function asFile(blob: Blob | File): File {
+  return blob instanceof File
+    ? blob
+    : new File([blob], "pasted-image", { type: blob.type });
+}
+
+/**
+ * caller 의 `renderers` 를 Toast `customHTMLRenderer` 옵션으로 변환한다(edit·read 공통).
+ *   - `customHTMLRenderer` 만 있으면 **참조 그대로 위임**(렌더 경로 이원화 없음).
+ *   - `customImageRenderer` 가 있으면 Toast image 노드 컨버터로 결선하여 병합한다.
+ * 실제 blob 로딩은 s21 이 `customImageRenderer` 구현으로 소유한다.
+ */
+function toToastHTMLRenderer(
+  renderers: CustomRenderers | undefined,
+): CustomHTMLRenderer | undefined {
+  if (renderers === undefined) {
+    return undefined;
+  }
+  const passthrough = renderers.customHTMLRenderer as
+    | CustomHTMLRenderer
+    | undefined;
+  const imageRenderer = renderers.customImageRenderer;
+  if (imageRenderer === undefined) {
+    return passthrough;
+  }
+  const merged: CustomHTMLRenderer = {
+    ...(passthrough ?? {}),
+    image: (node) => {
+      const ref = (node as LinkMdNode).destination ?? "";
+      return { type: "html", content: imageRenderer(ref).outerHTML };
+    },
+  };
+  return merged;
 }
 
 /**
@@ -66,12 +145,22 @@ export function EditorWrapper({
   mode,
   initialContent,
   onReady,
+  onImagePaste,
+  onFileDrop,
+  renderers,
 }: EditorWrapperProps): ReactElement {
   const elRef = useRef<HTMLDivElement | null>(null);
 
-  // onReady 를 ref 로 캡처하여 inline 콜백 재생성이 effect 재실행을 유발하지 않게 한다.
+  // 콜백/옵션을 ref 로 캡처하여 inline 값 재생성이 effect 재실행(=인스턴스 재생성)을
+  // 유발하지 않게 한다. 슬롯 결선 여부는 effect(=mount) 시점의 ref 값으로 판정한다.
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
+  const onImagePasteRef = useRef(onImagePaste);
+  onImagePasteRef.current = onImagePaste;
+  const onFileDropRef = useRef(onFileDrop);
+  onFileDropRef.current = onFileDrop;
+  const renderersRef = useRef(renderers);
+  renderersRef.current = renderers;
 
   useEffect(() => {
     const el = elRef.current;
@@ -80,13 +169,26 @@ export function EditorWrapper({
     }
 
     const content = initialContent ?? "";
+    // edit·read 양 모드가 동일 override 를 소비한다(렌더 경로 단일화 — 8.8).
+    const customHTMLRenderer = toToastHTMLRenderer(renderersRef.current);
 
     if (mode === "read") {
       // 읽기 전용 — Viewer 로 렌더(편집 인스턴스 없음). Viewer 는 getMarkdown 이 없어
-      // 핸들의 getMarkdown 은 주입된 콘텐츠를 반영한다.
-      const viewer = Editor.factory({ el, viewer: true, initialValue: content });
+      // 핸들의 getMarkdown 은 주입된 콘텐츠를 반영하고, mutation 은 no-op 이다(8.7).
+      const viewer = Editor.factory({
+        el,
+        viewer: true,
+        initialValue: content,
+        ...(customHTMLRenderer !== undefined ? { customHTMLRenderer } : {}),
+      });
       const handle: EditorHandle = {
         getMarkdown: () => content,
+        insert: () => {
+          // 읽기 모드는 편집 인스턴스가 없다 — mutation 은 무해한 no-op(8.7).
+        },
+        replaceRange: () => {
+          // 읽기 모드는 편집 인스턴스가 없다 — mutation 은 무해한 no-op(8.7).
+        },
       };
       onReadyRef.current?.(handle);
 
@@ -96,19 +198,64 @@ export function EditorWrapper({
     }
 
     // 편집 — WYSIWYG 기본 + toolbar markdown 토글(mode switch) 유지(8.2).
+    // 붙여넣기/드롭 이미지 훅은 콜백이 있을 때만 결선한다(8.6). 실제 업로드는 s21 소유:
+    // 훅은 File 만 전달하고 Toast 삽입 callback(정책)은 호출하지 않는다.
+    const wireImagePaste = onImagePasteRef.current !== undefined;
     const editor = new Editor({
       el,
       initialEditType: "wysiwyg",
       initialValue: content,
       previewStyle: "vertical",
       hideModeSwitch: false, // markdown 토글을 강제로 숨기지 않는다(8.2).
+      ...(customHTMLRenderer !== undefined ? { customHTMLRenderer } : {}),
+      ...(wireImagePaste
+        ? {
+            hooks: {
+              addImageBlobHook: (blob: Blob | File) => {
+                onImagePasteRef.current?.(asFile(blob));
+              },
+            },
+          }
+        : {}),
     });
+
+    // 일반 파일 드롭 — 콜백이 있을 때만 에디터 루트에 DOM drop 리스너 결선(8.6).
+    // 브라우저 기본 파일 열기/네비게이션만 최소 차단하고, 업로드 정책은 s21 소유.
+    const wireFileDrop = onFileDropRef.current !== undefined;
+    const handleDrop = (event: Event): void => {
+      const dataTransfer = (event as DragEvent).dataTransfer;
+      if (dataTransfer === null) {
+        return;
+      }
+      const files = Array.from(dataTransfer.files);
+      if (files.length === 0) {
+        return;
+      }
+      event.preventDefault();
+      for (const file of files) {
+        onFileDropRef.current?.(file);
+      }
+    };
+    if (wireFileDrop) {
+      el.addEventListener("drop", handleDrop);
+    }
+
+    const toToastPos = (pos: EditorPos): [number, number] => [pos[0], pos[1]];
     const handle: EditorHandle = {
       getMarkdown: () => editor.getMarkdown(),
+      insert: (text) => {
+        editor.insertText(text);
+      },
+      replaceRange: (from, to, text) => {
+        editor.replaceSelection(text, toToastPos(from), toToastPos(to));
+      },
     };
     onReadyRef.current?.(handle);
 
     return () => {
+      if (wireFileDrop) {
+        el.removeEventListener("drop", handleDrop);
+      }
       editor.destroy();
     };
   }, [mode, initialContent]);

@@ -13,6 +13,9 @@ import { cleanup, render } from "@testing-library/react";
 const editorCtorSpy = vi.fn<(options: Record<string, unknown>) => void>();
 const factorySpy = vi.fn<(options: Record<string, unknown>) => void>();
 const destroySpy = vi.fn();
+const insertTextSpy = vi.fn<(text: string) => void>();
+const replaceSelectionSpy =
+  vi.fn<(text: string, start?: unknown, end?: unknown) => void>();
 const MOCK_MARKDOWN = "# mock markdown\n\nbody";
 
 vi.mock("@toast-ui/editor", () => {
@@ -23,6 +26,16 @@ vi.mock("@toast-ui/editor", () => {
 
     getMarkdown(): string {
       return MOCK_MARKDOWN;
+    }
+
+    // 6.2 capability: 커서 삽입.
+    insertText(text: string): void {
+      insertTextSpy(text);
+    }
+
+    // 6.2 capability: 범위 치환(placeholder→최종 참조).
+    replaceSelection(text: string, start?: unknown, end?: unknown): void {
+      replaceSelectionSpy(text, start, end);
     }
 
     destroy(): void {
@@ -47,6 +60,8 @@ beforeEach(() => {
   editorCtorSpy.mockClear();
   factorySpy.mockClear();
   destroySpy.mockClear();
+  insertTextSpy.mockClear();
+  replaceSelectionSpy.mockClear();
 });
 
 afterEach(() => {
@@ -140,5 +155,172 @@ describe("EditorWrapper — Toast UI 단일 래퍼 (8.1~8.5)", () => {
     expect(destroySpy).not.toHaveBeenCalled();
     unmount();
     expect(destroySpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("EditorWrapper — capability 슬롯 (8.6~8.8)", () => {
+  it("renderers.customHTMLRenderer 를 edit 모드 Editor 생성자에 그대로 위임한다 (8.8 edit)", () => {
+    const customHTMLRenderer = { paragraph: () => null };
+    render(
+      <EditorWrapper mode="edit" renderers={{ customHTMLRenderer }} />,
+    );
+
+    expect(editorCtorSpy).toHaveBeenCalledTimes(1);
+    const options = editorCtorSpy.mock.calls[0][0];
+    // 위임: 래퍼가 caller 의 customHTMLRenderer 를 참조 보존하여 전달.
+    expect(options.customHTMLRenderer).toBe(customHTMLRenderer);
+  });
+
+  it("동일 renderers.customHTMLRenderer 를 read 모드 Viewer factory 에도 전달한다 — 단일 렌더 경로 (8.8 read)", () => {
+    const customHTMLRenderer = { paragraph: () => null };
+    render(
+      <EditorWrapper mode="read" renderers={{ customHTMLRenderer }} />,
+    );
+
+    expect(factorySpy).toHaveBeenCalledTimes(1);
+    const options = factorySpy.mock.calls[0][0];
+    expect(options.viewer).toBe(true);
+    // 양 모드가 동일 override 를 소비(렌더 경로 이원화 없음).
+    expect(options.customHTMLRenderer).toBe(customHTMLRenderer);
+  });
+
+  it("customImageRenderer 를 edit·read 양 모드에서 Toast image 컨버터로 결선한다 (8.8)", () => {
+    const rendered: string[] = [];
+    const customImageRenderer = (ref: string): HTMLElement => {
+      rendered.push(ref);
+      const img = document.createElement("img");
+      img.setAttribute("data-ref", ref);
+      return img;
+    };
+
+    // edit 모드.
+    const editRender = render(
+      <EditorWrapper mode="edit" renderers={{ customImageRenderer }} />,
+    );
+    const editRenderer = editorCtorSpy.mock.calls[0][0]
+      .customHTMLRenderer as Record<
+      string,
+      (node: { destination: string | null }) => { type: string; content: string }
+    >;
+    expect(typeof editRenderer.image).toBe("function");
+    const editToken = editRenderer.image({ destination: "/attachments/42" });
+    expect(rendered).toContain("/attachments/42");
+    expect(editToken.type).toBe("html");
+    expect(editToken.content).toContain('data-ref="/attachments/42"');
+    editRender.unmount();
+
+    // read 모드 — 동일 override 가 Viewer 에도 결선된다.
+    render(<EditorWrapper mode="read" renderers={{ customImageRenderer }} />);
+    const readRenderer = factorySpy.mock.calls[0][0].customHTMLRenderer as Record<
+      string,
+      (node: { destination: string | null }) => { type: string; content: string }
+    >;
+    expect(typeof readRenderer.image).toBe("function");
+    readRenderer.image({ destination: "/attachments/99" });
+    expect(rendered).toContain("/attachments/99");
+  });
+
+  it("onImagePaste: 붙여넣기/드롭 이미지 blob 훅이 File 과 함께 콜백을 호출한다 (8.6)", () => {
+    const onImagePaste = vi.fn<(file: File) => void>();
+    render(<EditorWrapper mode="edit" onImagePaste={onImagePaste} />);
+
+    const options = editorCtorSpy.mock.calls[0][0];
+    const hooks = options.hooks as {
+      addImageBlobHook: (blob: Blob, cb: (url: string) => void) => void;
+    };
+    expect(typeof hooks.addImageBlobHook).toBe("function");
+
+    const blob = new Blob(["x"], { type: "image/png" });
+    hooks.addImageBlobHook(blob, () => {});
+
+    expect(onImagePaste).toHaveBeenCalledTimes(1);
+    const arg = onImagePaste.mock.calls[0][0];
+    expect(arg).toBeInstanceOf(File);
+    expect(arg.type).toBe("image/png");
+  });
+
+  it("onFileDrop: 에디터 루트의 drop 이벤트에서 dataTransfer.files 를 콜백으로 전달한다 (8.6)", () => {
+    const onFileDrop = vi.fn<(file: File) => void>();
+    render(<EditorWrapper mode="edit" onFileDrop={onFileDrop} />);
+
+    const el = editorCtorSpy.mock.calls[0][0].el as HTMLElement;
+    const file = new File(["data"], "note.txt", { type: "text/plain" });
+    const event = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "dataTransfer", {
+      value: { files: [file] },
+    });
+    el.dispatchEvent(event);
+
+    expect(onFileDrop).toHaveBeenCalledTimes(1);
+    expect(onFileDrop.mock.calls[0][0]).toBe(file);
+  });
+
+  it("handle.insert(text) 는 편집 인스턴스의 insertText 를 호출한다 (8.7)", () => {
+    let handle: EditorHandle | undefined;
+    render(
+      <EditorWrapper
+        mode="edit"
+        onReady={(h) => {
+          handle = h;
+        }}
+      />,
+    );
+
+    handle?.insert("x");
+    expect(insertTextSpy).toHaveBeenCalledTimes(1);
+    expect(insertTextSpy).toHaveBeenCalledWith("x");
+  });
+
+  it("handle.replaceRange(from,to,text) 는 정규화된 좌표로 범위 치환을 호출한다 (8.7)", () => {
+    let handle: EditorHandle | undefined;
+    render(
+      <EditorWrapper
+        mode="edit"
+        onReady={(h) => {
+          handle = h;
+        }}
+      />,
+    );
+
+    handle?.replaceRange([0, 0], [0, 3], "ref");
+    expect(replaceSelectionSpy).toHaveBeenCalledTimes(1);
+    expect(replaceSelectionSpy).toHaveBeenCalledWith("ref", [0, 0], [0, 3]);
+  });
+
+  it("read 모드에서 insert/replaceRange 는 무해한 no-op(편집 전용 mutation) 이다 (8.7)", () => {
+    let handle: EditorHandle | undefined;
+    render(
+      <EditorWrapper
+        mode="read"
+        initialContent="ro"
+        onReady={(h) => {
+          handle = h;
+        }}
+      />,
+    );
+
+    expect(() => handle?.insert("x")).not.toThrow();
+    expect(() => handle?.replaceRange([0, 0], [0, 1], "y")).not.toThrow();
+    expect(insertTextSpy).not.toHaveBeenCalled();
+    expect(replaceSelectionSpy).not.toHaveBeenCalled();
+  });
+
+  it("capability 제공 시에도 단일 인스턴스만 생성한다(포크 없음)", () => {
+    render(
+      <EditorWrapper
+        mode="edit"
+        onImagePaste={() => {}}
+        onFileDrop={() => {}}
+        renderers={{
+          customImageRenderer: () => document.createElement("img"),
+          customHTMLRenderer: {},
+        }}
+        onReady={() => {}}
+      />,
+    );
+
+    // edit 인스턴스 1개, Viewer factory 미호출 — 포크/이중 인스턴스 없음.
+    expect(editorCtorSpy).toHaveBeenCalledTimes(1);
+    expect(factorySpy).not.toHaveBeenCalled();
   });
 });
