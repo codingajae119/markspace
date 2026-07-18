@@ -113,7 +113,7 @@
   - _Requirements: 6.5_
   - _Boundary: RequireRole_
   - _Depends: 4.1, 3.2_
-- [ ] 4.3 admin 라우트 게이팅 컴포넌트 RequireAdmin 구현 (P)
+- [x] 4.3 admin 라우트 게이팅 컴포넌트 RequireAdmin 구현 (P)
   - `src/shared/auth/RequireAdmin.tsx`에서 `useSession()`의 `is_admin`(INV-3)으로만 판정하여 admin 전용
     children을 게이팅(워크스페이스 role과 독립). `fallback` 미충족 시 대체. s18 admin 콘솔이 소비(재구현 금지)
   - 관찰 가능한 완료: is_admin=true 컨텍스트에서 children 노출, 비-admin에서 미노출/대체됨(UI 테스트로 확인)
