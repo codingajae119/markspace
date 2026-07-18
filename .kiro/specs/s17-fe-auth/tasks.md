@@ -10,8 +10,8 @@
 > **핵심 결정**: 로그인 401(자격 거부)은 `skipAuthRedirect: true`로 전역 401 인터셉터를 우회해 인라인 표시하고,
 > 세션 반영은 `refresh()` 단일 진입점으로만 수행한다.
 
-- [ ] 1. Foundation: auth feature 스캐폴드 · API 래퍼
-- [ ] 1.1 auth feature 폴더 스캐폴드 및 authApi 얇은 래퍼 구현 (P)
+- [x] 1. Foundation: auth feature 스캐폴드 · API 래퍼
+- [x] 1.1 auth feature 폴더 스캐폴드 및 authApi 얇은 래퍼 구현 (P)
   - `frontend/src/features/auth/` 폴더 구조(api·hooks·components·pages) 생성. `api/authApi.ts`에 s16 `apiClient`를
     위임하는 `login`/`logout`/`changePassword`를 정의. 응답 사용자 타입은 s16 정본 `AuthUser`
     (`import type { AuthUser } from "@/app/session";`)를 재사용하고 로컬 재선언하지 않는다(drift 방지);
