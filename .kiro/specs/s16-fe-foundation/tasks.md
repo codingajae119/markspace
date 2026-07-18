@@ -9,7 +9,7 @@
 > 단일 소유 정정"). 컨슈머는 각 컨텍스트/타입의 동결된 단일 형태에 정확히 바인딩한다.
 
 - [ ] 1. 프론트엔드 스캐폴드 및 설정 단일화
-- [ ] 1.1 Vite + React + Tailwind CSS 4 + TypeScript strict 스캐폴드 생성
+- [x] 1.1 Vite + React + Tailwind CSS 4 + TypeScript strict 스캐폴드 생성
   - `frontend/`에 `package.json`(dev/build/typecheck 스크립트)·`index.html`(root div)·`src/main.tsx` 최소
     부팅·`vite.config.ts`(`@vitejs/plugin-react` + `@tailwindcss/vite` + `@/` alias)·`tsconfig.json`(`strict: true`,
     path alias) 구성
