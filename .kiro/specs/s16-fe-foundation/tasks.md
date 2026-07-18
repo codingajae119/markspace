@@ -122,7 +122,7 @@
   - _Depends: 3.2_
 
 - [ ] 5. 공용 UI·레이아웃·에러 경계
-- [ ] 5.1 공용 UI 프리미티브 및 에러 표시 유틸 구현 (P)
+- [x] 5.1 공용 UI 프리미티브 및 에러 표시 유틸 구현 (P)
   - `src/shared/ui/`에 `Button`·`Spinner`·`EmptyState`·`ErrorMessage`(ApiError의 message·field_errors 표시)와
     배럴 `index.ts`를 Tailwind 4로 구현
   - 관찰 가능한 완료: 각 프리미티브가 렌더되고 `ErrorMessage`가 `field_errors`를 목록으로 표시함(UI 테스트로 확인)
