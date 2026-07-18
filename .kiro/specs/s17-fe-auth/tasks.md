@@ -97,7 +97,7 @@
   - _Boundary: authRoutes (s16 라우터 등록 지점)_
   - _Depends: 3.1, 3.2_
 
-- [ ] 5. 검증: 플로우 통합/UI 테스트 및 타입/경계 확인
+- [x] 5. 검증: 플로우 통합/UI 테스트 및 타입/경계 확인
 - [x] 5.1 인증 플로우 통합 테스트 (로그인 복귀 · 로그인 401 인라인 · 로그아웃 · 비번변경 422)
   - 로그인 성공 → 세션 authenticated 전이 → `returnTo` 복귀(없으면 기본 홈); 로그인 401 → 전역 401 리다이렉트 미발동·
     `ErrorMessage` 인라인 표시; 로그아웃 → 204 → unauthenticated → 로그인 경로 이동; 비밀번호 변경 → 현재 불일치 422
@@ -107,7 +107,7 @@
   - _Requirements: 1.3, 2.1, 2.3, 3.3, 4.4, 4.5, 5.1_
   - _Boundary: useLogin, useLogout, useChangePassword, LoginForm, ChangePasswordPage_
   - _Depends: 4.1_
-- [ ] 5.2 미제공 범위·경계·타입 확인 (self sign-up/재설정 부재 · feature 격리 · strict)
+- [x] 5.2 미제공 범위·경계·타입 확인 (self sign-up/재설정 부재 · feature 격리 · strict)
   - self sign-up·비밀번호 분실 자가 재설정 진입점이 UI에 존재하지 않음을 확인. `features/auth/*`가 s16 `app`·`shared`
     만 import하고 다른 feature를 import하지 않음을 확인. `tsc --noEmit`(strict) 통과·`any` 미사용 확인.
   - 관찰 가능 완료: 회원가입/분실 재설정 링크·화면이 없음을 UI 테스트로 확인하고, import 경계 검사(다른 feature 참조
