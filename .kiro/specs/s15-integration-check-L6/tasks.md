@@ -11,7 +11,7 @@
 > L5 하네스는 **재사용·확장**한다.
 
 - [ ] 1. Foundation: L6 실제 전체 결합 검증 하네스 (L5 재사용·확장)
-- [ ] 1.1 L6 통합 테스트 하네스 구성 (L5 하네스 재사용 + 공유 발급/토글·공개 렌더/공개 파일·무효화 스윕·게이트 토글·share_link 관찰 픽스처)
+- [x] 1.1 L6 통합 테스트 하네스 구성 (L5 하네스 재사용 + 공유 발급/토글·공개 렌더/공개 파일·무효화 스윕·게이트 토글·share_link 관찰 픽스처)
   - `tests/integration_L6/conftest.py`에서 `s13` `tests/integration_L5`의 하네스 픽스처(실제 MySQL 8에 `alembic
     upgrade head` 적용·`s01` `create_app()` 부팅·admin 시드·세션 유지 `TestClient` 팩토리·고유 login_id 생성기·
     워크스페이스 생성·멤버 추가(role)·role별 세션 클라이언트·문서 트리 생성·부팅 앱과 동일 `SessionLocal`/`get_db`
@@ -168,3 +168,23 @@
     재검증 트리거 대상과 전체 시스템 GO 가부가 명확히 기록된다
   - _Requirements: 1.5, 8.1, 8.2, 8.3, 8.4_
   - _Depends: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
+
+## Implementation Notes
+- **무효화 스윕 세션 바인딩 함정**: L1 하네스는 `app.dependency_overrides[get_db]` 만 override 하고
+  `app.common.db.SessionLocal`(모듈 전역)은 개발 DB 에 그대로 묶여 있다(L1 conftest 주석 명시).
+  `app.sharing.invalidation.run_invalidation_sweep()` 는 호출 시점에 `app.common.db.SessionLocal()`
+  로 **자기 세션**을 열므로 그대로 호출하면 **테스트 DB 가 아니라 개발 DB** 를 친다. 따라서 L6
+  무효화 스윕 접근은 L5 `ArchivalSweepAccess` 패턴을 그대로 답습해 `harness.session_local` 세션으로
+  `ShareInvalidationSweep().invalidate_by_observation(db)` 를 직접 호출하고 commit 한다(부팅 앱과
+  동일 세션 팩토리·커밋 경계 정렬). `run_invalidation_sweep()` 자체를 관측 경로로 쓰려면
+  `app.common.db.SessionLocal` 을 `harness.session_local` 로 monkeypatch 해야 한다.
+- **하네스/헬퍼 재사용 체인**: L6 conftest 는 `from tests.integration_L5.conftest import (…L5 __all__
+  전체…)` 로 L1~L5 픽스처 계보를 한 번에 재-import 하고, L6 helpers 는 `from tests.integration_L5
+  import helpers as l5_helpers` 후 `l4_helpers=l5_helpers.l4_helpers`(및 l3/l2/l1) 재바인딩한다.
+- **게이트 토글 헬퍼**: 워크스페이스 `is_shareable` 는 `l2_helpers.update_settings(client, ws_id,
+  is_shareable=True/False)`(PATCH /workspaces/{id}, owner) 로 설정한다(신규 라우트 불필요).
+- **공유 발급/토글 응답 200**: `POST /documents/{id}/share`·`PATCH …/share` 는 계약상 **200**(upsert
+  통일)이며 201 이 아니다. `ShareLinkRead` = TimestampedRead(id·created_at·updated_at=None) +
+  document_id·token·is_enabled·share_url(`/public/{token}`). 공개 렌더 `PublicDocumentRead{root}`.
+- **DATETIME(0) 초정밀도**: share_link.created_at 등 DATETIME 은 s01 마이그레이션상 초 정밀도이므로
+  타임스탬프 비교 시 microsecond 를 0 으로 절삭해 비교한다(하위 하네스가 이미 답습).
