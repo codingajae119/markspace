@@ -25,7 +25,7 @@
   - _Requirements: 1.2, 3.2, 4.2, 6.1, 6.4_
   - _Boundary: authApi_
 
-- [ ] 2. Core: 인증 플로우 훅
+- [x] 2. Core: 인증 플로우 훅
 - [x] 2.1 useLogin 훅 구현 (로그인 → refresh → returnTo 복귀 · 실패 인라인) (P)
   - `hooks/useLogin.ts`: `submit(credentials)` 호출 시 `authApi.login` → 성공하면 `useSession().refresh()`로 세션
     확정 후 `resolveReturnTo(location.search)` 경로로 `navigate`(없으면 s16 기본 홈). 실패 시 `ApiError`를 `error`
@@ -46,7 +46,7 @@
   - _Requirements: 3.2, 3.3, 3.4, 5.1_
   - _Boundary: useLogout_
   - _Depends: 1.1_
-- [ ] 2.3 useChangePassword 훅 구현 (변경 제출 · 성공/두 갈래 422 상태) (P)
+- [x] 2.3 useChangePassword 훅 구현 (변경 제출 · 성공/두 갈래 422 상태) (P)
   - `hooks/useChangePassword.ts`: `submit({current_password,new_password})` 호출 시 `authApi.changePassword` →
     204면 `succeeded=true`·입력 정리 신호, 422(`unprocessable` 현재 불일치 / `validation_error` 정책 위반)면 `ApiError`를
     `error`에 세팅. 실패 유형을 프론트에서 분기하지 않고 `ApiError`를 그대로 노출. 대상은 항상 현재 사용자(타인 지정
