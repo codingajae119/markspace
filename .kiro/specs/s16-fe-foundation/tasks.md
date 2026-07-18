@@ -78,7 +78,7 @@
   - _Requirements: 2.1, 2.2, 2.4, 2.5, 4.3_
   - _Boundary: Router, ProtectedRoute_
   - _Depends: 3.1, 3.2_
-- [ ] 3.4 현재 워크스페이스 앰비언트 컨텍스트(CurrentWorkspaceProvider + useCurrentWorkspace) 구현
+- [x] 3.4 현재 워크스페이스 앰비언트 컨텍스트(CurrentWorkspaceProvider + useCurrentWorkspace) 구현
   - `src/app/workspace-context/`에 `types.ts`(동결된 `CurrentWorkspaceContextValue`)·`CurrentWorkspaceProvider.tsx`
     (`GET /workspaces`→`Page<WorkspaceRead>` 로드, 현재 WS 선택 localStorage 영속·복원, `workspaceId`·`role`·
     `isShareable` 파생 접근자, `selectWorkspace`·`refresh` 노출)·`useCurrentWorkspace.ts`를 구현. `role` 값은
