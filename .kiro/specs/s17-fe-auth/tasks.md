@@ -68,7 +68,7 @@
   - _Requirements: 1.1, 1.4, 2.1, 2.2, 2.4, 2.5_
   - _Boundary: LoginForm, LoginPage_
   - _Depends: 2.1_
-- [ ] 3.2 ChangePasswordPage 구현 (현재/새 비밀번호 · 성공/오류 표면화) (P)
+- [x] 3.2 ChangePasswordPage 구현 (현재/새 비밀번호 · 성공/오류 표면화) (P)
   - `pages/ChangePasswordPage.tsx`: 보호 프레임 대상 element. 현재 비밀번호·새 비밀번호 입력(대상은 현재 사용자 고정,
     타인 지정 없음)과 제출. `useChangePassword` 소비: 성공 시 성공 표시 + 입력 초기화, `error`를 `ErrorMessage`로 표시
     (422 message·field_errors 모두). 새 비밀번호 8자 클라이언트 편의 검증은 선택적 안내이며 백엔드 422가 최종 강제.
