@@ -37,7 +37,7 @@
   - _Requirements: 1.2, 1.3, 1.4, 1.5, 2.1, 2.3, 2.5, 5.1_
   - _Boundary: useLogin_
   - _Depends: 1.1_
-- [ ] 2.2 useLogout 훅 구현 (로그아웃 → refresh → login 이동) (P)
+- [x] 2.2 useLogout 훅 구현 (로그아웃 → refresh → login 이동) (P)
   - `hooks/useLogout.ts`: `submit()` 호출 시 `authApi.logout` → `useSession().refresh()`로 미인증 전이 → `navigate
     (ROUTES.login)`. 진행 중 `submitting`으로 중복 실행 방지. 세션 반영은 `refresh()` 단일 진입점으로만 수행하고
     자체 세션 저장소를 만들지 않음.
