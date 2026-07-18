@@ -91,7 +91,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
   - _Boundary: ShareLifecycleFlowSuite_
   - _Depends: 1.2_
-- [ ] 2.3 (P) 무효화·재발급 결합 스위트 — 문서 trashed/복구·게이트 off/on·retire·재발급·멱등 (INV-8, 7.8~7.10)
+- [x] 2.3 (P) 무효화·재발급 결합 스위트 — 문서 trashed/복구·게이트 off/on·retire·재발급·멱등 (INV-8, 7.8~7.10)
   - `tests/integration_L6/test_invalidation_reissue.py`에: (1) 발급 후 `DELETE /documents/{id}`(trashed)·`DELETE
     /trash/{bundleId}`(deleted)로 문서 전이 → 익명 `GET /public/{token}` 즉시 404(실시간 게이트) (4.1, 7.8, trash L4
     결합), (2) `run_invalidation_sweep`/`invalidate_by_observation` 실행 → 무효 조건 활성 링크가 `is_enabled=false`+토큰
