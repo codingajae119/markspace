@@ -58,7 +58,7 @@
   - _Depends: 1.1_
 
 - [ ] 3. UI: 인증 화면·컴포넌트
-- [ ] 3.1 LoginForm · LoginPage 구현 (자격 입력 · 인라인 에러 · 로딩) (P)
+- [x] 3.1 LoginForm · LoginPage 구현 (자격 입력 · 인라인 에러 · 로딩) (P)
   - `components/LoginForm.tsx`: `login_id`·`password` 입력과 제출 컨트롤. 제출 시 `useLogin().submit`, 진행 중 제출
     비활성 + `Spinner`, `error`를 s16 `ErrorMessage`로 인라인 표시(401 자격/비활동/삭제 공통 메시지·기타 4xx/5xx 동일
     유틸). `pages/LoginPage.tsx`: 게스트 접근 프레임 대상 element로 `LoginForm` 배치. 프레임/가드는 s16 소유(재정의
