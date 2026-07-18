@@ -7,7 +7,7 @@
 > 현재 role·비-admin 디렉터리)는 발명하지 않고 seam으로 처리한다(design.md §Contract Constraints & Adjacent Seams).
 
 - [ ] 1. feature 스캐폴드 및 계약 미러 타입
-- [ ] 1.1 워크스페이스 feature 폴더 구조 및 도메인 타입 정의
+- [x] 1.1 워크스페이스 feature 폴더 구조 및 도메인 타입 정의
   - `frontend/src/features/workspace/api/types.ts`에 **s16이 소유하지 않는** 백엔드 계약 미러 타입만 정의
     (`WorkspaceCreate`/`WorkspaceUpdate`, `MemberRead`/`Create`/`Update`·`MemberRole`, `UserRead`/`Create`/
     `Update`·`AdminPasswordResetRequest`, `OwnerChangeRequest`). `Page<T>`(`{items,total}`)·`WorkspaceRead`는
@@ -153,3 +153,72 @@
   - _Requirements: 8.1, 8.5_
   - _Boundary: DomainTypes_
   - _Depends: 7.1_
+
+## Implementation Notes
+
+구현 착수 전 s16 실소스·백엔드 스키마를 검증한 결과와 사용자 승인 결정(2026-07-19). 모든 태스크는 아래를
+ground truth 로 삼는다(설계 표현이 실제와 다르면 아래가 우선).
+
+### D-1. role 주입 seam 결정 (사용자 승인)
+- **s16 현실**: `CurrentWorkspaceProvider.tsx:145` 는 `role: null` 을 **하드코딩**하며, 앰비언트 컨텍스트에
+  role 값을 주입하는 seam(registry/prop/setter)이 **없다**. s16 주석(`types.ts:23-25`)이 명시하듯 실제
+  seam 은 **`RequireRole` 의 `currentRole` prop** 이다(= "isomorphic to RequireRole currentRole").
+- **결정**: `MembershipRoleSource`(task 3.1)는 **s18 소유 React 컨텍스트 provider + `useMembershipRole()`
+  훅 + 명령형 recorder(`recordOwner`/`recordSelfRole`)**로 구현하고 `Map<workspaceId, Role>` 상태를 보유한다
+  (role 파생 단일 소스). owner 패널(4.2·5.1)은 `<RequireRole minimum={Role.OWNER}
+  currentRole={useMembershipRole(workspaceId)}>` 로 게이팅한다. **`currentRole={useCurrentWorkspace().role}`
+  를 쓰지 말 것** — 항상 null 이라 owner 에게 owner UI 가 숨겨져 Req 7.4 위반. s16 파일은 수정하지 않는다.
+- provider 는 s16 `featureProviders` 합성 슬롯(main.tsx)에 등록(task 7.1). admin override 는 role 이 아니라
+  s16 `RequireRole`/`RequireAdmin` 이 세션 `is_admin` 으로 별도 통과시킨다(INV-3).
+
+### D-2. main.tsx 등록 결정 (사용자 승인)
+- routes·provider 등록은 `main.tsx` 의 두 취합 배열을 **append** 하는 것이 s16 이 구축한 메커니즘이다
+  (프레임 `router.tsx`/`ProtectedRoute` 는 불변). task 7.1 에서만:
+  `const featureRouteModules = [...authRoutes, ...workspaceRoutes];`,
+  `const featureProviders = [MembershipRoleProvider];` 로 수정한다(s16 주석 37-38·11-12 이 초대).
+
+### C-1. s16 소비 계약 (import path·시그니처, 재구현 금지)
+- `apiClient` ← `@/shared/api/client`: `get<T>(path,opts?)`·`post<T>(path,body?,opts?)`·`patch<T>(path,body?,opts?)`·
+  `del<T>(path,opts?)`. **쿼리 파라미터 전용 옵션 없음** → 쿼리는 path 문자열에 직접 조립
+  (`apiClient.get<Page<X>>(\`/workspaces?limit=${l}&offset=${o}\`)`). 204/빈 응답 → `undefined`. 비2xx →
+  `ApiError` throw. body 는 JSON 직렬화(FormData 아니면).
+- `useSession` ← `@/app/session/useSession`. 판별 유니온: `status: "loading"|"authenticated"|"unauthenticated"`.
+  `user`/`settings` 는 authenticated 변형에만. `is_admin` 은 `s.status==="authenticated" && s.user.is_admin`.
+- `useCurrentWorkspace` ← `@/app/workspace-context/useCurrentWorkspace`. 값 타입 `CurrentWorkspaceContextValue`
+  ← `@/app/workspace-context/types`: `{status:"loading"|"ready"|"empty", workspaces, currentWorkspace,
+  workspaceId, role(항상 null), isShareable, selectWorkspace(id:string), refresh()}`. 스위처는 이 목록·
+  currentWorkspace 를 표시하고 `selectWorkspace(String(id))` 로 전환(목록 로드·영속 재구현 금지).
+- 권한: `Role`(enum, VIEWER=1<EDITOR=2<OWNER=3) ← `@/shared/auth/roles`. `hasWorkspaceRole({currentRole,
+  isAdmin,minimum})` ← `@/shared/auth/permissions`. `RequireRole` ← `@/shared/auth/RequireRole`
+  (props: `minimum`·`currentRole`·`fallback?`·`children`; is_admin 은 내부에서 useSession 으로 읽음).
+  `RequireAdmin` ← `@/shared/auth/RequireAdmin`(props: `fallback?`·`children`; is_admin 만 판정).
+- 타입: `Page<T>`={items:T[], total:number} ← `@/shared/types/page`. `WorkspaceRead`={id,created_at,
+  updated_at|null, name, is_shareable, trash_retention_days} ← `@/shared/types/workspace`. **둘 다 import,
+  재정의 금지.**
+- UI: `Button`·`Spinner`·`EmptyState`·`ErrorMessage`(+prop 타입) ← 배럴 `@/shared/ui`.
+  **`ErrorMessage` 는 `error: ApiError | null` prop 을 받는다**(message/field_errors 개별 아님). `ApiError`
+  ← `@/shared/api/errors`: `{status, code, fieldErrors: FieldError[](camelCase!), raw?}`. catch 패턴:
+  `if (e instanceof ApiError) setError(e)`.
+- `RouteModule` ← `@/app/routeModule`: `{scope:"protected"|"guest", routes: RouteObject[]}`. 보호 슬롯은
+  pathless 레이아웃 자식이라 **상대 경로**(예 `"workspace/members"`). `composeProviders`/`ProviderComponent`
+  ← `@/app/providers`. s17 예시: `features/auth/routes.tsx` 의 `authRoutes` 배열.
+
+### C-2. 백엔드 계약 ground truth (미러 타입 드리프트 금지)
+- 경로 파라미터: workspace 는 `{id}`·member 는 `{uid}`; admin user 는 `{user_id}`; owner 변경은 `{id}`.
+- `MemberRead` = {id, workspace_id, user_id, role} — **타임스탬프 없음**(ORMReadModel). `MemberRole`=
+  "owner"|"editor"|"viewer". `MemberCreate`={user_id,role}, `MemberUpdate`={role}.
+- `WorkspaceCreate`={name}(비공백). `WorkspaceUpdate`={name?, is_shareable?, trash_retention_days?}(모두 optional).
+- `UserRead`={id, created_at, updated_at|null, login_id, name, email|null, is_admin, is_active, is_deleted}.
+  `UserCreate`={login_id, password, name, email?|null}. `UserUpdate`={name?, email?|null, is_active?,
+  is_deleted?}(is_admin 없음). `AdminPasswordResetRequest`={new_password}. `OwnerChangeRequest`=
+  {new_owner_user_id}. `email` 은 plain nullable string.
+- 엔드포인트/상태: POST /workspaces→201; GET /workspaces(limit=50,offset=0 query)→200 Page; GET/PATCH
+  /workspaces/{id}→200; DELETE /workspaces/{id}→204; POST /workspaces/{id}/members→201; PATCH
+  .../members/{uid}→200; DELETE .../members/{uid}→204; POST /admin/workspaces/{id}/owner→200 WorkspaceRead;
+  GET /admin/users(limit/offset query)→200 Page; POST /admin/users→201; PATCH /admin/users/{user_id}→200;
+  POST /admin/users/{user_id}/password→204.
+
+### C-3. 테스트 하네스
+- vitest(jsdom·globals), setup `src/test/setup.ts`, 테스트는 co-located `*.test.ts(x)`. alias `@`→`src`.
+- 명령: `npm run test`(vitest run)·`npm run typecheck`(tsc --noEmit)·`npm run build`(tsc --noEmit && vite build),
+  모두 `frontend/` 에서. 착수 baseline: 32 files / 186 tests green.
