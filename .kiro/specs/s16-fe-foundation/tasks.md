@@ -154,7 +154,7 @@
   - _Depends: 1.2_
 
 - [ ] 6. Toast UI Editor 단일 래퍼
-- [ ] 6.1 EditorWrapper(edit/read 단일 진입점) 구현
+- [x] 6.1 EditorWrapper(edit/read 단일 진입점) 구현
   - `src/shared/editor/EditorWrapper.tsx`에서 `mode:"edit"|"read"`·`initialContent`·`onReady(handle)`를 받아
     edit면 Toast Editor(WYSIWYG 기본 + markdown 토글)·read면 Toast Viewer를 내부 선택하고, `EditorHandle.
     getMarkdown()`을 노출. Toast UI CSS import를 이 래퍼가 단일 소유(자동저장/lock 동작은 미구현)
@@ -201,4 +201,6 @@
   - _Depends: 7.1_
 
 ## Implementation Notes
+- (6.1) **Toast UI Editor는 vanilla `@toast-ui/editor` 패키지를 ref+useEffect로 직접 래핑**(`@toast-ui/react-editor` 미사용 — React 16~18 peer 고정이라 React 19와 충돌 가능). edit=`new Editor({initialEditType:"wysiwyg", hideModeSwitch:false})`, read=`Editor.factory({viewer:true})`. jsdom은 ProseMirror를 인스턴스화 못 하므로 테스트에서 `vi.mock("@toast-ui/editor")` 필수. **타입 함정**: 이 패키지 package.json `exports`에 `types` 컨디션이 없어 moduleResolution:"bundler"에서 TS7016 → EditorWrapper.tsx가 동봉 `.d.ts`에서 `typeof Editor`를 import하고 값 import에 단일 `@ts-expect-error`로 재-타이핑(any 미사용). 더 깔끔한 대안은 co-located ambient `.d.ts`. (s19/s20/s22가 EditorWrapper 소비 시 재사용)
+- (6.1) EditorWrapper는 아직 소비 라우트가 없어 `vite build`에서 **트리셰이킹으로 제외**됨 → 실제 Toast 렌더는 빌드/테스트(목킹)로 검증 안 됨. **첫 소비 spec(s19/s20/s22)에서 실 Toast 통합을 반드시 실검증**할 것.
 - (3.3) React Router **데이터 라우터**(`createBrowserRouter`/`createMemoryRouter`)는 내비게이션마다 `new Request(url, {signal})`를 만드는데, jsdom/undici 환경에서 다른 realm의 `AbortSignal`을 거부해 `<Navigate>` 리다이렉트가 테스트에서 크래시한다(프로덕션 실브라우저는 단일 realm이라 정상). 라우팅/가드 통합 테스트는 `createMemoryRouter` 대신 history 기반 `MemoryRouter`+`useRoutes(createAppRoutes(...))`로 동일 라우트 설정을 마운트해 우회한다. 앱 부팅은 `createAppRouter`→`createBrowserRouter` 사용. (s17~s22 라우트 테스트 시 재사용)
