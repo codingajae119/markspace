@@ -136,7 +136,7 @@
   - _Requirements: 7.2, 7.3_
   - _Boundary: AppLayout, ErrorBoundary_
   - _Depends: 1.1_
-- [ ] 5.3 공용 Page<T> 및 WorkspaceRead 미러 타입 구현 (P)
+- [x] 5.3 공용 Page<T> 및 WorkspaceRead 미러 타입 구현 (P)
   - `src/shared/types/page.ts`(`Page<T> = { items: T[]; total: number }` — 백엔드 `base.py` 정확 미러, limit/
     offset 없음)·`src/shared/types/workspace.ts`(`WorkspaceRead` 미러: id·created_at·updated_at·name·
     is_shareable·trash_retention_days)를 구현. 필드 발명 금지
