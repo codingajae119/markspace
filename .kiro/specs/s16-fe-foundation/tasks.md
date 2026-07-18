@@ -34,7 +34,7 @@
   - _Requirements: 3.3, 3.4_
   - _Boundary: ApiErrors_
   - _Depends: 1.1_
-- [ ] 2.2 401 인터셉터용 네비게이션 주입 seam 구현 (P)
+- [x] 2.2 401 인터셉터용 네비게이션 주입 seam 구현 (P)
   - `src/shared/api/navigation.ts`에 `setNavigator(nav)`·`redirectToLogin(currentPath)`를 구현(라우팅을 정적
     import 하지 않고 런타임 주입, `returnTo` 보존 포함)
   - 관찰 가능한 완료: 주입된 navigator가 없으면 안전하게 무시되고, 주입 후 `redirectToLogin` 호출 시 `returnTo`가
