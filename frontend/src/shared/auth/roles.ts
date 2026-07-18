@@ -1,0 +1,15 @@
+/**
+ * 워크스페이스 role 위계 — 백엔드 `app/common/permissions.py` 의 `Role(IntEnum)` 정확 미러.
+ *
+ * 정수 순서가 곧 권한 포함 관계다: `OWNER(3) ≥ EDITOR(2) ≥ VIEWER(1)`.
+ * 읽기 전용 UI 는 최소 요구 role 을 `VIEWER` 로 표현한다. 수치(1/2/3)는 프론트에서
+ * 위계 비교(`currentRole >= minimum`)를 간결히 하기 위한 편의이며, 불변식은 owner 가
+ * 가장 높다는 **순서**다(Req 6.1·6.2, INV-1).
+ *
+ * 권한 판정은 워크스페이스 단위 role 로만 수행하며 문서별 개별 권한 개념은 없다(AC 6.1, INV-1).
+ */
+export enum Role {
+  VIEWER = 1,
+  EDITOR = 2,
+  OWNER = 3,
+}

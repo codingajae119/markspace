@@ -99,7 +99,7 @@
   - _Depends: 3.1_
 
 - [ ] 4. 권한 게이팅 유틸 (INV-1·2·3)
-- [ ] 4.1 Role 위계 및 hasWorkspaceRole 순수 유틸 구현 (P)
+- [x] 4.1 Role 위계 및 hasWorkspaceRole 순수 유틸 구현 (P)
   - `src/shared/auth/roles.ts`(`Role` VIEWER<EDITOR<OWNER)·`permissions.ts`(`hasWorkspaceRole({currentRole,
     isAdmin,minimum})`)를 구현: admin이면 항상 true, 아니면 위계 비교, currentRole=null이면 거부
   - 관찰 가능한 완료: viewer→editor 요구 거부, owner→editor 요구 통과, admin은 role 무관 통과가 단위 테스트로 확인됨
