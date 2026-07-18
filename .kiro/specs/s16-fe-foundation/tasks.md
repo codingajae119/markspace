@@ -184,7 +184,7 @@
   - _Requirements: 2.1, 4.1, 4.2, 5.1, 9.2, 10.1, 10.3_
   - _Boundary: Bootstrap(app)_
   - _Depends: 2.3, 3.2, 3.3, 3.4, 3.5, 5.2_
-- [ ]* 7.2 공통 레이어 단위·통합·UI 테스트 작성
+- [x]* 7.2 공통 레이어 단위·통합·UI 테스트 작성
   - `parseErrorResponse`·`hasWorkspaceRole`·`buildLoginPath`/`resolveReturnTo`·`apiClient` 401 분기·
     `composeRouter`/`composeProviders` 취합(단위), SessionProvider·CurrentWorkspaceProvider 부트스트랩·
     ProtectedRoute 판정·게스트 라우트(통합), `RequireRole`·`RequireAdmin`·`EditorWrapper` mode 분기 및
