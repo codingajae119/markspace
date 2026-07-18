@@ -53,7 +53,7 @@
   - _Depends: 1.2, 2.1, 2.2_
 
 - [ ] 3. 라우터 셸 및 세션 컨텍스트
-- [ ] 3.1 라우트 경로 상수 및 returnTo 규약 구현 (P)
+- [x] 3.1 라우트 경로 상수 및 returnTo 규약 구현 (P)
   - `src/app/routes.ts`에 `ROUTES`(login·root·share)·`RETURN_TO_PARAM`·`buildLoginPath`·`resolveReturnTo`를 구현
   - 관찰 가능한 완료: `buildLoginPath`가 인코딩된 `returnTo`를 붙이고 `resolveReturnTo`가 이를 복원하며, 없을 때
     기본 root를 반환(단위 테스트로 확인)
