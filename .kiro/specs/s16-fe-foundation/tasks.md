@@ -42,7 +42,7 @@
   - _Requirements: 4.1, 4.2, 4.4_
   - _Boundary: NavSeam_
   - _Depends: 1.1_
-- [ ] 2.3 공용 fetch 래퍼(apiClient) 구현
+- [x] 2.3 공용 fetch 래퍼(apiClient) 구현
   - `src/shared/api/client.ts`에 `apiRequest<T>`/`apiClient`를 구현: `apiConfig.baseUrl` 기준 URL,
     `credentials:"include"`, json/blob 응답 분기, 오류 시 `ApiError` throw, 401(비-`skipAuthRedirect`,
     비-로그인경로)이면 `redirectToLogin` 호출
