@@ -26,7 +26,7 @@
   - _Boundary: authApi_
 
 - [ ] 2. Core: 인증 플로우 훅
-- [ ] 2.1 useLogin 훅 구현 (로그인 → refresh → returnTo 복귀 · 실패 인라인) (P)
+- [x] 2.1 useLogin 훅 구현 (로그인 → refresh → returnTo 복귀 · 실패 인라인) (P)
   - `hooks/useLogin.ts`: `submit(credentials)` 호출 시 `authApi.login` → 성공하면 `useSession().refresh()`로 세션
     확정 후 `resolveReturnTo(location.search)` 경로로 `navigate`(없으면 s16 기본 홈). 실패 시 `ApiError`를 `error`
     상태에 보관하고 네비게이션하지 않음. 재제출 시 직전 오류 해제. 진행 중 `submitting`으로 중복 제출 방지. 복귀 경로
