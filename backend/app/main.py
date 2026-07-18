@@ -25,6 +25,7 @@ from app.sharing import scheduler as sharing_scheduler
 from app.sharing.router import router as sharing_router
 from app.trash import scheduler as trash_scheduler
 from app.trash.router import router as trash_router
+from app.user_settings.router import router as user_settings_router
 from app.workspace.admin_router import router as workspace_admin_router
 from app.workspace.router import router as workspace_router
 
@@ -72,6 +73,8 @@ def create_app() -> FastAPI:
     app.include_router(trash_router)
     app.include_router(attachment_router)
     app.include_router(sharing_router)
+    # user_setting additive 확장: 본인 설정 조회·수정(/me/settings).
+    app.include_router(user_settings_router)
     return app
 
 

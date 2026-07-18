@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     share_invalidation_sweep_interval_seconds: int = 3600  # 무효화 스윕 주기(초). 0 이하이면 인프로세스 스케줄러 비활성(외부 cron 신호)
     session_cookie_name: str = "session"
     session_max_age_seconds: int = 1209600  # 14d
+    # user_setting additive 확장(비파괴적). user_setting 레코드가 없을 때 반환할
+    # 사용자별 autosave 기본값(도메인 서비스가 이 값으로 대체한다).
+    default_autosave_enabled: bool = False
 
     # --- .env (secret) ---
     db_password: str

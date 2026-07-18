@@ -386,8 +386,10 @@ def test_s05_adds_no_new_migration(ws_harness):
         for p in versions.glob("*.py")
         if p.name != "__init__.py" and not p.name.startswith("_")
     }
-    assert revision_files == {"0001_initial_schema.py"}, (
-        "s05(및 s02~s04)는 새 마이그레이션을 추가하지 않아야 한다(s01 baseline 만 존재해야 함): "
+    # s01 baseline(0001) + additive user_setting(0002). s05(및 s02~s04)가 자기
+    # 마이그레이션을 추가하지 않았음을 검증하는 것이 목적이므로 additive user_setting 은 허용.
+    assert revision_files == {"0001_initial_schema.py", "0002_user_setting.py"}, (
+        "s05(및 s02~s04)는 새 마이그레이션을 추가하지 않아야 한다(s01 baseline + additive user_setting 만 존재해야 함): "
         f"관측={sorted(revision_files)}"
     )
 
@@ -406,10 +408,11 @@ def test_base_metadata_uses_only_s01_workspace_schema(ws_harness):
     없음), (b) workspace·workspace_member 컬럼 집합이 s01 물리 모델과 일치함을 단언한다(Req 6.5).
     """
     tables = set(Base.metadata.tables)
-    # (a) s05 가 새 테이블을 metadata 에 추가하지 않음 — 전체 테이블이 s01 7개와 정확히 일치.
-    assert tables == S01_ALL_TABLES, (
-        f"metadata 테이블 집합이 s01 계약과 정확히 일치해야 한다(s05 신규 테이블 금지): "
-        f"관측={sorted(tables)} 기대={sorted(S01_ALL_TABLES)}"
+    # (a) s05 가 새 테이블을 metadata 에 추가하지 않음 — s01 7개 + additive user_setting 과 정확히 일치.
+    expected_tables = S01_ALL_TABLES | {"user_setting"}
+    assert tables == expected_tables, (
+        f"metadata 테이블 집합이 s01 계약(+additive user_setting)과 정확히 일치해야 한다(s05 신규 테이블 금지): "
+        f"관측={sorted(tables)} 기대={sorted(expected_tables)}"
     )
 
     # (b) workspace·workspace_member 가 s01 물리 컬럼만 가짐(s05 컬럼 추가 없음).

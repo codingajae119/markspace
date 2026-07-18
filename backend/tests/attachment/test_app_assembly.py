@@ -76,6 +76,8 @@ def test_no_new_attachment_migration_added() -> None:
     """
     versions_dir = Path(__file__).resolve().parents[2] / "migrations" / "versions"
     migration_files = sorted(p.name for p in versions_dir.glob("*.py"))
-    assert migration_files == ["0001_initial_schema.py"], (
+    # s01 baseline(0001) + additive user_setting(0002)만 허용. attachment 전용
+    # 마이그레이션(0002 는 user_settings additive 확장 소유)은 여전히 없어야 한다.
+    assert migration_files == ["0001_initial_schema.py", "0002_user_setting.py"], (
         f"attachment 전용 마이그레이션이 추가되면 안 된다(발견: {migration_files})"
     )

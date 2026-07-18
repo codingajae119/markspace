@@ -33,8 +33,12 @@ def _enum_values(column):
     return set(column.type.enums)
 
 
-def test_all_seven_tables_registered():
-    """7개 테이블이 정확히 등록된다 (Req 1.1)."""
+def test_all_registered_tables():
+    """s01 초기 7개 테이블 + additive 확장 ``user_setting`` 이 정확히 등록된다 (Req 1.1).
+
+    s01 은 7개 테이블로 계약을 고정했고, 이후 additive 확장으로 ``user_setting``
+    (사용자별 설정 1:1 테이블)이 추가되었다. ``user`` 테이블은 변경되지 않는다.
+    """
     assert set(METADATA.tables) == {
         "user",
         "workspace",
@@ -43,7 +47,25 @@ def test_all_seven_tables_registered():
         "document_version",
         "attachment",
         "share_link",
+        "user_setting",
     }
+
+
+def test_user_setting_table_user_id_unique_and_fk():
+    """user_setting: user_id UNIQUE + FK(user.id), autosave_enabled NOT NULL (additive)."""
+    t = METADATA.tables["user_setting"]
+    for name in ("id", "user_id", "autosave_enabled"):
+        assert name in t.columns, f"user_setting.{name} 누락"
+
+    # 사용자당 1행: user_id UNIQUE.
+    assert frozenset({"user_id"}) in _unique_column_sets(t)
+    # user 테이블로의 FK.
+    fk_targets = {fk.column.table.name for fk in t.columns["user_id"].foreign_keys}
+    assert fk_targets == {"user"}
+    assert all(fk.column.name == "id" for fk in t.columns["user_id"].foreign_keys)
+
+    assert t.columns["user_id"].nullable is False
+    assert t.columns["autosave_enabled"].nullable is False
 
 
 def test_user_table_columns_and_login_id_unique():

@@ -470,8 +470,10 @@ def test_s09_added_no_new_migration():
     migration_files = sorted(
         p.name for p in versions_dir.glob("*.py") if p.name != "__init__.py"
     )
-    assert migration_files == ["0001_initial_schema.py"], (
-        f"s09 는 새 마이그레이션을 추가하지 않아야 한다 — 0001 초기 스키마뿐이어야 한다(7.2): "
+    # s01 baseline(0001) + additive user_setting(0002). s09 는 자기 마이그레이션을
+    # 추가하지 않았음을 검증하는 것이 목적이므로 additive user_setting 은 허용한다.
+    assert migration_files == ["0001_initial_schema.py", "0002_user_setting.py"], (
+        f"s09 는 새 마이그레이션을 추가하지 않아야 한다 — 0001 + additive user_setting 뿐이어야 한다(7.2): "
         f"{migration_files}"
     )
     # lock/version 특화 마이그레이션 부재(추가 안전망).
@@ -488,9 +490,11 @@ def test_only_s01_document_and_document_version_schemas_used():
     created_at)을 그대로 가짐을 확인한다.
     """
     tables = set(Base.metadata.tables.keys())
-    assert tables == S01_TABLES, (
-        f"s01 확정 7개 테이블만 존재해야 한다(s09 새 테이블 없음, 7.2): "
-        f"예상 {S01_TABLES}, 실제 {tables}"
+    # s01 확정 7개 + additive user_setting(0002). s09 가 새 테이블을 더하지 않았음을
+    # 검증하는 것이 목적이므로 additive user_setting 은 허용하되 lock_version 류는 금지.
+    assert tables == S01_TABLES | {"user_setting"}, (
+        f"s01 확정 7개 + additive user_setting 만 존재해야 한다(s09 새 테이블 없음, 7.2): "
+        f"예상 {S01_TABLES | {'user_setting'}}, 실제 {tables}"
     )
     assert "lock_version" not in tables, "s09 는 lock_version 전용 테이블을 도입하지 않는다"
 

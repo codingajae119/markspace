@@ -25,6 +25,7 @@ from sqlalchemy import create_engine, text
 TEST_DB_NAME = "notion_lite_test"
 
 # 애플리케이션 계약 테이블(alembic_version 은 제외) — Req 1.1.
+# s01 초기 7개 + additive 확장 user_setting(0002 마이그레이션).
 APP_TABLES = {
     "user",
     "workspace",
@@ -33,6 +34,7 @@ APP_TABLES = {
     "document_version",
     "attachment",
     "share_link",
+    "user_setting",
 }
 
 # 기대 UNIQUE 제약: (테이블, frozenset(컬럼)).
@@ -40,6 +42,7 @@ EXPECTED_UNIQUES = {
     ("user", frozenset({"login_id"})),
     ("share_link", frozenset({"token"})),
     ("workspace_member", frozenset({"workspace_id", "user_id"})),
+    ("user_setting", frozenset({"user_id"})),
 }
 
 # 기대 soft-delete/필터 인덱스: 인덱스명 → (테이블, 순서 있는 컬럼) — Req 1.11.
