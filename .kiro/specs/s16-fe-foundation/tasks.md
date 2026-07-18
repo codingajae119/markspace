@@ -26,7 +26,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. 공용 API 클라이언트 및 에러 계약
-- [ ] 2.1 ErrorResponse 타입·파싱·ApiError 구현 (P)
+- [x] 2.1 ErrorResponse 타입·파싱·ApiError 구현 (P)
   - `src/shared/api/errors.ts`에 `ErrorCode`·`FieldError`·`ErrorResponse` 타입, `ApiError` 클래스,
     `parseErrorResponse(status, body)`를 구현(백엔드 계약 미러링, 새 코드/필드 발명 금지)
   - 관찰 가능한 완료: 정형 `ErrorResponse` 본문이 `ApiError`로 매핑되고, 비정형/파싱 불가 본문은 `internal`
