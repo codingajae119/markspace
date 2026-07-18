@@ -188,3 +188,10 @@
   document_id·token·is_enabled·share_url(`/public/{token}`). 공개 렌더 `PublicDocumentRead{root}`.
 - **DATETIME(0) 초정밀도**: share_link.created_at 등 DATETIME 은 s01 마이그레이션상 초 정밀도이므로
   타임스탬프 비교 시 microsecond 를 0 으로 절삭해 비교한다(하위 하네스가 이미 답습).
+- **Windows 파일 핸들 결정성 함정(아카이브 스윕)**: 아카이브 스윕은 `move_to_archive`(os.rename)로
+  저장 파일을 보관 루트로 옮긴다. Windows 는 열린 핸들이 있는 파일의 rename 을 거부하므로, 스윕
+  **직전**에 그 첨부를 `GET /public/{token}/attachments/{aid}`(또는 `GET /attachments/{aid}`)로
+  서빙하면 `StreamingResponse` 가 남긴 파일 핸들이 간헐적으로 이동을 실패시켜 스윕이 그 첨부를
+  건너뛴다(processed=0, 비결정). 보관 대상 첨부는 스윕 직전에 서빙하지 말 것(L5 결정적 아카이브
+  스위트 규약). 보관 전 접근 200 은 별도 테스트로 독립 증명하고, 보관 격리(INV-7)는 공개 렌더 200
+  (게이트·status 정상) + is_archived=true + 범위 안 첨부 → 링크 경유 404 로 격리한다.

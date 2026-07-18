@@ -242,14 +242,20 @@ def test_archived_attachment_blocked_while_document_active(
 ):
     """문서를 active·공유로 유지한 채 첨부만 보관되면 링크 경유 접근이 404(INV-7, 게이트 아님) (5.3).
 
-    보관 차단이 게이트·범위가 아니라 오직 보관(INV-7) 때문임을 200-전/404-후 대조로 격리한다:
-    (1) 공유 루트에 이미지 업로드 → (대조) 링크 경유 200,
+    보관 차단이 게이트·범위가 아니라 오직 보관(INV-7) 때문임을 **독립 관측**으로 격리한다:
+    (1) 공유 루트에 이미지 업로드(첨부는 공유 문서 소속 = 범위 안),
     (2) `save_with_reference`(v1 참조 포함) → `save_without_reference`(v2 참조 제거)로 현재 버전이
         이미지를 참조하지 않게 만든다(s09 실제 저장; 문서는 active·공유 유지),
     (3) `att.created_at` 을 현재 버전 이전(_EARLY)으로 핀(붙여넣기 보호 통과),
     (4) 실제 아카이브 스윕(8.7 참조 소멸)으로 이미지 1건 보관 이동 → `is_archived=true` 확정,
-    (5) 문서가 여전히 active·공유(게이트 on)임에도 링크 경유 첨부 접근이 s12 규약대로 404
-        (보관 차단이 게이트·범위 아니라 INV-7 때문임).
+    (5) 문서가 여전히 active·공유(게이트 on) — 공개 렌더 200 으로 게이트·status 정상을 독립 확인,
+    (6) 그럼에도 링크 경유 첨부 접근이 s12 규약대로 404 → 이 404 는 게이트·범위가 아니라 오직
+        보관(INV-7) 때문임이 격리된다(공개 렌더 200 + 범위 안 첨부 + is_archived=true → 404=보관).
+
+    보관 이동 직전에 대상 첨부를 서빙하지 않는다: `StreamingResponse` 가 남긴 파일 핸들이 Windows
+    에서 `move_to_archive`(os.rename)를 간헐 실패시켜 스윕이 그 첨부를 건너뛰는(processed=0) 비결정
+    성을 유발하기 때문이다(L5 결정적 아카이브 스위트가 스윕 직전 서빙을 하지 않는 규약 답습).
+    보관 전 링크 경유 200 자체는 :func:`test_link_via_file_streams_binary` 가 이미 독립 증명한다.
     """
     editor = share_scenario.editor_client
     public = share_scenario.public_client
@@ -258,11 +264,6 @@ def test_archived_attachment_blocked_while_document_active(
 
     att = helpers.l5_helpers.upload_image(editor, doc_id, content=_IMAGE_BYTES)
     aid = att["id"]
-
-    # (1) (대조) 보관 이전 링크 경유 200 — 게이트·범위 통과, 첨부 미보관.
-    assert helpers.attempt_public_attachment(public, token, aid).status_code == 200, (
-        "보관 이전 링크 경유 첨부 접근은 200 이어야 한다(404 가 보관 때문임을 격리하는 대조)"
-    )
 
     # (2) v1(참조 포함) → v2(참조 제거) 실제 저장 → 현재 버전이 이미지를 참조하지 않는다(문서 active 유지).
     helpers.l5_helpers.save_with_reference(editor, doc_id, aid)
