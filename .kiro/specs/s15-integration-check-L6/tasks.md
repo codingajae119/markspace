@@ -122,7 +122,7 @@
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
   - _Boundary: LinkAttachmentAccessSuite_
   - _Depends: 1.2_
-- [ ] 2.5 (P) 전 계층 불변식 회귀 스위트 — INV-1~12 완전 조립 시스템 검증
+- [x] 2.5 (P) 전 계층 불변식 회귀 스위트 — INV-1~12 완전 조립 시스템 검증
   - `tests/integration_L6/test_full_stack_invariants.py`에 완전히 조립된 시스템에서: (1) 권한 WS 단위 판정·문서별 개별
     권한 부재(INV-1)·viewer 문서/휴지통/공유 링크 변경 불가(INV-2)·admin 비멤버 WS 문서/첨부/공유 접근·조작(INV-3)을
     실제 멤버십 세션으로 관찰 (6.1), (2) user(`is_deleted`)·document(`status`)·attachment(`is_archived`)·share_link
