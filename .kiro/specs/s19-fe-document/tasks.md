@@ -154,7 +154,7 @@
   - _Depends: 3.3, 6.1_
 
 - [ ] 7. 페이지 조립·라우트 등록·검증
-- [ ] 7.1 문서 메인/휴지통 페이지 조립 및 라우트 등록 (통합)
+- [x] 7.1 문서 메인/휴지통 페이지 조립 및 라우트 등록 (통합)
   - `src/features/document/pages/DocumentWorkspacePage.tsx`(트리+breadcrumb+뷰어+툴바 조립)·`TrashPage.tsx`
     (휴지통)와 `src/features/document/routes.tsx`를 구현하고, 문서/휴지통 라우트를 `RouteModule[]`
     (`scope: "protected"`)로 export 하여 `s16` `composeRouter`가 보호 슬롯에 합성하게 함(`router.tsx` 수기 편집
@@ -183,3 +183,4 @@
 
 ## Implementation Notes
 - role 조달 gap(1.3): s16 `CurrentWorkspaceProvider` 는 `role: null` 을 하드코딩하며 앰비언트 컨텍스트에 실 role 을 주입하는 seam 이 없다(s18 는 별도 `MembershipRoleProvider` 로 우회). 설계대로 `useDocumentScope` 는 `useCurrentWorkspace().role`(동결 계약 shape)을 그대로 소비하므로, 런타임에서 role 은 현재 null → 비-admin editor/owner 에게 변경성 UI 가 admin(session.is_admin) 외에는 노출되지 않는다. 이는 s19 경계 밖(상위 s16/s18 통합)의 알려진 gap 이며 s19 는 계약 shape 에 바인딩만 한다(형제 s18 import 금지 준수). 게이팅 컴포넌트 테스트는 `useCurrentWorkspace`/`useDocumentScope` 를 mock 해 editor/viewer/admin 분기를 검증한다.
+- 라우트 등록 seam(7.1): 설계는 "routes.tsx RouteModule[] export→composeRouter, router.tsx/main.tsx 미편집"이라 하나, s16 의 실제 등록 메커니즘은 `main.tsx` 의 `featureRouteModules` 배열 append(s17 authRoutes·s18 workspaceRoutes 선례)다. "미편집"은 라우터 프레임/provider 트리 한정이며, 배열 append+import 추가는 sanctioned 가산 등록. s19 는 `...documentRoutes` 를 append(경로 `/documents`·`/trash`, 보호 슬롯). 프레임·composeRouter·installNavigation·featureProviders 불변. 전체 스위트 436 통과로 s16/s17/s18 무회귀 확인.
