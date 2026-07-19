@@ -19,7 +19,7 @@
     `tsc --noEmit`이 통과함(새 필드 발명 없음)
   - _Requirements: 1.1, 2.1, 3.1, 5.1, 7.1_
   - _Boundary: AttachmentTypes_
-- [ ] 1.2 첨부 API 모듈(업로드 multipart·서빙 blob) 구현
+- [x] 1.2 첨부 API 모듈(업로드 multipart·서빙 blob) 구현
   - `src/features/attachment/api/attachmentApi.ts`에 `uploadAttachment(documentId, file, fileName, kind?)`
     (`POST /documents/{documentId}/attachments`, `FormData`에 file+선택 kind 담아 multipart, 201 `AttachmentRead`)와
     `fetchAttachmentBlob(attachmentId)`(`GET /attachments/{id}`, `responseType:"blob"`, 200 `Blob`)를 `s16`
