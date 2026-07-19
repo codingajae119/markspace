@@ -44,7 +44,7 @@
   - _Depends: 1.1_
 
 - [ ] 3. 현재 WS 컨텍스트 소비·role 조달·스위처
-- [ ] 3.1 MembershipRoleSource 구현 (현재 WS role 조달 단일 소스)
+- [x] 3.1 MembershipRoleSource 구현 (현재 WS role 조달 단일 소스)
   - `context/membershipRoleSource.ts`에 현재 사용자의 WS별 확인된 role을 축적하는 **단일 소스**를 구현
     (`roleFor`·`recordOwner`·`recordSelfRole`). 생성 응답의 owner화·멤버 뮤테이션의 자기 role 에코만 신호로
     사용하고 부재 시 `null`. 이 값을 s16 `CurrentWorkspaceProvider`의 role 주입 seam(= `RequireRole` `currentRole`
@@ -217,6 +217,20 @@ ground truth 로 삼는다(설계 표현이 실제와 다르면 아래가 우선
   .../members/{uid}→200; DELETE .../members/{uid}→204; POST /admin/workspaces/{id}/owner→200 WorkspaceRead;
   GET /admin/users(limit/offset query)→200 Page; POST /admin/users→201; PATCH /admin/users/{user_id}→200;
   POST /admin/users/{user_id}/password→204.
+
+### D-3. MembershipRoleSource 실제 소비 계약 (task 3.1 완료 — downstream 바인딩)
+- 파일: `frontend/src/features/workspace/context/membershipRoleSource.tsx`. exports:
+  - `MembershipRoleProvider` — `({children}) => ReactElement`, s16 `ProviderComponent` 호환. task 7.1 에서
+    main.tsx `featureProviders` 에 등록.
+  - `useMembershipRoleSource(): { roleFor(wsId:number): Role|null; recordOwner(wsId:number): void;
+    recordSelfRole(wsId:number, role:Role): void }` — provider 밖 호출 시 throw. 패널(4.2·5.1)은
+    `const { roleFor } = useMembershipRoleSource(); const role = currentWorkspace ? roleFor(currentWorkspace.id)
+    : null;` 로 읽어 `<RequireRole minimum={Role.OWNER} currentRole={role}>` 에 주입. 뮤테이션 훅(3.2·4.1)은
+    `recordOwner`/`recordSelfRole` 호출.
+  - `memberRoleToRole(role: MemberRole): Role` — MemberRole 문자열→Role enum 번역 단일 지점. useMemberActions(4.1)
+    가 self 에코를 `recordSelfRole(wsId, memberRoleToRole(echoedRole))` 로 반영.
+- 상태는 in-memory `Map<number,Role>`(useState). 세션 전환 시 자동 리셋 없음(관측된 concern) — client 게이팅은
+  보안 경계 아님(서버 403 권위, Req 7.5)이라 비차단. 통합/7.1 에서 필요 시 세션 변화 리셋 고려 가능.
 
 ### C-3. 테스트 하네스
 - vitest(jsdom·globals), setup `src/test/setup.ts`, 테스트는 co-located `*.test.ts(x)`. alias `@`→`src`.
