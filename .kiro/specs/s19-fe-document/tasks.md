@@ -99,7 +99,7 @@
   - _Requirements: 1.3, 1.4, 1.5, 1.6, 6.1, 6.3, 6.7_
   - _Boundary: DocumentTree, DocumentTreeNode_
   - _Depends: 3.1, 3.2_
-- [ ] 4.2 Breadcrumb 구현 (P)
+- [x] 4.2 Breadcrumb 구현 (P)
   - `src/features/document/components/Breadcrumb.tsx`에서 `useDocumentTree.ancestorsOf(selectedId)`로 조상
     경로(루트→현재)를 표시하고 항목 클릭 시 `select`로 전환. 루트 문서는 단일 항목
   - 관찰 가능한 완료: 선택 문서의 조상 경로가 순서대로 표시되고 조상 클릭 시 선택이 전환됨(UI 테스트로 확인)
