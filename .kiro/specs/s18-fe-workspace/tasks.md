@@ -18,7 +18,7 @@
   - _Boundary: DomainTypes_
 
 - [ ] 2. 도메인 API 어댑터 (s16 apiClient 위)
-- [ ] 2.1 workspaceApi 어댑터 구현 (P)
+- [x] 2.1 workspaceApi 어댑터 구현 (P)
   - `api/workspaceApi.ts`에 `list`·`create`·`get`·`update`·`remove`를 s16 `apiClient` 경유로 구현
     (`GET/POST /workspaces`, `GET/PATCH/DELETE /workspaces/{id}`). `list`의 `limit`/`offset`은 쿼리 파라미터로만
     전달하고 응답은 s16 `Page<WorkspaceRead>`(items·total). 자체 fetch·base URL·에러 파싱 없음
