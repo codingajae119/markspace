@@ -50,7 +50,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
   - _Boundary: resolveLockState_
   - _Depends: 1.1_
-- [ ] 2.2 useEditSession 생명주기 훅 구현
+- [x] 2.2 useEditSession 생명주기 훅 구현
   - `src/features/editor/hooks/useEditSession.ts`에서 마운트 시 `lockDocument`→`resolveLockState`, self면
     `getDocument`로 초기 콘텐츠 로드·편집 활성(`bindHandle`로 `EditorHandle` 결선), other/error면 편집 비활성.
     언마운트/라우트 전환 cleanup에서 `acquired && !released`일 때만 `saveDocument({content: getMarkdown()})`를
@@ -139,3 +139,7 @@
   - _Requirements: 7.5_
   - _Boundary: Scaffold_
   - _Depends: 4.1_
+
+## Implementation Notes
+- (2.2) `useEditSession`는 이탈 1회 저장을 `acquiredRef`·`releasedRef`·`savedRef`·`handleRef`(state 아님)로 가드하고, async `saveDocument` 호출 **직전에** `savedRef=true`를 동기 설정해 재진입을 막는다. cancel(204)은 `releasedRef=true`로 이탈 저장을 억제. EditorPane(3.1)은 `bindHandle(handle)`로 EditorWrapper `onReady` 핸들만 결선하면 되고 자체 저장 트리거를 만들지 않는다. 타이머·debounce 금지.
+- s16 계약 확정 경로: `apiClient`(`@/shared/api/client`, delete는 `del`·쿼리는 path로), `ApiError`(`@/shared/api/errors`, 숫자 `status`), `EditorWrapper`/`EditorHandle`(`@/shared/editor/EditorWrapper`, mode는 `"edit"|"read"` — `"viewer"` 없음), `useCurrentWorkspace`(`@/app/workspace-context/useCurrentWorkspace`, role은 s16서 현재 null·상위 주입), `useSession`(`@/app/session/useSession`, 3-state union·top-level isAdmin 없음), `hasWorkspaceRole`/`RequireRole`/`Role`(`@/shared/auth/*`, minimum·currentRole 필수 prop), `Page<T>`(`@/shared/types/page`), `RouteModule`/`composeRouter`(`@/app/routeModule`). 라우트 등록은 `main.tsx`의 `featureRouteModules`에 가산(= s17/s18/s19 선례; `router.tsx` 수기 편집 아님).
