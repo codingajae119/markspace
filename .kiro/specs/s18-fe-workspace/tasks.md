@@ -128,7 +128,7 @@
   - _Depends: 6.1, 6.2_
 
 - [ ] 7. 라우트 등록(RouteModule) 및 검증
-- [ ] 7.1 RouteModule[] export 및 role 소스 등록 (통합)
+- [x] 7.1 RouteModule[] export 및 role 소스 등록 (통합)
   - `features/workspace/routes.tsx`에서 워크스페이스 화면·admin 서브트리(내부 `RequireAdmin` 게이팅)를 s16
     `RouteModule` 계약의 **보호 슬롯**(`scope: "protected"`) 배열로 export 하고, `MembershipRoleSource`를 s16
     `CurrentWorkspaceProvider`의 role 주입 seam에 등록. `router.tsx`/`main.tsx` 수기 편집 없음, 현재 WS Provider

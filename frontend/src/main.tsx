@@ -30,16 +30,20 @@ import type { ProviderComponent } from "@/app/providers";
 import { composeRouter } from "@/app/routeModule";
 import type { RouteModule } from "@/app/routeModule";
 import { authRoutes } from "@/features/auth/routes";
+import { workspaceRoutes } from "@/features/workspace/routes";
+import { MembershipRoleProvider } from "@/features/workspace/context/membershipRoleSource";
 import { SessionProvider } from "@/app/session/SessionProvider";
 import { CurrentWorkspaceProvider } from "@/app/workspace-context/CurrentWorkspaceProvider";
 import "@/index.css";
 
-// feature 라우트 등록 슬롯 — s17 이 로그인·비밀번호 변경 화면을 authRoutes(RouteModule[])로 가산
-// 등록한다(게스트=로그인, 보호=비밀번호 변경). 후속 spec(s18~s22)은 여기에 자기 모듈을 이어 붙인다.
-const featureRouteModules: RouteModule[] = authRoutes;
+// feature 라우트 등록 슬롯 — s17(authRoutes: 게스트=로그인·보호=비밀번호 변경)에 이어 s18
+// (workspaceRoutes: 보호=워크스페이스 관리·admin 서브트리)을 가산 등록한다(D-2 승인 append).
+const featureRouteModules: RouteModule[] = [...authRoutes, ...workspaceRoutes];
 
-// feature Provider 합성 슬롯 — s16 은 도입할 feature Provider 가 없어 빈 배열(AC 10.3).
-const featureProviders: ProviderComponent[] = [];
+// feature Provider 합성 슬롯 — s18 MembershipRoleProvider 를 등록해 CurrentWorkspaceProvider 하위·
+// 라우터 상위에 마운트한다. 보호 화면의 owner 패널이 useMembershipRoleSource() 로 role 을 조달한다
+// (D-1/D-2 승인). s16 앰비언트 role 은 null 유지(주입하지 않음).
+const featureProviders: ProviderComponent[] = [MembershipRoleProvider];
 
 // 단일 취합 지점: RouteModule[] → 데이터 라우터. 프레임(보호/게스트 슬롯·ProtectedRoute 래핑)은
 // `@/app/router` 가 단일 소유하며 여기서 라우트를 수기 편집하지 않는다.
