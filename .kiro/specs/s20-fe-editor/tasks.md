@@ -20,7 +20,7 @@
     `tsc --noEmit` 통과
   - _Requirements: 1.1, 1.2, 2.1, 3.1, 6.1_
   - _Boundary: EditorTypes_
-- [ ] 1.2 잠금/버전 API 모듈 구현
+- [x] 1.2 잠금/버전 API 모듈 구현
   - `src/features/editor/api/lockVersionApi.ts`에 5개 엔드포인트(`lockDocument`·`saveDocument`·`cancelEdit`·
     `forceUnlock`·`listVersions`) + 편집 초기 콘텐츠용 `getDocument`를 `s16` `apiClient`로 호출. 경로는 실제
     라우터와 동일(`/documents/{id}/lock`·`/save`·`/cancel`·`/force-unlock`·`/versions`, `GET /documents/{id}`).
