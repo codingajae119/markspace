@@ -124,7 +124,7 @@
   - _Requirements: 1.1, 1.5, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.8_
   - _Boundary: EditorRoutes, DocumentEditPage_
   - _Depends: 3.1, 3.2, 3.3_
-- [ ]* 4.2 단위·통합·UI 테스트 작성
+- [x]* 4.2 단위·통합·UI 테스트 작성
   - `resolveLockState`·`lockVersionApi`·`useForceUnlock.canForceUnlock`(단위), `useEditSession`(진입 획득·
     이탈 1회 저장·취소 억제)·`useVersionHistory`(통합), 강제 해제 게이팅(viewer/editor 미노출·owner/admin
     노출)·`EditorPane` edit 단일 렌더·버전 뷰어 rollback 부재(UI) 테스트를 추가
