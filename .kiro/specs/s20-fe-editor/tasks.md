@@ -30,7 +30,7 @@
   - _Requirements: 1.1, 1.3, 3.1, 4.1, 5.2, 6.1, 6.2, 7.5_
   - _Boundary: LockVersionApi_
   - _Depends: 1.1_
-- [ ] 1.3 편집 스코프(현재 WS·세션) 소비 어댑터 구현 (P)
+- [x] 1.3 편집 스코프(현재 WS·세션) 소비 어댑터 구현 (P)
   - `src/features/editor/hooks/useEditorScope.ts`에 s16 `useCurrentWorkspace()`의 최상위 `workspaceId`(string|null)·
     `role`(Role|null)과 `s16` `useSession()`의 `isAdmin`·`currentUserId`를 결합하는 얇은 래퍼 구현. s16과
     **동명(`useCurrentWorkspace`) 훅을 재정의하지 않는다**(이름 충돌·drift 회피). `role` 값은 s18 멤버십 경로로
