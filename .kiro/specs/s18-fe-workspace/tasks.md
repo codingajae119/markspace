@@ -68,7 +68,7 @@
   - _Depends: 2.1, 3.1_
 
 - [ ] 4. owner 멤버/권한 관리
-- [ ] 4.1 RoleSelect 및 useMemberActions 구현 (P)
+- [x] 4.1 RoleSelect 및 useMemberActions 구현 (P)
   - `components/RoleSelect.tsx`(owner/editor/viewer 3값만 방출)·`hooks/useMemberActions.ts`(add/changeRole/remove
     뮤테이션 + 뮤테이션 응답 `MemberRead` 기반 로컬 멤버 상태 관리, 실패 시 롤백, 대상이 자기 자신이면
     `MembershipRoleSource.recordSelfRole` 반영). 계약에 멤버 목록 조회가 없다는 S1 전제를 로컬 상태 주석·UI 노출
