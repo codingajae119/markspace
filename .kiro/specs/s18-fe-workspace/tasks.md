@@ -77,7 +77,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.6, 3.7_
   - _Boundary: RoleSelect, useMemberActions_
   - _Depends: 2.2, 3.1_
-- [ ] 4.2 MemberManagementPanel 구현 (owner 게이팅)
+- [x] 4.2 MemberManagementPanel 구현 (owner 게이팅)
   - `components/MemberManagementPanel.tsx`에서 `<RequireRole minimum={Role.OWNER} currentRole={useCurrentWorkspace().role}>`
     로 감싼 멤버 추가(`user_id`+role)·role 변경·제거 UI를 구현. 현재 role은 s16 컨텍스트에서 주입, 역할 문자열
     직접 비교 없음. 전체 멤버 열거가 아님을 UI에 명시(S1), 서버 403은 항상 오류로 처리
