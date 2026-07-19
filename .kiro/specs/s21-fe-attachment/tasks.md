@@ -86,7 +86,7 @@
   - _Requirements: 2.1, 5.2_
   - _Boundary: AttachmentPlaceholder_
   - _Depends: 1.1_
-- [ ] 4.2 AttachmentImage(인증 이미지 렌더 + placeholder 폴백) 구현
+- [x] 4.2 AttachmentImage(인증 이미지 렌더 + placeholder 폴백) 구현
   - `src/features/attachment/components/AttachmentImage.tsx`에서 `useAttachmentResource(id)`로 오브젝트 URL을
     받아 `<img>` 렌더(원시 `src` 삽입 금지). `loading`이면 `Spinner`, `unavailable`(404/403)이면
     `AttachmentPlaceholder`. admin 포함 보관 첨부는 백엔드 404→placeholder
