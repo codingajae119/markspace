@@ -27,7 +27,7 @@
   - _Requirements: 1.1, 1.2, 3.1, 4.1, 5.1, 6.1, 7.1, 8.1, 8.3, 8.4, 9.6_
   - _Boundary: DocumentApi_
   - _Depends: 1.1_
-- [ ] 1.3 문서 스코프 선택자(useDocumentScope) 구현 (P)
+- [x] 1.3 문서 스코프 선택자(useDocumentScope) 구현 (P)
   - `src/features/document/hooks/useDocumentScope.ts`에 `s16` 앰비언트 컨텍스트 `useCurrentWorkspace()`를 감싼
     얇은 선택자를 구현: 최상위 접근자 `status`·`workspaceId`(string|null)·`role`만 재노출하고, `isAdmin`은 `s16`
     `useSession()`에서 취득. 중첩 필드(`currentWorkspace` 등) 접근 금지, 컨텍스트 재구현·`useCurrentWorkspace`
@@ -180,3 +180,6 @@
   - _Requirements: 1.1_
   - _Boundary: Scaffold_
   - _Depends: 7.1_
+
+## Implementation Notes
+- role 조달 gap(1.3): s16 `CurrentWorkspaceProvider` 는 `role: null` 을 하드코딩하며 앰비언트 컨텍스트에 실 role 을 주입하는 seam 이 없다(s18 는 별도 `MembershipRoleProvider` 로 우회). 설계대로 `useDocumentScope` 는 `useCurrentWorkspace().role`(동결 계약 shape)을 그대로 소비하므로, 런타임에서 role 은 현재 null → 비-admin editor/owner 에게 변경성 UI 가 admin(session.is_admin) 외에는 노출되지 않는다. 이는 s19 경계 밖(상위 s16/s18 통합)의 알려진 gap 이며 s19 는 계약 shape 에 바인딩만 한다(형제 s18 import 금지 준수). 게이팅 컴포넌트 테스트는 `useCurrentWorkspace`/`useDocumentScope` 를 mock 해 editor/viewer/admin 분기를 검증한다.
