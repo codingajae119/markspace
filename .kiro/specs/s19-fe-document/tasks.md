@@ -124,7 +124,7 @@
   - _Depends: 3.2, 4.3_
 
 - [ ] 5. 읽기 전용 뷰어
-- [ ] 5.1 DocumentViewer(EditorWrapper read 재사용 + 편집 진입 seam) 구현
+- [x] 5.1 DocumentViewer(EditorWrapper read 재사용 + 편집 진입 seam) 구현
   - `src/features/document/components/DocumentViewer.tsx`에서 `documentApi.getDocument(id)` 조회 후 `s16`
     `EditorWrapper`를 `mode:"read"`·`initialContent=content`(markdown)로 렌더(자체 에디터 인스턴스 금지,
     `content_html` 미사용으로 렌더 경로 이원화 금지). editor 이상에게만 편집 진입 진입점(버튼) 노출(동작은
