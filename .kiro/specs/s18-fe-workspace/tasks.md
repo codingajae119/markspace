@@ -27,7 +27,7 @@
   - _Requirements: 1.1, 2.1, 4.1, 4.4, 8.1_
   - _Boundary: workspaceApi_
   - _Depends: 1.1_
-- [ ] 2.2 memberApi 어댑터 구현 (P)
+- [x] 2.2 memberApi 어댑터 구현 (P)
   - `api/memberApi.ts`에 `add`·`changeRole`·`remove`를 `apiClient` 경유로 구현
     (`POST/PATCH/DELETE /workspaces/{id}/members[/{uid}]`)
   - 관찰 가능한 완료: 각 메서드가 카탈로그 행 15~17과 일치하고 성공 시 `MemberRead`/void를 반환함(단위 테스트로 확인)
