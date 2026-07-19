@@ -94,7 +94,7 @@
   - _Requirements: 5.4, 6.2, 6.3, 6.5, 7.1, 7.4_
   - _Boundary: usePublicDocument_
   - _Depends: 1.3, 2.2_
-- [ ] 4.2 공개 문서 재귀 노드(PublicDocumentNodeView) 구현 (P)
+- [x] 4.2 공개 문서 재귀 노드(PublicDocumentNodeView) 구현 (P)
   - `src/features/sharing/components/PublicDocumentNodeView.tsx`에 서버 산정 안전 `content_html`을 `s16`
     `ReadOnlyProse` 공용 prose 스타일로 읽기 전용 표시(에디터 인스턴스 미구성·자체 prose 스타일 정의 없이 s16 스타일
     재사용, S2)·`children` 재귀 렌더를 구현(이미지·다운로드는 재작성된 절대 공개 서빙 경로로 로딩)
