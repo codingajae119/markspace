@@ -165,7 +165,7 @@
   - _Requirements: 7.1, 8.1, 9.1, 9.5, 9.6_
   - _Boundary: DocumentRoutes, DocumentWorkspacePage, TrashPage_
   - _Depends: 4.1, 4.2, 4.4, 5.1, 6.2_
-- [ ]* 7.2 단위·통합·UI 테스트 작성
+- [x]* 7.2 단위·통합·UI 테스트 작성
   - `buildTree`·`resolveAncestors`·`computeMoveTarget`·`loadAllActiveDocuments`(단위), `useDocumentTree`·
     `useDocumentMutations`(낙관/복원)·`useTrash`(통합), 권한 게이팅(viewer 미노출/editor·admin 노출)·
     `DocumentViewer` read 렌더·DnD 이동·완전삭제 비가역 확인(UI) 테스트를 추가
