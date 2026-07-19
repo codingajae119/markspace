@@ -6,7 +6,7 @@
 > 게스트 측(공개·무가드) 경로를 분리해 구현한다. 각 태스크는 단일 책임 경계 안에서 검증 가능한 산출물을 남긴다.
 
 - [ ] 1. 계약 미러 타입 및 도메인 API 어댑터
-- [ ] 1.1 공유·공개 계약 미러 타입 정의 (P)
+- [x] 1.1 공유·공개 계약 미러 타입 정의 (P)
   - `src/features/sharing/api/types.ts`에 `ShareLinkRead`(id·created_at·updated_at·document_id·token·is_enabled·
     share_url)·`ShareLinkUpdate`(is_enabled)·`PublicDocumentNode`(id·title·content_html·children)·
     `PublicDocumentRead`(root)를 백엔드 스키마 형태로만 미러링(새 필드 발명 금지)
@@ -144,3 +144,34 @@
   - _Requirements: 2.1, 3.1, 4.1, 6.2, 7.1, 8.4_
   - _Boundary: SharingTypes, shareApi, publicApi, buildShareUrl, rewriteAttachmentRefs_
   - _Depends: 5.2_
+
+## Implementation Notes
+
+> 구현 시작 전 부모 컨트롤러가 코드베이스에서 검증한 s16 소비 계약·백엔드 ground-truth·컨벤션. 각 태스크는 이를 전제로 소비만 하며 재구현하지 않는다.
+
+### s16 공통 레이어 소비 계약 (검증됨 — 경로·시그니처 정확)
+- `@/config` → `apiConfig.baseUrl: string`.
+- `@/shared/api/client` → `apiClient.{get,post,patch,del}<T>(path, [body], options?)`. `RequestOptions`: `{method, body, responseType?: "json"|"blob", signal?, skipAuthRedirect?: boolean}`. 2xx→`T`(json) 또는 `Blob`; 그 외→`ApiError` throw. 401(비-skip·비-로그인경로)이면 전역 리다이렉트. **테스트에서 `vi.mock("@/shared/api/client", () => ({ apiClient: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), del: vi.fn() } }))` 로 모킹**(s21 attachmentApi.test.ts 패턴).
+- `@/shared/api/errors` → `class ApiError`(`.status`·`.code`·`.message`·`.fieldErrors: FieldError[]`·`.raw?`), `ErrorResponse`·`ErrorCode`·`FieldError`·`parseErrorResponse`.
+- `@/app/routes` → `ROUTES`(`{login:"/login", root:"/", share:"/share/:token"}` `as const`). **`ROUTES.share` 는 정적 문자열 `"/share/:token"` — 경로 빌더 함수 아님**(buildShareUrl 이 `:token` 치환).
+- `@/app/routeModule` → `interface RouteModule { scope: "protected"|"guest"; routes: RouteObject[] }` (react-router-dom `RouteObject`). feature 는 `RouteModule[]` export 만 하면 main.tsx 취합. 게스트 프레임에 동일 path(`/share/:token`) 등록 시 s16 플레이스홀더가 **치환**됨(router.tsx override 로직).
+- `@/shared/auth/roles` → `enum Role { VIEWER=1, EDITOR=2, OWNER=3 }`.
+- `@/shared/auth/permissions` → `hasWorkspaceRole({currentRole: Role|null, isAdmin: boolean, minimum: Role}): boolean`.
+- `@/shared/auth/RequireRole` → `RequireRole` 컴포넌트, props `{minimum: Role, currentRole: Role|null, fallback?, children}`. **admin override 는 내부에서 `useSession()` 으로 자체 판정**(호출자는 `currentRole` 만 주입, `useCurrentWorkspace().role`).
+- `@/shared/editor/ReadOnlyProse` → `ReadOnlyProse` 컴포넌트, props `{html?: string, children?: ReactNode}`. `html` 은 **이미 sanitize 된 신뢰 HTML** 가정(컨테이너는 sanitize 안 함). 백엔드 `content_html` 은 nh3 sanitize 됨 → 그대로 `html` prop 으로 전달 안전.
+- `@/app/workspace-context/useCurrentWorkspace` → `useCurrentWorkspace(): CurrentWorkspaceContextValue`(`{status, workspaces, currentWorkspace, workspaceId: string|null, role: Role|null, isShareable: boolean, selectWorkspace, refresh}`). Provider 밖 호출 시 throw.
+- `@/shared/ui` (배럴) → `Button`·`Spinner`·`EmptyState`·`ErrorMessage` + prop 타입.
+
+### 백엔드 ground-truth (backend/app/sharing/schemas.py·router.py — 1:1 미러, 발명 금지)
+- `ShareLinkRead`: `id:number`·`created_at:string`·`updated_at:string|null`(컬럼 부재로 항상 null)·`document_id:number`·`token:string`·`is_enabled:boolean`·`share_url:string`(서버 산정 `/public/{token}`).
+- `ShareLinkUpdate`: `is_enabled:boolean`.
+- `PublicDocumentNode`: `id:number`·`title:string`·`content_html:string`(nh3 sanitize)·`children:PublicDocumentNode[]`.
+- `PublicDocumentRead`: `root:PublicDocumentNode`.
+- 라우트: `POST /documents/{id}/share`→ShareLinkRead(401,403,404,409); `PATCH /documents/{id}/share`(body ShareLinkUpdate)→ShareLinkRead(401,403,404,409); `GET /public/{token}`(skipAuthRedirect)→PublicDocumentRead(404); 첨부 서빙 `GET /public/{token}/attachments/{aid}`(binary, 브라우저 직접).
+
+### 컨벤션 (검증됨)
+- TS strict + `verbatimModuleSyntax`(타입은 `import type`/`export type` 분리) + `noUnusedLocals` + `noUnusedParameters`. **`any` 금지**.
+- 컴포넌트 파일 PascalCase, 훅/유틸 camelCase. 경로 alias `@`→src, 같은 feature 내부는 상대 import. **다른 feature 폴더(`src/features/*`) 직접 import 금지**.
+- 테스트: vitest globals(`describe/it/expect/vi`), jsdom, `@testing-library/react`(+`user-event`·`jest-dom`). setup `src/test/setup.ts`.
+- 문서 주석·UI 텍스트 한국어(spec language=ko), 코드 식별자 영어.
+- 검증 명령: `npm test`(vitest run) / `npm run typecheck`(tsc --noEmit) / `npm run build`. 시작 baseline **614 tests passing / 90 files**(무회귀 기준).
