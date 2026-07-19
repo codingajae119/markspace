@@ -95,7 +95,7 @@
   - _Requirements: 3.1, 3.3, 5.1, 5.2, 5.5_
   - _Boundary: AttachmentImage_
   - _Depends: 3.1, 4.1_
-- [ ] 4.3 AttachmentFileLink(파일 다운로드 링크 + placeholder 폴백) 구현 (P)
+- [x] 4.3 AttachmentFileLink(파일 다운로드 링크 + placeholder 폴백) 구현 (P)
   - `src/features/attachment/components/AttachmentFileLink.tsx`에서 파일 첨부를 이미지와 구분되는 다운로드
     링크로 표시하고, 활성화 시 `useAttachmentResource`/`fetchAttachmentBlob`로 blob 취득 후 오브젝트 URL +
     `download=original_name`으로 다운로드 트리거. 취득 실패는 오류 표시, 404/403은 `AttachmentPlaceholder`
