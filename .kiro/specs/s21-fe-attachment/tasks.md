@@ -31,7 +31,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. 순수 참조 로직 (lib)
-- [ ] 2.1 attachmentReference 순수 함수 구현 (P)
+- [x] 2.1 attachmentReference 순수 함수 구현 (P)
   - `src/features/attachment/lib/attachmentReference.ts`에 `buildReferenceMarkdown(att)`(image→`![name](url)`,
     file→`[name](url)`, `url`은 응답값 그대로)·`buildPlaceholderToken(uploadId)`·`replacePlaceholder(content,
     uploadId, replacement)`·`buildErrorMarker(uploadId)`와 참조 파서 `resolveAttachmentReference(href)`
