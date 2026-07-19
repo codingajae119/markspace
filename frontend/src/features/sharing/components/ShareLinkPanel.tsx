@@ -23,6 +23,13 @@
  * 오류 표면화(Req 1.5·2.2·3.3): `error` 를 `ErrorMessage` 로 있는 그대로 표시한다(에러 형태 발명
  * 금지). 사용자에게 제시하는 링크는 게스트 프론트 링크(`frontShareUrl`)이며 백엔드 `share_url`
  * (공개 API 경로)이 아니다(Req 2.2).
+ *
+ * **S4 자기완결 마운트 seam(task 5.1)**: 이 컴포넌트는 오직 `{ documentId, documentStatus }`
+ * prop + 세션/워크스페이스 컨텍스트 신호만으로 문서 표면에 마운트되는 자기완결 유닛이다.
+ * s19 문서 뷰어 컴포넌트를 import 하거나 그 렌더 경로를 fork/수정하지 않는다(경계: sharing 전용).
+ * 실제 마운트 지점(s19 표면의 어느 위치에 이 패널을 배치할지)은 교차-spec 검토 항목이며 s22
+ * 코드 변경이 아니다. 이 자기완결 계약은 `ShareLinkPanel.integration.test.tsx` 가 REAL
+ * useShareManager + REAL InvalidationNotice 로 잠근다(관측 신호→무효화 안내 종단 경로 포함).
  */
 
 import type { ReactElement, ReactNode } from "react";
