@@ -8,7 +8,7 @@
 > 각 태스크는 단일 책임 경계 안에서 검증 가능한 산출물을 남긴다.
 
 - [ ] 1. 도메인 타입·API·인접 seam 기반
-- [ ] 1.1 계약 미러링 타입 정의 (P)
+- [x] 1.1 계약 미러링 타입 정의 (P)
   - `src/features/document/types.ts`에 백엔드 계약을 미러링: `DocumentStatus`·`DocumentRead`·`DocumentCreate`·
     `DocumentUpdate`·`DocumentMoveRequest`·`TrashMemberRead`·`TrashBundleRead`와 프론트 파생 타입
     `DocumentNode`·`DropPosition`. `Page<T>`는 `s16` 공용 타입(`@/shared/types/page`)에서 import(재정의 금지).
