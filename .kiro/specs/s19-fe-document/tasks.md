@@ -39,7 +39,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. 순수 트리·이동 로직 (lib)
-- [ ] 2.1 buildTree 순수 함수 구현 (P)
+- [x] 2.1 buildTree 순수 함수 구현 (P)
   - `src/features/document/lib/buildTree.ts`에 평면 `DocumentRead[]` → `{roots, nodeById}` 변환: `parent_id`로
     부모-자식 연결, 형제를 `sort_order`(불투명 키) 오름차순 정렬. 프론트 정렬 값 재계산 금지
   - 관찰 가능한 완료: 다층 계층이 올바른 루트 배열로 조립되고 형제 순서가 `sort_order`를 따름(단위 테스트로 확인)
