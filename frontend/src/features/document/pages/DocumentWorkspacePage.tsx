@@ -25,7 +25,7 @@ import type { ReactElement } from "react";
 
 import { Role } from "@/shared/auth/roles";
 import { hasWorkspaceRole } from "@/shared/auth/permissions";
-import { EmptyState } from "@/shared/ui";
+import { EmptyState, Spinner, ErrorMessage } from "@/shared/ui";
 
 import { useDocumentScope } from "../hooks/useDocumentScope";
 import { useDocumentTree } from "../hooks/useDocumentTree";
@@ -52,6 +52,24 @@ export function DocumentWorkspacePage(): ReactElement {
       ? tree.nodeById.get(tree.selectedId)?.doc.title ?? null
       : null;
 
+  // 현재 WS 없음(Req 9.1): 본문 전체를 단락한다. 툴바·트리·뷰어를 렌더하지 않아
+  // admin(RequireRole 우회)이라도 워크스페이스 없이는 생성 컨트롤이 노출되지 않는다.
+  if (scope.workspaceId === null) {
+    return (
+      <section aria-labelledby="document-workspace-heading" className="flex flex-col gap-6">
+        <header>
+          <h1 id="document-workspace-heading" className="text-lg font-semibold text-slate-900">
+            문서
+          </h1>
+        </header>
+        <EmptyState
+          title="워크스페이스를 선택하세요"
+          message="문서를 보려면 먼저 워크스페이스를 선택하세요."
+        />
+      </section>
+    );
+  }
+
   return (
     <section aria-labelledby="document-workspace-heading" className="flex flex-col gap-6">
       <header>
@@ -69,11 +87,16 @@ export function DocumentWorkspacePage(): ReactElement {
 
       <div className="flex flex-col gap-6 md:flex-row">
         <aside className="md:w-72 md:shrink-0">
-          {scope.workspaceId === null ? (
-            // 현재 WS 없음: 트리 대신 명시적 선택 안내(Req 9.1).
+          {/* 트리 로드 상태를 트래시 페인과 동일하게 표면화한다(Req 1.5·1.6). */}
+          {tree.status === "loading" ? (
+            <Spinner />
+          ) : tree.status === "error" ? (
+            <ErrorMessage error={tree.error} />
+          ) : tree.roots.length === 0 ? (
+            // 빈 워크스페이스: 트리 목록만 안내로 대체한다(툴바는 위에서 유지, Req 1.6).
             <EmptyState
-              title="워크스페이스를 선택하세요"
-              message="문서를 보려면 먼저 워크스페이스를 선택하세요."
+              title="이 워크스페이스에 문서가 없습니다"
+              message="위 툴바에서 첫 문서를 만들어 시작하세요."
             />
           ) : (
             <DocumentTree
