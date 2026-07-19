@@ -13,7 +13,7 @@
   - 관찰 가능한 완료: 4개 타입이 `backend/app/sharing/schemas.py`와 1:1 정합하고 `any` 없이 컴파일됨
   - _Requirements: 2.1, 3.1, 6.3, 8.4_
   - _Boundary: SharingTypes_
-- [ ] 1.2 공유 링크 관리 어댑터(shareApi) 구현
+- [x] 1.2 공유 링크 관리 어댑터(shareApi) 구현
   - `src/features/sharing/api/shareApi.ts`에 `issueLink(documentId)`(`POST /documents/{id}/share`)·
     `toggleLink(documentId, body)`(`PATCH /documents/{id}/share`)를 `s16` `apiClient`로 결선(자체 fetch 금지)
   - 관찰 가능한 완료: 두 호출이 카탈로그 행 34·35 경로·메서드와 일치하고 `ShareLinkRead`를 반환하며 오류는
