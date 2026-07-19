@@ -10,7 +10,7 @@
 > debounce 금지). 각 태스크는 단일 책임 경계 안에서 검증 가능한 산출물을 남긴다.
 
 - [ ] 1. 도메인 타입·API·컨텍스트 기반
-- [ ] 1.1 계약 미러링 타입 정의 (P)
+- [x] 1.1 계약 미러링 타입 정의 (P)
   - `src/features/editor/types.ts`에 백엔드 계약을 미러링: `DocumentLockRead`·`DocumentVersionRead`
     (content 필드 없음)·`DocumentSaveRequest`·편집용 `EditableDocument`(DocumentRead 부분집합)와
     프론트 파생 타입 `LockState`·`EditSessionStatus`. `Page<T>`는 s16 공용 타입(`@/shared/types/page`) import
