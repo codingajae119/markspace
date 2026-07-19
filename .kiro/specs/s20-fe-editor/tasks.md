@@ -70,7 +70,7 @@
   - _Requirements: 5.1, 5.2, 5.4, 5.5_
   - _Boundary: useForceUnlock_
   - _Depends: 1.2_
-- [ ] 2.4 useVersionHistory 버전 이력 훅 구현 (P)
+- [x] 2.4 useVersionHistory 버전 이력 훅 구현 (P)
   - `src/features/editor/hooks/useVersionHistory.ts`에 `listVersions`(`Page[DocumentVersionRead]`) 로드·
     `loadMore`(offset 이어받기)·`current_version_id` 구분·로딩/오류/빈 상태를 구현. 본문 조회·rollback 없음
   - 관찰 가능한 완료: 버전 목록 로드·더 보기 이어받기·현재 버전 구분·403/404 오류 표면화가 통합 테스트로 확인됨
