@@ -66,7 +66,7 @@
   - _Requirements: 3.4, 5.1, 5.3_
   - _Boundary: InvalidationNotice_
   - _Depends: 1.1_
-- [ ] 3.3 링크 복사 버튼(CopyLinkButton) 구현 (P)
+- [x] 3.3 링크 복사 버튼(CopyLinkButton) 구현 (P)
   - `src/features/sharing/components/CopyLinkButton.tsx`에 `navigator.clipboard`로 절대 게스트 링크 복사·성공
     피드백·실패 시 선택/복사 폴백·활성 링크 없으면 비활성을 구현
   - 관찰 가능한 완료: 복사 실행 시 클립보드에 `frontShareUrl`이 담기고 성공 피드백이 표시되며, 링크가 null이면
