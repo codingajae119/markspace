@@ -101,7 +101,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 5.1, 5.3, 5.4, 5.5_
   - _Boundary: EditLockBanner_
   - _Depends: 2.2, 2.3_
-- [ ] 3.3 VersionHistoryPanel(읽기 전용 버전 목록, rollback 없음) 구현 (P)
+- [x] 3.3 VersionHistoryPanel(읽기 전용 버전 목록, rollback 없음) 구현 (P)
   - `src/features/editor/components/VersionHistoryPanel.tsx`에서 `useVersionHistory`로 버전 메타(저장자
     `created_by`·시각 `created_at`)를 읽기 전용 목록으로 렌더하고 `current_version_id`를 구분 표시, 더 보기 제공.
     rollback·복원·과거 본문 표시 UI를 두지 않음(계약 제약)
