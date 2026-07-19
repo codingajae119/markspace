@@ -81,7 +81,7 @@
   - _Requirements: 3.1, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 5.1, 5.2, 5.4, 5.5, 6.1, 6.2, 6.3, 6.4, 6.5, 9.3, 9.4_
   - _Boundary: useDocumentMutations_
   - _Depends: 1.2, 2.3, 3.1_
-- [ ] 3.3 useTrash 휴지통 훅 구현 (P)
+- [x] 3.3 useTrash 휴지통 훅 구현 (P)
   - `src/features/document/hooks/useTrash.ts`에 `listTrash` 로드(`Page[TrashBundleRead]`, 페이지네이션)·
     `restore`·`purge`(각 204 후 `reload`)·404 시 오류 표면화+재조회를 구현. 복구 위치·묶음 규칙 판정 없음
   - 관찰 가능한 완료: 목록 로드·복구/완전삭제 후 재조회·404 오류 표면화가 통합 테스트로 확인됨
