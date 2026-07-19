@@ -117,7 +117,7 @@
   - _Requirements: 6.1, 6.2, 6.3_
   - _Boundary: AdminOwnerChangePanel_
   - _Depends: 2.3_
-- [ ] 6.3 AdminConsolePage 조립 (s16 RequireAdmin 하위)
+- [x] 6.3 AdminConsolePage 조립 (s16 RequireAdmin 하위)
   - `admin/AdminConsolePage.tsx`에서 **s16 `<RequireAdmin>`**(`@/shared/auth`, 세션 `is_admin`, INV-3, 재구현
     금지) 하위에 AdminUserPanel·AdminOwnerChangePanel을 배치하는 라우트 셸을 구성. WS role(`RequireRole`)과
     혼동하지 않음
