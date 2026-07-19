@@ -85,7 +85,7 @@
   - _Depends: 3.1, 3.2, 3.3_
 
 - [ ] 4. 게스트 읽기 전용 뷰(공개 측)
-- [ ] 4.1 공개 렌더 로드 훅(usePublicDocument) 구현
+- [x] 4.1 공개 렌더 로드 훅(usePublicDocument) 구현
   - `src/features/sharing/hooks/usePublicDocument.ts`에 `publicApi.getPublicDocument(token)`(skipAuthRedirect)
     호출·`rewriteAttachmentRefs`로 content_html 절대화·상태(`loading|ready|unavailable|error`)를 구현(404는 사유
     미구분 `unavailable`로 통일)
