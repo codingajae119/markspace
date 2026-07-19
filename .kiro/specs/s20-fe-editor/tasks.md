@@ -42,7 +42,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. 순수 잠금 상태 로직·상태 훅
-- [ ] 2.1 resolveLockState 순수 함수 구현 (P)
+- [x] 2.1 resolveLockState 순수 함수 구현 (P)
   - `src/features/editor/lib/resolveLockState.ts`에 `/lock` 응답(성공 `DocumentLockRead` | 실패 `ApiError`)을
     `LockState`로 매핑: 200→`self`, 409→`other`, 403/404 등→`error`. 폴링·추측 조회 없음, 계약에 없는 보유자
     정보 미발명
