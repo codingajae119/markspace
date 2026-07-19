@@ -33,6 +33,7 @@ import { authRoutes } from "@/features/auth/routes";
 import { workspaceRoutes } from "@/features/workspace/routes";
 import { documentRoutes } from "@/features/document/routes";
 import { editorRoutes } from "@/features/editor/routes";
+import { sharingRoutes } from "@/features/sharing/routes";
 import { MembershipRoleProvider } from "@/features/workspace/context/membershipRoleSource";
 import { SessionProvider } from "@/app/session/SessionProvider";
 import { CurrentWorkspaceProvider } from "@/app/workspace-context/CurrentWorkspaceProvider";
@@ -40,13 +41,15 @@ import "@/index.css";
 
 // feature 라우트 등록 슬롯 — s17(authRoutes: 게스트=로그인·보호=비밀번호 변경)·s18
 // (workspaceRoutes: 보호=워크스페이스 관리·admin 서브트리)·s19(documentRoutes: 보호=문서 메인·
-// 휴지통)에 이어 s20(editorRoutes: 보호=편집 화면 /documents/:id/edit)을 가산 등록한다(승인된
-// additive append).
+// 휴지통)·s20(editorRoutes: 보호=편집 화면 /documents/:id/edit)에 이어 s22(sharingRoutes:
+// 게스트=공개 문서 뷰 /share/:token, no-auth)를 가산 등록한다(승인된 additive append; 동일
+// path 등록이 s16 게스트 플레이스홀더를 치환).
 const featureRouteModules: RouteModule[] = [
   ...authRoutes,
   ...workspaceRoutes,
   ...documentRoutes,
   ...editorRoutes,
+  ...sharingRoutes,
 ];
 
 // feature Provider 합성 슬롯 — s18 MembershipRoleProvider 를 등록해 CurrentWorkspaceProvider 하위·

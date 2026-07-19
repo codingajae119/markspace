@@ -111,7 +111,7 @@
   - _Requirements: 6.1, 6.4, 6.5, 6.6_
   - _Boundary: PublicDocumentView_
   - _Depends: 4.1, 4.2_
-- [ ] 4.4 게스트 페이지 및 게스트 라우트 등록(SharePage·SharingRoutes)
+- [x] 4.4 게스트 페이지 및 게스트 라우트 등록(SharePage·SharingRoutes)
   - `src/features/sharing/pages/SharePage.tsx`(`useParams` token 추출 → `PublicDocumentView`)와
     `src/features/sharing/routes.tsx`를 구현하고, `frontend/src/app/router.tsx`(s16) 게스트 라우트(`/share/:token`)
     프레임에 등록만 연결(프레임·가드 없음 규약은 s16 소유·미변경)
