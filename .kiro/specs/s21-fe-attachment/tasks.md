@@ -43,7 +43,7 @@
   - _Depends: 1.1_
 
 - [ ] 3. 리소스·업로드 훅
-- [ ] 3.1 useAttachmentResource(서빙 blob→오브젝트 URL·상태·해제) 구현
+- [x] 3.1 useAttachmentResource(서빙 blob→오브젝트 URL·상태·해제) 구현
   - `src/features/attachment/hooks/useAttachmentResource.ts`에서 `fetchAttachmentBlob(id)`로 바이너리를 받아
     `URL.createObjectURL`로 오브젝트 URL 생성, 상태를 `loading→ready`로 전이하고 언마운트·id 변경 시
     `revokeObjectURL`로 해제. 404→`unavailable(not_found)`·403→`unavailable(forbidden)`·5xx/네트워크→`error`로
