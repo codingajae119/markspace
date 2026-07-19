@@ -55,7 +55,7 @@
   - _Requirements: 1.4_
   - _Boundary: MembershipRoleSource_
   - _Depends: 1.1_
-- [ ] 3.2 WorkspaceSwitcher·CreateWorkspaceDialog·useWorkspaceActions 구현 (s16 컨텍스트 소비)
+- [x] 3.2 WorkspaceSwitcher·CreateWorkspaceDialog·useWorkspaceActions 구현 (s16 컨텍스트 소비)
   - `components/WorkspaceSwitcher.tsx`(s16 `useCurrentWorkspace()`의 `workspaces`·`currentWorkspace` 표시,
     전환은 `selectWorkspace(String(id))` 호출, `status==="empty"` 빈 상태)·`components/CreateWorkspaceDialog.tsx`
     (이름 입력 → `POST /workspaces`)와 `hooks/useWorkspaceActions.ts`(생성 뮤테이션 → 성공 시 s16 `refresh()`·
