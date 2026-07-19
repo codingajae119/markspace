@@ -61,7 +61,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.6, 2.1, 2.2, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 4.1, 4.2, 4.3, 4.4, 4.5_
   - _Boundary: useEditSession_
   - _Depends: 1.2, 2.1_
-- [ ] 2.3 useForceUnlock 강제 해제 훅 구현 (P)
+- [x] 2.3 useForceUnlock 강제 해제 훅 구현 (P)
   - `src/features/editor/hooks/useForceUnlock.ts`에 `canForceUnlock`(= `s16` `hasWorkspaceRole({minimum:
     OWNER})`, admin bypass 포함)과 `forceUnlock()`(204→성공, 403/404→`ApiError`) 구현. 컴포넌트 역할 비교
     금지, 서버 OWNER 강제가 최종 경계
