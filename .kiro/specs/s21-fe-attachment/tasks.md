@@ -63,7 +63,7 @@
   - _Requirements: 1.1, 1.3, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5, 6.4_
   - _Boundary: useAttachmentUpload_
   - _Depends: 1.2, 2.1_
-- [ ] 3.3 useEditorUploadBridge(s16 EditorWrapper 이벤트/EditorHandle 소비 브리지) 구현
+- [x] 3.3 useEditorUploadBridge(s16 EditorWrapper 이벤트/EditorHandle 소비 브리지) 구현
   - `src/features/attachment/hooks/useEditorUploadBridge.ts`에서 `s16` `EditorWrapper` 계약을 **소비**: 반환하는
     `onImagePaste(file)`/`onFileDrop(file)` 핸들러가 수신 `File`(`file.name`)을 `useAttachmentUpload.startUpload`로
     연결(붙여넣기는 `kind:"image"`, 드롭은 백엔드 추론)하고, `onReady(handle)`로 받은 `EditorHandle.insert`/
@@ -144,3 +144,6 @@
   - _Requirements: 7.1_
   - _Boundary: Scaffold_
   - _Depends: 5.1_
+
+## Implementation Notes
+- 3.3 EditorPos 규약: Toast markdown 위치는 s16 EditorWrapper 소유(replaceRange→replaceSelection 그대로 전달). 브리지는 getMarkdown() 재조회로 토큰을 위치화하며(1-based line·0-based ch 가정), 실제 Toast line/ch base 검증은 jsdom 밖(E2E 하네스 없음)이라 s16 경계로 이연. s16 EditorHandle 형태 변경 시 이 브리지·4.4 렌더러 재검증.
