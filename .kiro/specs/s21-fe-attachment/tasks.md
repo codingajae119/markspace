@@ -104,7 +104,7 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 5.1_
   - _Boundary: AttachmentFileLink_
   - _Depends: 3.1, 4.1_
-- [ ] 4.4 AttachmentRenderBridge(참조 resolver + s16 renderers 결선) 구현
+- [x] 4.4 AttachmentRenderBridge(참조 resolver + s16 renderers 결선) 구현
   - `src/features/attachment/components/AttachmentRenderBridge.tsx`에서 `s16` `EditorWrapper`의 `renderers` 슬롯에
     넘길 `CustomRenderers`(`customImageRenderer`·`customHTMLRenderer`, edit·read 양 모드 공통)를 구성:
     `customImageRenderer(ref)`가 `resolveAttachmentReference`로 `/attachments/{id}`를 파싱해 인증 blob 기반
@@ -147,3 +147,4 @@
 
 ## Implementation Notes
 - 3.3 EditorPos 규약: Toast markdown 위치는 s16 EditorWrapper 소유(replaceRange→replaceSelection 그대로 전달). 브리지는 getMarkdown() 재조회로 토큰을 위치화하며(1-based line·0-based ch 가정), 실제 Toast line/ch base 검증은 jsdom 밖(E2E 하네스 없음)이라 s16 경계로 이연. s16 EditorHandle 형태 변경 시 이 브리지·4.4 렌더러 재검증.
+- 4.4 s16 렌더 seam(UPSTREAM=s16 소유): EditorWrapper.toToastHTMLRenderer(EditorWrapper.tsx:134)가 customImageRenderer 반환 HTMLElement를 `.outerHTML`로 동기 직렬화 → createRoot 비동기 커밋된 live AttachmentImage/AttachmentFileLink가 Toast 통과 시 소실. s21은 buildAttachmentRenderers 계약을 격리 단위검증으로 이행(라우팅/resolver 재사용), s16 미수정. 진짜 e2e 인증 렌더는 s16이 반환 노드를 live 마운트(직렬화 대신)하도록 고쳐야 함 = s16 revalidation trigger. 5.3 검증서 상위 라우팅.
