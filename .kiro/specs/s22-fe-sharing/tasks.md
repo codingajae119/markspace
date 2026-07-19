@@ -32,7 +32,7 @@
   - _Depends: 1.1_
 
 - [ ] 2. 순수 라이브러리(링크 구성·참조 재작성)
-- [ ] 2.1 프론트 게스트 링크 구성(buildShareUrl) 구현 (P)
+- [x] 2.1 프론트 게스트 링크 구성(buildShareUrl) 구현 (P)
   - `src/features/sharing/lib/buildShareUrl.ts`에 `buildShareUrl(token)`을 구현: `` `${origin}${ROUTES.share.replace(":token", token)}` ``
     (`/share/{token}`)로 프론트 게스트 링크를 만들고(s16 `ROUTES.share`는 정적 문자열 `"/share/:token"`이므로 s22가
     `:token`을 치환; 경로 빌더 함수 가정 금지) 백엔드 `share_url`(`/public/{token}`)은 노출하지 않음
