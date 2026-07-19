@@ -90,7 +90,7 @@
   - _Depends: 1.2, 1.3_
 
 - [ ] 4. 트리·breadcrumb·툴바 화면
-- [ ] 4.1 DocumentTree·DocumentTreeNode(펼침/접힘·선택·DnD) 구현
+- [x] 4.1 DocumentTree·DocumentTreeNode(펼침/접힘·선택·DnD) 구현
   - `src/features/document/components/DocumentTree.tsx`·`DocumentTreeNode.tsx`에서 재귀 트리 렌더·펼침/접힘·
     선택을 구현하고, HTML5 native DnD로 드롭 위치를 `DropPosition`으로 산정해 `onMove` 호출. `canEdit`가
     거짓(viewer)이면 드래그 비활성
