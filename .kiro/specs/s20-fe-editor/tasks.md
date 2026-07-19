@@ -91,7 +91,7 @@
   - _Requirements: 1.2, 1.3, 3.1, 4.1, 7.5, 7.7_
   - _Boundary: EditorPane_
   - _Depends: 2.2_
-- [ ] 3.2 EditLockBanner(잠금 상태 표시 + 강제 해제 게이팅 노출) 구현
+- [x] 3.2 EditLockBanner(잠금 상태 표시 + 강제 해제 게이팅 노출) 구현
   - `src/features/editor/components/EditLockBanner.tsx`에서 `LockState`가 `self`면 "내가 편집 중"(획득 시각),
     `other`면 "다른 사용자가 편집 중" 안내를 표시. `other`일 때 `useForceUnlock.canForceUnlock`이 참인
     owner/admin에게만 강제 해제 조작을 `<RequireRole minimum={OWNER}>`로 감싸 노출하고 `/force-unlock`→재획득
