@@ -128,7 +128,7 @@
   - _Requirements: 6.6, 7.3, 7.4, 7.5_
   - _Boundary: AttachmentRenderBridge, useEditorUploadBridge_
   - _Depends: 3.3, 4.4_
-- [ ]* 5.2 단위·통합·UI 테스트 작성
+- [x]* 5.2 단위·통합·UI 테스트 작성
   - `attachmentReference`(참조 조립·자리표시자 치환·참조 파싱)·`attachmentApi`(단위), `useAttachmentResource`
     (200/404/403/5xx·오브젝트 URL 해제)·`useAttachmentUpload`(자리표시자→교체/오류·동시추적)(통합), 업로드
     게이팅(viewer 미노출/editor·admin 노출)·`AttachmentImage` placeholder 폴백·`AttachmentFileLink` 다운로드·
