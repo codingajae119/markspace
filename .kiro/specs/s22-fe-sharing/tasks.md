@@ -74,7 +74,7 @@
   - _Requirements: 4.1, 4.2, 4.3, 4.4_
   - _Boundary: CopyLinkButton_
   - _Depends: 2.1_
-- [ ] 3.4 공유 관리 패널(ShareLinkPanel) 구현·게이팅 결선
+- [x] 3.4 공유 관리 패널(ShareLinkPanel) 구현·게이팅 결선
   - `src/features/sharing/components/ShareLinkPanel.tsx`에 `<RequireRole minimum={EDITOR} currentRole={useCurrentWorkspace().role}>`
     게이팅·`s16` `useCurrentWorkspace().isShareable` 반영(off면 발급/활성화 비활성 + 안내)·발급/토글/복사/안내 결선·`ErrorMessage`
     표면화를 구현(역할 문자열 직접 비교 금지)
@@ -175,3 +175,7 @@
 - 테스트: vitest globals(`describe/it/expect/vi`), jsdom, `@testing-library/react`(+`user-event`·`jest-dom`). setup `src/test/setup.ts`.
 - 문서 주석·UI 텍스트 한국어(spec language=ko), 코드 식별자 영어.
 - 검증 명령: `npm test`(vitest run) / `npm run typecheck`(tsc --noEmit) / `npm run build`. 시작 baseline **614 tests passing / 90 files**(무회귀 기준).
+
+### role=null 상위갭 seam (s16 소유·s22 소비 제약 — 3.4/5.1 관련)
+- **검증됨**: `CurrentWorkspaceProvider`(s16)는 `role: null` 을 하드코딩한다(9.6 — s16 은 role 필드·형태·기본값만 소유). 따라서 `useCurrentWorkspace().role` 은 **현재 항상 null**. 실제 멤버십 role 값은 s18 `useMembershipRoleSource().roleFor(wsId)` 로 조달되나, s22 Req 8.5(다른 feature 폴더 `src/features/*` 직접 import 금지)로 s22 는 그것을 소비할 수 **없다**.
+- **s22 처리(설계 준수, 발명·우회 아님)**: design.md/Req 1.1 이 명시한 대로 `<RequireRole minimum={Role.EDITOR} currentRole={useCurrentWorkspace().role}>` 로 게이팅한다. role=null 이면 RequireRole 은 세션 `is_admin`(admin override, INV-3)만으로 통과시킨다. 즉 **오늘 이 패널은 admin 에게만 노출**되며, editor 노출은 s16 이 앰비언트 role 주입 seam 을 열 때 자동 활성화된다(재검증 트리거: s16 컨텍스트 role 파생 변경). 이는 s19/s20 이 동일하게 안고 있는 문서화된 상위 seam 이며 s22 내부에서 패치하지 않는다. 리뷰어는 "editor 미노출"을 결함으로 판정하지 말 것 — 설계·요구가 `useCurrentWorkspace().role` 소비를 전제로 authored 됨.
