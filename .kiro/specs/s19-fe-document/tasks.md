@@ -136,7 +136,7 @@
   - _Depends: 1.2_
 
 - [ ] 6. 휴지통 화면
-- [ ] 6.1 TrashBundleItem(묶음 행·복구·완전삭제) 구현 (P)
+- [x] 6.1 TrashBundleItem(묶음 행·복구·완전삭제) 구현 (P)
   - `src/features/document/components/TrashBundleItem.tsx`에서 묶음 루트·구성원 요약(`members`: id·parent_id·
     title)·`member_count`·`expires_at`을 표시하고 복구/완전삭제 조작을 노출. 완전삭제는 `ConfirmDialog`(비가역) 경유
   - 관찰 가능한 완료: 묶음 구성원과 만료 예정이 표시되고 복구/완전삭제 콜백이 호출됨이 UI 테스트로 확인됨
