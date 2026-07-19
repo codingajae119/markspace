@@ -112,7 +112,7 @@
   - _Depends: 2.4_
 
 - [ ] 4. 페이지 조립·라우트 등록·검증
-- [ ] 4.1 DocumentEditPage 조립 및 편집 라우트 등록 (통합)
+- [x] 4.1 DocumentEditPage 조립 및 편집 라우트 등록 (통합)
   - `src/features/editor/pages/DocumentEditPage.tsx`(세션 생명주기 + EditorPane + EditLockBanner +
     VersionHistoryPanel 조립, `useEditorScope`로 workspaceId·role·isAdmin·userId 주입)와
     `src/features/editor/routes.tsx`를 구현하고, 편집 라우트(`/documents/:id/edit`)를 `RouteModule[]`
