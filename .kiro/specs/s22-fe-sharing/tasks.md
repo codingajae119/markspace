@@ -137,7 +137,7 @@
   - _Requirements: 8.1, 8.2, 8.3, 8.5_
   - _Boundary: shareApi, publicApi_
   - _Depends: 3.4, 4.4_
-- [ ]* 5.3 단위·통합 테스트 및 타입체크
+- [x]* 5.3 단위·통합 테스트 및 타입체크
   - `buildShareUrl`·`rewriteAttachmentRefs`·`shareApi`/`publicApi`·`useShareManager`·`usePublicDocument` 테스트와
     `tsc --noEmit`(strict)·`vite build`를 수행
   - 관찰 가능한 완료: 지정 테스트가 통과하고 strict 타입체크·빌드가 `any` 없이 성공함
