@@ -106,7 +106,7 @@
   - _Requirements: 2.1, 2.2, 2.3_
   - _Boundary: Breadcrumb_
   - _Depends: 3.1_
-- [ ] 4.3 ConfirmDialog(파괴적 조작 확인) 구현 (P)
+- [x] 4.3 ConfirmDialog(파괴적 조작 확인) 구현 (P)
   - `src/features/document/components/ConfirmDialog.tsx`에 삭제·완전삭제 확인 다이얼로그를 구현. 완전삭제는
     **되돌릴 수 없음**을 명시(백엔드 OpenAPI 비가역 계약과 정합). 공용 UI 프리미티브 재사용
   - 관찰 가능한 완료: 확인/취소가 동작하고 완전삭제 변형이 비가역 경고 문구를 표시함(UI 테스트로 확인)
