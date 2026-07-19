@@ -88,7 +88,7 @@
   - _Depends: 4.1, 3.2_
 
 - [ ] 5. owner 워크스페이스 설정
-- [ ] 5.1 WorkspaceSettingsPanel 구현 (owner 게이팅, is_shareable 단독 소유)
+- [x] 5.1 WorkspaceSettingsPanel 구현 (owner 게이팅, is_shareable 단독 소유)
   - `components/WorkspaceSettingsPanel.tsx`에서 `<RequireRole minimum={Role.OWNER} currentRole={useCurrentWorkspace().role}>`
     로 감싼 이름·`is_shareable` 토글(현재 값은 s16 컨텍스트 `currentWorkspace.is_shareable`/`isShareable`)·
     `trash_retention_days` 편집(`PATCH /workspaces/{id}` 부분 갱신 → s16 `refresh()`)과 빈 WS 삭제

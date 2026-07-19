@@ -28,6 +28,10 @@ function setActions(overrides: { creating?: boolean; error?: ApiError | null }):
   vi.mocked(useWorkspaceActions).mockReturnValue({
     create: createMock,
     creating: overrides.creating ?? false,
+    // task 5.1 에서 확장된 update·remove·saving 표면(이 다이얼로그는 create 만 소비).
+    update: vi.fn().mockResolvedValue(null),
+    remove: vi.fn().mockResolvedValue(false),
+    saving: false,
     error: overrides.error ?? null,
   });
 }

@@ -25,7 +25,7 @@
 import { useCallback, useState } from "react";
 
 import { workspaceApi } from "../api/workspaceApi";
-import type { WorkspaceCreate, WorkspaceRead } from "../api/types";
+import type { WorkspaceCreate, WorkspaceRead, WorkspaceUpdate } from "../api/types";
 import { useCurrentWorkspace } from "@/app/workspace-context/useCurrentWorkspace";
 import { useMembershipRoleSource } from "../context/membershipRoleSource";
 import { ApiError } from "@/shared/api/errors";
@@ -36,17 +36,32 @@ export interface UseWorkspaceActionsResult {
   create: (body: WorkspaceCreate) => Promise<WorkspaceRead | null>;
   /** 생성 진행 중 여부(중복 제출 방지). */
   creating: boolean;
+  /**
+   * 워크스페이스 설정 부분 갱신(name·is_shareable·trash_retention_days). 성공 시 갱신된
+   * `WorkspaceRead` 를 반환하고 s16 `refresh()` 로 현재 WS 컨텍스트에 반영, 실패 시 `null`(Req 4.1).
+   */
+  update: (id: number, body: WorkspaceUpdate) => Promise<WorkspaceRead | null>;
+  /**
+   * 워크스페이스 삭제. 성공(204) 시 s16 `refresh()` 로 목록·현재 WS 컨텍스트에서 제외하고 `true`,
+   * 실패 시 `false`(Req 4.4). 비-empty 409 는 `error` 로 보관되어 소비 UI 가 안내한다.
+   */
+  remove: (id: number) => Promise<boolean>;
+  /** update·remove 진행 중 여부(중복 제출 방지). */
+  saving: boolean;
   /** 직전 뮤테이션 실패의 정규화된 오류(없으면 null). */
   error: ApiError | null;
 }
 
 /**
- * 워크스페이스 생성 뮤테이션과 s16 컨텍스트 결선(owner 기록·refresh·선택)·진행/오류 상태를 노출한다.
+ * 워크스페이스 생성·갱신·삭제 뮤테이션과 s16 컨텍스트 결선(owner 기록·refresh·선택)·진행/오류 상태를
+ * 노출한다. 각 뮤테이션은 성공 시에만 s16 `refresh()` 로 컨텍스트를 반영하고, 실패 시 `ApiError` 를
+ * `error` 로 보관하며 컨텍스트를 건드리지 않는다(낙관적 반영 없음, Design Error Handling: 롤백).
  */
 export function useWorkspaceActions(): UseWorkspaceActionsResult {
   const { refresh, selectWorkspace } = useCurrentWorkspace();
   const { recordOwner } = useMembershipRoleSource();
   const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
   const create = useCallback(
@@ -76,5 +91,50 @@ export function useWorkspaceActions(): UseWorkspaceActionsResult {
     [refresh, selectWorkspace, recordOwner],
   );
 
-  return { create, creating, error };
+  const update = useCallback(
+    async (id: number, body: WorkspaceUpdate): Promise<WorkspaceRead | null> => {
+      // 재제출 시 직전 오류 해제 + 진행 표시(중복 제출 방지).
+      setSaving(true);
+      setError(null);
+      try {
+        const workspace = await workspaceApi.update(id, body);
+        // 갱신물(name·is_shareable·retention)을 s16 컨텍스트에 반영(refresh 소유는 s16).
+        await refresh();
+        return workspace;
+      } catch (caught) {
+        // apiClient 는 비정상 응답을 항상 ApiError 로 던진다. 실패 시 refresh 미실행(롤백).
+        if (caught instanceof ApiError) {
+          setError(caught);
+        }
+        return null;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [refresh],
+  );
+
+  const remove = useCallback(
+    async (id: number): Promise<boolean> => {
+      setSaving(true);
+      setError(null);
+      try {
+        await workspaceApi.remove(id);
+        // 성공(204) 시에만 목록·현재 WS 컨텍스트에서 제외(refresh). 실패 시 미실행(롤백).
+        await refresh();
+        return true;
+      } catch (caught) {
+        // 비-empty 409 등은 ApiError 로 보관되어 소비 UI 가 안내(Req 4.4·4.6).
+        if (caught instanceof ApiError) {
+          setError(caught);
+        }
+        return false;
+      } finally {
+        setSaving(false);
+      }
+    },
+    [refresh],
+  );
+
+  return { create, creating, update, remove, saving, error };
 }

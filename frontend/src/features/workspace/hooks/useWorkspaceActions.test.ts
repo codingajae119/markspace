@@ -20,7 +20,9 @@ const recordOwnerMock = vi.fn<(workspaceId: number) => void>();
 const recordSelfRoleMock = vi.fn();
 const roleForMock = vi.fn();
 
-vi.mock("../api/workspaceApi", () => ({ workspaceApi: { create: vi.fn() } }));
+vi.mock("../api/workspaceApi", () => ({
+  workspaceApi: { create: vi.fn(), update: vi.fn(), remove: vi.fn() },
+}));
 vi.mock("@/app/workspace-context/useCurrentWorkspace", () => ({
   useCurrentWorkspace: vi.fn(),
 }));
@@ -29,6 +31,8 @@ vi.mock("../context/membershipRoleSource", () => ({
 }));
 
 const createMock = workspaceApi.create as unknown as Mock;
+const updateMock = workspaceApi.update as unknown as Mock;
+const removeMock = workspaceApi.remove as unknown as Mock;
 
 function workspaceRead(overrides: Partial<WorkspaceRead> = {}): WorkspaceRead {
   return {
@@ -72,6 +76,8 @@ beforeEach(() => {
   selectWorkspaceMock.mockReset();
   recordOwnerMock.mockReset();
   createMock.mockReset();
+  updateMock.mockReset();
+  removeMock.mockReset();
   vi.mocked(useCurrentWorkspace).mockReturnValue(contextValue());
   vi.mocked(useMembershipRoleSource).mockReturnValue(roleSource());
 });
@@ -142,6 +148,97 @@ describe("useWorkspaceActions", () => {
       await result.current.create({ name: "x" });
     });
     expect(result.current.error).toBeNull();
+  });
+
+  it("update 성공 시 workspaceApi.update(id, body) 호출·refresh 로 컨텍스트 반영·갱신물 반환 (Req 4.1)", async () => {
+    const updated = workspaceRead({ id: 42, name: "변경됨", is_shareable: true });
+    updateMock.mockResolvedValueOnce(updated);
+
+    const { result } = renderHook(() => useWorkspaceActions());
+
+    let returned: WorkspaceRead | null = null;
+    await act(async () => {
+      returned = await result.current.update(42, { name: "변경됨", is_shareable: true });
+    });
+
+    expect(updateMock).toHaveBeenCalledWith(42, { name: "변경됨", is_shareable: true });
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(returned).toBe(updated);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("update 실패(ApiError) 시 error 를 세팅하고 refresh 는 호출하지 않으며 null 을 반환한다 (Req 4.6, 롤백)", async () => {
+    const err = conflict();
+    updateMock.mockRejectedValueOnce(err);
+
+    const { result } = renderHook(() => useWorkspaceActions());
+
+    let returned: WorkspaceRead | null = workspaceRead();
+    await act(async () => {
+      returned = await result.current.update(42, { trash_retention_days: -1 });
+    });
+
+    expect(result.current.error).toBe(err);
+    expect(returned).toBeNull();
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("remove 성공 시 workspaceApi.remove(id) 호출·refresh 로 목록·컨텍스트에서 제외·true 반환 (Req 4.4)", async () => {
+    removeMock.mockResolvedValueOnce(undefined);
+
+    const { result } = renderHook(() => useWorkspaceActions());
+
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.remove(42);
+    });
+
+    expect(removeMock).toHaveBeenCalledWith(42);
+    expect(refreshMock).toHaveBeenCalledTimes(1);
+    expect(ok).toBe(true);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("remove 실패(비-empty 409) 시 error 를 세팅하고 refresh 는 호출하지 않으며 false 를 반환한다 (Req 4.4, 4.6)", async () => {
+    const err = new ApiError({ status: 409, code: "conflict", message: "비어 있지 않습니다" });
+    removeMock.mockRejectedValueOnce(err);
+
+    const { result } = renderHook(() => useWorkspaceActions());
+
+    let ok = true;
+    await act(async () => {
+      ok = await result.current.remove(42);
+    });
+
+    expect(result.current.error).toBe(err);
+    expect(ok).toBe(false);
+    expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it("update in-flight 동안 saving=true, 완료 후 false 로 돌아온다", async () => {
+    let release: (v: WorkspaceRead) => void = () => {};
+    updateMock.mockImplementationOnce(
+      () =>
+        new Promise<WorkspaceRead>((resolve) => {
+          release = resolve;
+        }),
+    );
+
+    const { result } = renderHook(() => useWorkspaceActions());
+    expect(result.current.saving).toBe(false);
+
+    let updatePromise: Promise<WorkspaceRead | null>;
+    act(() => {
+      updatePromise = result.current.update(42, { name: "x" });
+    });
+
+    await waitFor(() => expect(result.current.saving).toBe(true));
+
+    await act(async () => {
+      release(workspaceRead({ id: 42 }));
+      await updatePromise;
+    });
+    expect(result.current.saving).toBe(false);
   });
 
   it("in-flight 동안 creating=true, 완료 후 false 로 돌아온다", async () => {
