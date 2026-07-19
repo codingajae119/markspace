@@ -53,7 +53,7 @@
   - _Requirements: 2.1, 2.3, 2.4_
   - _Boundary: resolveAncestors_
   - _Depends: 1.1_
-- [ ] 2.3 computeMoveTarget 순수 함수 구현 (P)
+- [x] 2.3 computeMoveTarget 순수 함수 구현 (P)
   - `src/features/document/lib/computeMoveTarget.ts`에 `DropPosition`(inside/before/after/root)을
     `DocumentMoveRequest`(`new_parent_id`·`before_sibling_id`·`after_sibling_id`)로 매핑. 순환·제약 판정 없음(서버 위임)
   - 관찰 가능한 완료: inside→부모 지정, before/after→대상 부모+형제 기준, root→`new_parent_id=null` 매핑이
