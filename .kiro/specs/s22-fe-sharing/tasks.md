@@ -50,7 +50,7 @@
   - _Depends: 1.1_
 
 - [ ] 3. 공유 링크 관리(관리 측)
-- [ ] 3.1 공유 관리 오케스트레이션 훅(useShareManager) 구현
+- [x] 3.1 공유 관리 오케스트레이션 훅(useShareManager) 구현
   - `src/features/sharing/hooks/useShareManager.ts`에 발급(`issue`)·토글(`toggle`)·세션 링크 상태
     (`ShareManagerState`)·`buildShareUrl` 결선·무효화 신호 파생(문서 status·`s16` `useCurrentWorkspace().isShareable`)·
     재발급 플래그(INV-8)를 구현(문서 링크 조회 GET 부재 S1로 뮤테이션 응답만 상태화)
