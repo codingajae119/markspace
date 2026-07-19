@@ -103,7 +103,7 @@
   - _Requirements: 6.6, 7.2, 7.3_
   - _Boundary: PublicDocumentNodeView_
   - _Depends: 1.1_
-- [ ] 4.3 게스트 뷰 컨테이너(PublicDocumentView) 구현
+- [x] 4.3 게스트 뷰 컨테이너(PublicDocumentView) 구현
   - `src/features/sharing/components/PublicDocumentView.tsx`에 `usePublicDocument` 상태별 렌더(loading Spinner·
     unavailable EmptyState "링크 사용 불가"·error ErrorMessage·ready 트리)를 구현(변경 조작 일절 없음, `s16`
     `ReadOnlyProse` 공용 prose 소비로 인증 뷰어와 시각 일관)
