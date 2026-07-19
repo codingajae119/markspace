@@ -100,7 +100,7 @@
   - _Depends: 3.2_
 
 - [ ] 6. admin 콘솔 (계정 생명주기·소유권 변경) — s16 RequireAdmin 소비
-- [ ] 6.1 AdminUserPanel 및 AdminUserForm·PasswordResetDialog 구현
+- [x] 6.1 AdminUserPanel 및 AdminUserForm·PasswordResetDialog 구현
   - `admin/AdminUserPanel.tsx`(`GET /admin/users` 목록 — 삭제·비활동 포함 상태 표시)·`AdminUserForm.tsx`
     (`POST /admin/users` 생성 / `PATCH /admin/users/{id}`로 `is_active`·`is_deleted` **독립** 토글)·
     `PasswordResetDialog.tsx`(`POST /admin/users/{id}/password`)를 구현. 단일 admin 비활동/삭제 409·중복 login_id
