@@ -34,7 +34,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 8.1_
   - _Boundary: memberApi_
   - _Depends: 1.1_
-- [ ] 2.3 adminApi 어댑터 구현 (P)
+- [x] 2.3 adminApi 어댑터 구현 (P)
   - `api/adminApi.ts`에 `listUsers`·`createUser`·`updateUser`·`resetPassword`·`changeOwner`를 `apiClient`
     경유로 구현(`GET/POST /admin/users`, `PATCH /admin/users/{id}`, `POST /admin/users/{id}/password`,
     `POST /admin/workspaces/{id}/owner`). `listUsers`의 limit/offset은 쿼리, 응답은 s16 `Page<UserRead>`
