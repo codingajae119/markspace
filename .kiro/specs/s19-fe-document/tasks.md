@@ -72,7 +72,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 2.1, 2.2, 2.3, 2.4, 7.1_
   - _Boundary: useDocumentTree_
   - _Depends: 1.2, 1.3, 2.1, 2.2_
-- [ ] 3.2 useDocumentMutations 변이 훅 구현
+- [x] 3.2 useDocumentMutations 변이 훅 구현
   - `src/features/document/hooks/useDocumentMutations.ts`에 `create`·`rename`·`remove`·`move`를 구현:
     낙관적 반영(`tree.applyLocal`) → `documentApi` 호출 → 성공 확정(이동은 서버 `sort_order` 반영, 삭제는
     `tree.reload`로 묶음 캐스케이드 반영) / 실패 시 원복 + `ApiError`를 `state.error`로 표면화(자체 에러 형태 발명 금지)
