@@ -46,7 +46,7 @@
   - _Requirements: 1.1, 1.7_
   - _Boundary: buildTree_
   - _Depends: 1.1_
-- [ ] 2.2 resolveAncestors 순수 함수 구현 (P)
+- [x] 2.2 resolveAncestors 순수 함수 구현 (P)
   - `src/features/document/lib/resolveAncestors.ts`에 `parent_id` 체인을 루트까지 거슬러 조상 경로
     (루트→현재) 반환. 순환 방지 상한. 별도 API 호출 없음
   - 관찰 가능한 완료: 깊은 노드가 루트→현재 순서 조상 배열을 반환하고 루트 문서는 단일 경로를 반환함(단위 테스트로 확인)
