@@ -78,7 +78,7 @@
   - _Depends: 3.2_
 
 - [ ] 4. 렌더·다운로드·placeholder 컴포넌트
-- [ ] 4.1 AttachmentPlaceholder(안전 placeholder) 구현 (P)
+- [x] 4.1 AttachmentPlaceholder(안전 placeholder) 구현 (P)
   - `src/features/attachment/components/AttachmentPlaceholder.tsx`에 `uploading`·`error`·`unavailable` 변형의
     안전 placeholder를 구현(깨진 이미지/링크 아님). 공용 UI 프리미티브(`Spinner`·`ErrorMessage`) 재사용, 내부
     세부정보 과다 노출 없음
