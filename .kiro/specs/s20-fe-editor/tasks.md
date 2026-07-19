@@ -79,7 +79,7 @@
   - _Depends: 1.2_
 
 - [ ] 3. 편집 UI 컴포넌트
-- [ ] 3.1 EditorPane(s16 EditorWrapper edit 소비 + 핸들 바인딩 + 취소 컨트롤 + s16 래퍼 슬롯 s21 노출) 구현
+- [x] 3.1 EditorPane(s16 EditorWrapper edit 소비 + 핸들 바인딩 + 취소 컨트롤 + s16 래퍼 슬롯 s21 노출) 구현
   - `src/features/editor/components/EditorPane.tsx`에서 `s16` `EditorWrapper(mode:"edit", initialContent=
     document.content)`를 렌더하고 `onReady`의 `EditorHandle`(`getMarkdown`·`insert`·`replaceRange`)를
     `useEditSession.bindHandle`에 결선(저장 시 `getMarkdown`). 취소 컨트롤(`cancel`) 노출, 명시적 저장 버튼
