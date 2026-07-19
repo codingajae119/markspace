@@ -173,7 +173,7 @@
   - _Requirements: 1.1, 1.2, 1.7, 2.1, 2.3, 2.4, 3.6, 4.5, 5.2, 5.4, 5.6, 6.1, 6.4, 6.7, 7.2, 7.3, 7.4, 8.1, 8.4, 8.6, 9.2, 9.3, 9.4_
   - _Boundary: Testing_
   - _Depends: 7.1_
-- [ ] 7.3 타입체크·빌드 검증
+- [x] 7.3 타입체크·빌드 검증
   - `frontend/`에서 `tsc --noEmit`(strict)와 `vite build`를 실행하여 문서 feature가 오류 없이 타입 통과·
     번들됨을 확인(계약 미러링·`any` 금지)
   - 관찰 가능한 완료: 타입체크와 프로덕션 빌드가 오류 없이 완료됨
@@ -184,3 +184,4 @@
 ## Implementation Notes
 - role 조달 gap(1.3): s16 `CurrentWorkspaceProvider` 는 `role: null` 을 하드코딩하며 앰비언트 컨텍스트에 실 role 을 주입하는 seam 이 없다(s18 는 별도 `MembershipRoleProvider` 로 우회). 설계대로 `useDocumentScope` 는 `useCurrentWorkspace().role`(동결 계약 shape)을 그대로 소비하므로, 런타임에서 role 은 현재 null → 비-admin editor/owner 에게 변경성 UI 가 admin(session.is_admin) 외에는 노출되지 않는다. 이는 s19 경계 밖(상위 s16/s18 통합)의 알려진 gap 이며 s19 는 계약 shape 에 바인딩만 한다(형제 s18 import 금지 준수). 게이팅 컴포넌트 테스트는 `useCurrentWorkspace`/`useDocumentScope` 를 mock 해 editor/viewer/admin 분기를 검증한다.
 - 라우트 등록 seam(7.1): 설계는 "routes.tsx RouteModule[] export→composeRouter, router.tsx/main.tsx 미편집"이라 하나, s16 의 실제 등록 메커니즘은 `main.tsx` 의 `featureRouteModules` 배열 append(s17 authRoutes·s18 workspaceRoutes 선례)다. "미편집"은 라우터 프레임/provider 트리 한정이며, 배열 append+import 추가는 sanctioned 가산 등록. s19 는 `...documentRoutes` 를 append(경로 `/documents`·`/trash`, 보호 슬롯). 프레임·composeRouter·installNavigation·featureProviders 불변. 전체 스위트 436 통과로 s16/s17/s18 무회귀 확인.
+- 빌드 검증(7.3): `tsc --noEmit`(strict) + `vite build` 무오류(117 modules, 2.04s). 번들 887KB(gzip 277KB)에 Toast UI Editor 포함 → s16 EditorWrapper tree-shaking 함정 해소(DocumentViewer 가 첫 실소비자로 Toast 실번들 검증). chunk-size 경고는 권고성(비오류).
