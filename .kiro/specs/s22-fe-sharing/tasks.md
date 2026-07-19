@@ -40,7 +40,7 @@
   - _Requirements: 2.2, 4.1_
   - _Boundary: buildShareUrl_
   - _Depends: 1.1_
-- [ ] 2.2 첨부 참조 절대 경로 재작성(rewriteAttachmentRefs) 구현 (P)
+- [x] 2.2 첨부 참조 절대 경로 재작성(rewriteAttachmentRefs) 구현 (P)
   - `src/features/sharing/lib/rewriteAttachmentRefs.ts`에 `rewriteAttachmentRefs(html, token, baseUrl)`을 구현:
     `/public/{token}/attachments/{id}` 참조를 `${baseUrl}/public/{token}/attachments/{id}`로 접두 재작성(숫자 id
     경계 보존, 판정·격리 재구현 금지)
