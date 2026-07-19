@@ -118,7 +118,7 @@
   - _Depends: 4.2, 4.3_
 
 - [ ] 5. 소비 진입점·검증
-- [ ] 5.1 feature 소비 진입점(index.ts) 및 브리지 소비 계약 통합
+- [x] 5.1 feature 소비 진입점(index.ts) 및 브리지 소비 계약 통합
   - `src/features/attachment/index.ts`에 업로드/렌더 브리지(`useEditorUploadBridge`·`AttachmentRenderBridge`)와
     렌더 컴포넌트를 배럴 export하여 `s20` 편집 표면·`s19`/`s22` 읽기·공유 뷰가 소비할 진입점을 제공. 다른
     feature를 직접 import 하지 않고, 첨부 저장·아카이브(s12)·공유 경로 서빙(s22)을 소유하지 않음을 경계 주석으로
