@@ -10,7 +10,7 @@
 > 결과(404/403)만 관측해 placeholder로 폴백한다. 각 태스크는 단일 책임 경계 안에서 검증 가능한 산출물을 남긴다.
 
 - [ ] 1. 도메인 타입·API 기반
-- [ ] 1.1 계약 미러링 타입 정의 (P)
+- [x] 1.1 계약 미러링 타입 정의 (P)
   - `src/features/attachment/types.ts`에 백엔드 계약을 미러링: `AttachmentKind`(image|file)·`AttachmentRead`
     (id·workspace_id·document_id·kind·original_name·is_archived·created_at·url)와 프론트 파생 상태 타입
     `UploadItem`·`UploadStatus`·`AttachmentResourceState`. `url`은 서버 산정 참조 규약(`/attachments/{id}`)으로
