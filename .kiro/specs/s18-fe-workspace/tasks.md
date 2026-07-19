@@ -110,7 +110,7 @@
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.7, 8.4_
   - _Boundary: AdminUserPanel, AdminUserForm, PasswordResetDialog_
   - _Depends: 2.3_
-- [ ] 6.2 AdminOwnerChangePanel 구현
+- [x] 6.2 AdminOwnerChangePanel 구현
   - `admin/AdminOwnerChangePanel.tsx`에서 대상 WS·`new_owner_user_id`를 지정해 `POST /admin/workspaces/{id}/owner`
     로 소유권을 변경(200 시 `WorkspaceRead` 반영), 누락·404·403을 `ErrorMessage`로 안내
   - 관찰 가능한 완료: 유효 입력 시 소유권 변경이 성공 반영되고, 누락/미존재/권한 오류가 표시됨(통합 테스트로 확인)
