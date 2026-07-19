@@ -53,7 +53,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 4.1, 4.4, 5.1, 5.2, 5.4, 6.2, 6.3, 6.4_
   - _Boundary: useAttachmentResource_
   - _Depends: 1.2_
-- [ ] 3.2 useAttachmentUpload(낙관 자리표시자·업로드·교체/오류·동시추적) 구현
+- [x] 3.2 useAttachmentUpload(낙관 자리표시자·업로드·교체/오류·동시추적) 구현
   - `src/features/attachment/hooks/useAttachmentUpload.ts`에서 업로드 1건마다 `uploadId` 생성→`InsertContext`로
     진행 자리표시자 삽입→`uploadAttachment` 호출→201에서 `buildReferenceMarkdown`으로 참조 치환·실패에서
     `buildErrorMarker`로 안전 오류 표시 치환+`ApiError` 표면화. `Map<uploadId, UploadItem>`으로 동시 업로드 독립
