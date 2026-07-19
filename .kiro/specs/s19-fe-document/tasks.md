@@ -113,7 +113,7 @@
   - _Requirements: 5.1, 8.4_
   - _Boundary: ConfirmDialog_
   - _Depends: 1.1_
-- [ ] 4.4 DocumentToolbar(생성·이름변경·삭제, RequireRole 게이팅) 구현
+- [x] 4.4 DocumentToolbar(생성·이름변경·삭제, RequireRole 게이팅) 구현
   - `src/features/document/components/DocumentToolbar.tsx`에서 생성(부모 지정)·이름변경·삭제 조작을
     `<RequireRole minimum={EDITOR} currentRole=... >`로 감싸 viewer에게 미노출하고, 각 조작을
     `useDocumentMutations`에 결선. 삭제는 `ConfirmDialog` 경유
