@@ -129,7 +129,7 @@
   - _Requirements: 1.1, 5.1_
   - _Boundary: ShareLinkPanel_
   - _Depends: 3.4_
-- [ ] 5.2 오류 표면화·공개 무리다이렉트·feature 격리 통합 검증
+- [x] 5.2 오류 표면화·공개 무리다이렉트·feature 격리 통합 검증
   - 발급/토글의 401(전역 인터셉터)·403·404·409 표면화, 공개 호출의 `skipAuthRedirect`, 다른 feature 직접 import
     부재를 통합적으로 검증
   - 관찰 가능한 완료: 관리 401이 로그인 리다이렉트, 공개 401 미리다이렉트, 403/404/409가 `ErrorMessage`로 표시되고
