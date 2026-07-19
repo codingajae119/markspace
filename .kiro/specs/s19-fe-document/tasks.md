@@ -17,7 +17,7 @@
     필드 1:1로 일치하고 `tsc --noEmit`이 통과함(새 필드 발명 없음)
   - _Requirements: 1.1, 2.1, 3.1, 4.1, 5.1, 6.1, 7.1, 8.1_
   - _Boundary: DocumentTypes_
-- [ ] 1.2 문서/휴지통 API 모듈 및 페이지 병합 loader 구현
+- [x] 1.2 문서/휴지통 API 모듈 및 페이지 병합 loader 구현
   - `src/features/document/api/documentApi.ts`에 8개 엔드포인트 호출(`s16` `apiClient` 소비): 생성/목록은
     `/workspaces/{workspace_id}/documents`, 상세/수정/이동/삭제는 `/documents/{id}`(+`/move`), 휴지통은
     `/workspaces/{id}/trash`·`/trash/{bundleId}(/restore)`. `loadAllActiveDocuments`는 `Page.total`까지
