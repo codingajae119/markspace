@@ -21,7 +21,7 @@
   - _Requirements: 2.1, 3.1, 8.1_
   - _Boundary: shareApi_
   - _Depends: 1.1_
-- [ ] 1.3 공개 렌더 어댑터(publicApi) 구현
+- [x] 1.3 공개 렌더 어댑터(publicApi) 구현
   - `src/features/sharing/api/publicApi.ts`에 `getPublicDocument(token)`(`GET /public/{token}`,
     `apiClient.get(..., { skipAuthRedirect: true })`)·`buildAttachmentUrl(token, id)`(절대 API base URL 기반 공개
     서빙 URL)을 구현(공개 호출은 전역 401 리다이렉트 제외)
