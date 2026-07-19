@@ -143,7 +143,7 @@
   - _Requirements: 8.2, 8.4_
   - _Boundary: TrashBundleItem_
   - _Depends: 4.3_
-- [ ] 6.2 TrashList(editor+ 게이팅 목록 화면) 구현
+- [x] 6.2 TrashList(editor+ 게이팅 목록 화면) 구현
   - `src/features/document/components/TrashList.tsx`에서 `useTrash`로 묶음 목록을 로드해 `TrashBundleItem`
     으로 렌더하고 화면 전체를 `<RequireRole minimum={EDITOR}>`로 게이팅. 복구/완전삭제를 훅에 결선, 빈/로딩/
     오류 상태 표시
