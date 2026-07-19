@@ -59,7 +59,7 @@
   - _Requirements: 1.3, 1.4, 2.1, 2.3, 2.4, 3.1, 3.2, 3.3, 5.1, 5.2, 5.3_
   - _Boundary: useShareManager_
   - _Depends: 1.2, 2.1_
-- [ ] 3.2 무효화·재발급 안내(InvalidationNotice) 구현 (P)
+- [x] 3.2 무효화·재발급 안내(InvalidationNotice) 구현 (P)
   - `src/features/sharing/components/InvalidationNotice.tsx`에 관찰 신호(`invalidated`·`reissued`) 기반 안내를
     구현: 무효화 가능·재발급(새 토큰) 필요·이전 토큰은 토글로 미복원(INV-8)을 표시(판정 없음, 신호 표면화만)
   - 관찰 가능한 완료: `invalidated=true`면 재발급 필요 안내가 노출되고, `reissued=true`면 이전 링크 무효 안내가 노출됨
