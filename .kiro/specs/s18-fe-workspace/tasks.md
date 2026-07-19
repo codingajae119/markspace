@@ -138,7 +138,7 @@
   - _Requirements: 1.4, 1.6, 8.2, 8.3, 8.5_
   - _Boundary: WorkspaceRouteModule, MembershipRoleSource_
   - _Depends: 3.2, 4.2, 5.1, 6.3_
-- [ ]* 7.2 도메인 단위·통합·UI 테스트 작성
+- [x]* 7.2 도메인 단위·통합·UI 테스트 작성
   - 어댑터 경로/메서드 일치·limit/offset 쿼리·`MembershipRoleSource` 조달/폴백·`RoleSelect` 3값(단위),
     스위처의 s16 컨텍스트 소비·WS 생성·멤버 뮤테이션·설정 갱신(is_shareable/retention/삭제 409)·admin 계정
     (독립 flag·단일 admin 409)·소유권 변경(통합), owner/admin(s16 RequireAdmin) 게이팅 노출·미노출(UI) 테스트를 추가
@@ -146,7 +146,7 @@
   - _Requirements: 1.1, 1.4, 2.1, 3.1, 3.4, 4.2, 4.4, 5.3, 5.5, 6.1, 7.1, 7.2, 7.4_
   - _Boundary: Testing_
   - _Depends: 7.1_
-- [ ] 7.3 타입체크·빌드 검증
+- [x] 7.3 타입체크·빌드 검증
   - `tsc --noEmit`(strict)와 `vite build`를 실행하여 워크스페이스 feature가 `any` 없이(s16 import 정합) 타입
     통과·번들됨을 확인
   - 관찰 가능한 완료: 타입체크와 프로덕션 빌드가 오류 없이 완료됨
