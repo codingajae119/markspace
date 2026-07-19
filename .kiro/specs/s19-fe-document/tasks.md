@@ -63,7 +63,7 @@
   - _Depends: 1.1_
 
 - [ ] 3. 상태 훅 (트리·변이·휴지통)
-- [ ] 3.1 useDocumentTree 로드·트리·선택·조상 훅 구현
+- [x] 3.1 useDocumentTree 로드·트리·선택·조상 훅 구현
   - `src/features/document/hooks/useDocumentTree.ts`에서 `loadAllActiveDocuments` → `buildTree`로 트리 구성,
     `status`(loading|ready|error)·`roots`·`nodeById`·`selectedId`·`expandedIds`·`error` 상태와 `reload`·
     `select`·`toggleExpand`·`ancestorsOf`(resolveAncestors 위임)·`applyLocal`(낙관 반영) 노출
