@@ -29,7 +29,7 @@
   - _Requirements: 1.1, 1.4_
   - _Depends: 1.1, 1.2_
 
-- [ ] 1.4 owner-gated 조회 엔드포인트 결선
+- [x] 1.4 owner-gated 조회 엔드포인트 결선
   - `workspace/router.py` 에 `GET /workspaces/{id}/assignable-users` 추가: `require_ws_role(Role.OWNER)`(경로 `{id}`→`workspace_id` 어댑터, `common` 직접 사용 금지) + `limit: Query(50, ge=1)`·`offset: Query(0, ge=0)`.
   - 기존 `get_membership_service` provider 재사용(신규 배선 없음). 존재하지 않는 workspace 는 게이트 단계에서 비-멤버→403(404 로 존재 노출 안 함).
   - 관찰 가능한 완료: `GET /api/1.0/workspaces/{id}/assignable-users` 가 owner 에게 200+`Page[AssignableUserRead]`, 비-owner 에게 403, 미인증에게 401, 잘못된 limit/offset 에 422 를 반환.

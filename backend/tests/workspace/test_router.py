@@ -13,7 +13,9 @@ DB 없이 라우터 결선만 확인한다:
   을 재현한다.
 
 핵심 불변식:
-- 정확히 8개 엔드포인트가 등록된다(POST/GET /workspaces, GET/PATCH/DELETE /workspaces/{id},
+- 워크스페이스·멤버십 8개 + s23 assignable-users 1개 = 9개 엔드포인트가 등록된다
+  (POST/GET /workspaces, GET/PATCH/DELETE /workspaces/{id},
+  GET /workspaces/{id}/assignable-users,
   POST /workspaces/{id}/members, PATCH/DELETE /workspaces/{id}/members/{uid}).
 - 생성·목록은 인증만(get_current_user), 상세는 require_ws_role(VIEWER), 수정·삭제·멤버 관리는
   require_ws_role(OWNER) 게이트를 부착한다.
@@ -37,7 +39,7 @@ from app.workspace.router import (
     get_workspace_service,
 )
 from app.workspace.router import router as workspace_router
-from app.workspace.schemas import MemberRead, WorkspaceRead
+from app.workspace.schemas import AssignableUserRead, MemberRead, WorkspaceRead
 
 _NOW = datetime(2026, 1, 1, 0, 0, 0)
 _WS_READ = WorkspaceRead(
@@ -50,6 +52,8 @@ _WS_READ = WorkspaceRead(
 )
 _WS_PAGE = Page[WorkspaceRead](items=[_WS_READ], total=1)
 _MEMBER_READ = MemberRead(id=5, workspace_id=42, user_id=9, role="editor")
+_ASSIGNABLE_READ = AssignableUserRead(id=11, name="배정 가능 사용자", email="a@example.com")
+_ASSIGNABLE_PAGE = Page[AssignableUserRead](items=[_ASSIGNABLE_READ], total=1)
 
 
 class _FakeWorkspaceService:
@@ -97,6 +101,10 @@ class _FakeMembershipService:
 
     def remove_member(self, db, workspace_id, user_id) -> None:
         self.calls.append(("remove_member", workspace_id, user_id))
+
+    def list_assignable_users(self, db, workspace_id, limit, offset) -> Page[AssignableUserRead]:
+        self.calls.append(("list_assignable_users", workspace_id, limit, offset))
+        return _ASSIGNABLE_PAGE
 
 
 # --- 가짜 DB 세션: resolver 의 role 조회만 흉내낸다 ---------------------------------
@@ -182,7 +190,7 @@ _ROUTES = [
 # --- 엔드포인트 등록/경로 --------------------------------------------------------
 
 
-def test_exactly_eight_routes_registered():
+def test_all_routes_registered():
     app, _, _ = _build_app()
     paths = app.openapi()["paths"]
     ops = {
@@ -196,6 +204,7 @@ def test_exactly_eight_routes_registered():
         ("/workspaces/{id}", "GET"),
         ("/workspaces/{id}", "PATCH"),
         ("/workspaces/{id}", "DELETE"),
+        ("/workspaces/{id}/assignable-users", "GET"),
         ("/workspaces/{id}/members", "POST"),
         ("/workspaces/{id}/members/{uid}", "PATCH"),
         ("/workspaces/{id}/members/{uid}", "DELETE"),
@@ -441,3 +450,25 @@ def test_add_member_missing_role_returns_422():
 
     assert resp.status_code == 422
     assert resp.json()["code"] == "validation_error"
+
+
+# --- assignable-users(OWNER 게이트, 배정 가능 조회) 결선 -------------------------
+# NOTE: 전체 게이팅 매트릭스(editor/viewer/비멤버→403, admin→200, 미인증→401,
+# 존재하지 않는 ws→403)와 페이지네이션·빈 봉투 경계는 task 2.2 의 경계다. 여기서는
+# 라우트 결선 + owner happy path + Page 봉투 형태만 최소로 검증한다.
+
+
+def test_list_assignable_users_owner_returns_200_and_delegates():
+    app, _, member_fake = _build_app()
+    _login(app, user_id=3, is_admin=False)
+    _set_db_member(app, role="owner")
+    client = TestClient(app)
+
+    resp = client.get("/workspaces/42/assignable-users?limit=50&offset=0")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 1
+    assert body["items"][0]["id"] == 11
+    assert body["items"][0]["email"] == "a@example.com"
+    assert member_fake.calls[-1] == ("list_assignable_users", 42, 50, 0)
