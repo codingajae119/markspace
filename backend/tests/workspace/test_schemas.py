@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import Enum
 
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
@@ -22,6 +22,7 @@ from app.workspace.schemas import (
     AssignableUserRead,
     MemberCreate,
     MemberRead,
+    MemberRosterRead,
     MemberRole,
     MemberUpdate,
     OwnerChangeRequest,
@@ -270,3 +271,92 @@ def test_assignable_user_read_allows_null_email() -> None:
 
     assert read.email is None
     assert read.model_dump()["email"] is None
+
+
+# --- MemberRosterRead: narrow 직렬화(user_id/name/email/role 만, 계정 필드 비노출) (1.2·2.6) ---
+
+
+def test_member_roster_read_is_plain_base_model_not_orm() -> None:
+    """join 프로젝션이므로 BaseModel 상속(ORMReadModel from_attributes 미사용)."""
+    assert issubclass(MemberRosterRead, BaseModel)
+    assert not issubclass(MemberRosterRead, ORMReadModel)
+    assert set(MemberRosterRead.model_fields) == {"user_id", "name", "email", "role"}
+
+
+def test_member_roster_read_serializes_exactly_four_fields() -> None:
+    read = MemberRosterRead(user_id=3, name="Alice", email="alice@example.com", role="owner")
+    dump = read.model_dump()
+
+    assert set(dump) == {"user_id", "name", "email", "role"}
+    assert dump["user_id"] == 3
+    assert dump["name"] == "Alice"
+    assert dump["email"] == "alice@example.com"
+    assert read.role is MemberRole.OWNER
+
+
+def test_member_roster_read_excludes_injected_user_account_fields() -> None:
+    """임의 User 유사 dict 의 민감 필드를 주입해도 응답에 누출되지 않는다(2.6)."""
+    user_like = {
+        "user_id": 42,
+        "name": "Alice",
+        "email": "alice@example.com",
+        "role": "editor",
+        # 아래는 로스터에 노출되면 안 되는 계정/상태/타임스탬프 필드
+        "login_id": "alice",
+        "password_hash": "hashed-secret",
+        "is_admin": True,
+        "is_active": False,
+        "is_deleted": True,
+        "created_at": datetime(2026, 7, 20, 0, 0, 0),
+        "updated_at": datetime(2026, 7, 21, 0, 0, 0),
+    }
+
+    read = MemberRosterRead(**user_like)
+    dump = read.model_dump()
+
+    assert set(dump) == {"user_id", "name", "email", "role"}
+    for leaked in (
+        "login_id",
+        "password_hash",
+        "is_admin",
+        "is_active",
+        "is_deleted",
+        "created_at",
+        "updated_at",
+    ):
+        assert leaked not in dump
+        assert leaked not in MemberRosterRead.model_fields
+
+
+def test_member_roster_read_preserves_null_email() -> None:
+    """이메일 없는(또는 비활성) 멤버도 email=null 로 보존된다(1.2·1.5)."""
+    read = MemberRosterRead(user_id=3, name="Bob", email=None, role="viewer")
+
+    assert read.email is None
+    assert read.model_dump()["email"] is None
+
+
+def test_member_roster_read_email_defaults_to_none_when_absent() -> None:
+    read = MemberRosterRead(user_id=3, name="Bob", role="viewer")
+
+    assert read.email is None
+    assert read.model_dump()["email"] is None
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("owner", MemberRole.OWNER),
+        ("editor", MemberRole.EDITOR),
+        ("viewer", MemberRole.VIEWER),
+    ],
+)
+def test_member_roster_read_normalizes_role_values(raw: str, expected: MemberRole) -> None:
+    read = MemberRosterRead(user_id=1, name="X", role=raw)
+
+    assert read.role is expected
+
+
+def test_member_roster_read_rejects_invalid_role() -> None:
+    with pytest.raises(ValidationError):
+        MemberRosterRead(user_id=1, name="X", role="superuser")  # type: ignore[arg-type]

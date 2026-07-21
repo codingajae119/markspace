@@ -37,6 +37,7 @@ __all__ = [
     "MemberRead",
     "OwnerChangeRequest",
     "AssignableUserRead",
+    "MemberRosterRead",
 ]
 
 
@@ -148,3 +149,23 @@ class AssignableUserRead(ORMReadModel):
     id: int
     name: str
     email: str | None = None
+
+
+class MemberRosterRead(BaseModel):
+    """멤버 로스터 행 narrow 응답용 정보 (Req 1.2·2.6).
+
+    join 프로젝션(workspace_member ⋈ user)이므로 단일 ORM 엔티티가 아니다. 따라서
+    `ORMReadModel`(from_attributes)을 상속하지 않고 `BaseModel` 을 상속해 `id→user_id`
+    리네임 모호를 피하고, 서비스가 각 필드를 명시 생성한다(design.md §MemberRosterRead,
+    research §6.3). **선언한 4필드만** 직렬화하므로 `login_id`·`password_hash`·상태
+    flag(`is_admin`/`is_active`/`is_deleted`)·타임스탬프(`created_at`/`updated_at`)는
+    응답 대상에서 원천 제외된다(별도 화이트리스트 불필요, 2.6).
+    `email` 은 nullable 이며, 이메일이 없는(또는 비활성/삭제) 멤버도 `email: null` 로
+    로스터에 포함된다(1.2·1.5). `role` 은 s01 ENUM 문자열과 동일한 `MemberRole` 로
+    직렬화된다(위계 비교용 s01 `Role`(IntEnum)과는 별개).
+    """
+
+    user_id: int
+    name: str
+    email: str | None = None
+    role: MemberRole
