@@ -70,7 +70,7 @@
   - _Depends: 3.2_
 
 - [ ] 4. 프론트엔드 role 모델·표시·게이팅 정합
-- [ ] 4.1 (P) 공용 role 모델·권한 판정 미러 정합
+- [x] 4.1 (P) 공용 role 모델·권한 판정 미러 정합
   - 공용 role enum을 백엔드와 동일 수치(member=1, owner=2)로 재번호하고 role union·문자열→enum 번역을 owner/member 2값으로 정합
   - 편집성 UI 게이팅 소비처의 최소 요구 role을 editor에서 member로 전환하고 admin 항상 통과·null 거부 판정은 유지
   - 관측 완료: role 모델·권한 판정 단위 테스트에서 owner≥member·member≥member·admin 통과·null 거부가 통과하고 BE/FE 수치가 일치

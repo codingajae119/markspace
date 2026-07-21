@@ -4,27 +4,21 @@ import { Role } from "@/shared/auth/roles";
 import { hasWorkspaceRole } from "@/shared/auth/permissions";
 
 describe("hasWorkspaceRole — workspace role gating + admin override (INV-1·2·3)", () => {
-  it("denies viewer for editor-requiring UI (INV-2: viewer < editor)", () => {
+  it("passes owner for member-requiring UI (owner ≥ member)", () => {
     expect(
-      hasWorkspaceRole({ currentRole: Role.VIEWER, isAdmin: false, minimum: Role.EDITOR }),
-    ).toBe(false);
-  });
-
-  it("passes owner for editor-requiring UI (owner ≥ editor)", () => {
-    expect(
-      hasWorkspaceRole({ currentRole: Role.OWNER, isAdmin: false, minimum: Role.EDITOR }),
+      hasWorkspaceRole({ currentRole: Role.OWNER, isAdmin: false, minimum: Role.MEMBER }),
     ).toBe(true);
   });
 
-  it("passes when currentRole equals minimum (editor meets editor)", () => {
+  it("passes when currentRole equals minimum (member meets member)", () => {
     expect(
-      hasWorkspaceRole({ currentRole: Role.EDITOR, isAdmin: false, minimum: Role.EDITOR }),
+      hasWorkspaceRole({ currentRole: Role.MEMBER, isAdmin: false, minimum: Role.MEMBER }),
     ).toBe(true);
   });
 
   it("denies when currentRole is null and not admin (no role = denied, INV-2)", () => {
     expect(
-      hasWorkspaceRole({ currentRole: null, isAdmin: false, minimum: Role.VIEWER }),
+      hasWorkspaceRole({ currentRole: null, isAdmin: false, minimum: Role.MEMBER }),
     ).toBe(false);
   });
 
@@ -35,21 +29,15 @@ describe("hasWorkspaceRole — workspace role gating + admin override (INV-1·2�
   });
 
   it("admin override is checked first, independent of currentRole (INV-3)", () => {
-    // viewer role but admin → still passes an owner-requiring gate.
+    // member role but admin → still passes an owner-requiring gate.
     expect(
-      hasWorkspaceRole({ currentRole: Role.VIEWER, isAdmin: true, minimum: Role.OWNER }),
+      hasWorkspaceRole({ currentRole: Role.MEMBER, isAdmin: true, minimum: Role.OWNER }),
     ).toBe(true);
   });
 
-  it("passes viewer for viewer-requiring UI (viewer meets viewer)", () => {
+  it("denies member for owner-requiring UI (member < owner, INV-2)", () => {
     expect(
-      hasWorkspaceRole({ currentRole: Role.VIEWER, isAdmin: false, minimum: Role.VIEWER }),
-    ).toBe(true);
-  });
-
-  it("denies editor for owner-requiring UI (editor < owner, INV-2)", () => {
-    expect(
-      hasWorkspaceRole({ currentRole: Role.EDITOR, isAdmin: false, minimum: Role.OWNER }),
+      hasWorkspaceRole({ currentRole: Role.MEMBER, isAdmin: false, minimum: Role.OWNER }),
     ).toBe(false);
   });
 });

@@ -54,10 +54,10 @@ afterEach(() => {
 });
 
 describe("RequireRole — 선언형 워크스페이스 role 게이팅(INV-1·2·3)", () => {
-  it("viewer + non-admin, minimum EDITOR → children 미노출, fallback 노출 (INV-2)", () => {
+  it("null role + non-admin, minimum MEMBER → children 미노출, fallback 노출 (INV-2)", () => {
     mockAuthenticatedNonAdmin();
     render(
-      <RequireRole minimum={Role.EDITOR} currentRole={Role.VIEWER} fallback={FALLBACK}>
+      <RequireRole minimum={Role.MEMBER} currentRole={null} fallback={FALLBACK}>
         {CHILD}
       </RequireRole>,
     );
@@ -65,10 +65,10 @@ describe("RequireRole — 선언형 워크스페이스 role 게이팅(INV-1·2·
     expect(screen.getByTestId("fallback")).toBeInTheDocument();
   });
 
-  it("owner + non-admin, minimum EDITOR → children 노출 (owner ≥ editor)", () => {
+  it("owner + non-admin, minimum MEMBER → children 노출 (owner ≥ member)", () => {
     mockAuthenticatedNonAdmin();
     render(
-      <RequireRole minimum={Role.EDITOR} currentRole={Role.OWNER}>
+      <RequireRole minimum={Role.MEMBER} currentRole={Role.OWNER}>
         {CHILD}
       </RequireRole>,
     );
@@ -85,10 +85,10 @@ describe("RequireRole — 선언형 워크스페이스 role 게이팅(INV-1·2·
     expect(screen.getByTestId("gated-child")).toBeInTheDocument();
   });
 
-  it("admin 세션, currentRole viewer, minimum OWNER → children 노출 (admin override, INV-3)", () => {
+  it("admin 세션, currentRole member, minimum OWNER → children 노출 (admin override, INV-3)", () => {
     mockAuthenticatedAdmin();
     render(
-      <RequireRole minimum={Role.OWNER} currentRole={Role.VIEWER}>
+      <RequireRole minimum={Role.OWNER} currentRole={Role.MEMBER}>
         {CHILD}
       </RequireRole>,
     );
@@ -99,7 +99,7 @@ describe("RequireRole — 선언형 워크스페이스 role 게이팅(INV-1·2·
     mockAuthenticatedNonAdmin();
     // fallback 미지정 → children 도 fallback 도 없음.
     const { container } = render(
-      <RequireRole minimum={Role.EDITOR} currentRole={Role.VIEWER}>
+      <RequireRole minimum={Role.OWNER} currentRole={Role.MEMBER}>
         {CHILD}
       </RequireRole>,
     );
@@ -108,10 +108,10 @@ describe("RequireRole — 선언형 워크스페이스 role 게이팅(INV-1·2·
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("unauthenticated 세션 → isAdmin false, viewer + minimum EDITOR → 거부 (currentRole 만 판정)", () => {
+  it("unauthenticated 세션 → isAdmin false, null role + minimum MEMBER → 거부 (currentRole 만 판정)", () => {
     mockUnauthenticated();
     render(
-      <RequireRole minimum={Role.EDITOR} currentRole={Role.VIEWER} fallback={FALLBACK}>
+      <RequireRole minimum={Role.MEMBER} currentRole={null} fallback={FALLBACK}>
         {CHILD}
       </RequireRole>,
     );
@@ -119,10 +119,10 @@ describe("RequireRole — 선언형 워크스페이스 role 게이팅(INV-1·2·
     expect(screen.getByTestId("fallback")).toBeInTheDocument();
   });
 
-  it("loading 세션 → isAdmin false, viewer + minimum EDITOR → 거부", () => {
+  it("loading 세션 → isAdmin false, null role + minimum MEMBER → 거부", () => {
     mockLoading();
     render(
-      <RequireRole minimum={Role.EDITOR} currentRole={Role.VIEWER}>
+      <RequireRole minimum={Role.MEMBER} currentRole={null}>
         {CHILD}
       </RequireRole>,
     );
@@ -132,7 +132,7 @@ describe("RequireRole — 선언형 워크스페이스 role 게이팅(INV-1·2·
   it("unauthenticated 세션이라도 currentRole 이 충족하면 노출 (currentRole 만으로 판정)", () => {
     mockUnauthenticated();
     render(
-      <RequireRole minimum={Role.VIEWER} currentRole={Role.EDITOR}>
+      <RequireRole minimum={Role.MEMBER} currentRole={Role.MEMBER}>
         {CHILD}
       </RequireRole>,
     );

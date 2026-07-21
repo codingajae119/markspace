@@ -24,8 +24,8 @@ export interface HasWorkspaceRoleInput {
  * 1. `isAdmin === true` → 항상 `true`. currentRole·멤버십과 무관하며 가장 먼저 판정한다
  *    (INV-3, admin override / AC 6.3).
  * 2. `currentRole === null` → `false`. role 이 없으면(비멤버·미확정) 거부한다
- *    (AC 6.4, viewer-only/none 은 변경성 UI 미노출 / INV-2).
- * 3. 그 외 → `currentRole >= minimum`. owner ≥ editor ≥ viewer 위계로 충족 여부 판정
+ *    (AC 6.4, 비멤버·none 은 변경성 UI 미노출 / INV-2).
+ * 3. 그 외 → `currentRole >= minimum`. owner ≥ member 위계로 충족 여부 판정
  *    (AC 6.2, workspace 단위 role 만 / INV-1).
  *
  * **보안 경계 아님(AC 6.6, 13.3)**: 이 판정은 UI 노출 편의일 뿐이며 서버측 권한 강제
