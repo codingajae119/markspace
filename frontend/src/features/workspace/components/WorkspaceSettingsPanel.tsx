@@ -56,7 +56,14 @@ export function WorkspaceSettingsPanel(): ReactElement {
 
   return (
     <RequireRole minimum={Role.OWNER} currentRole={role}>
-      <WorkspaceSettingsContent workspace={currentWorkspace} isShareable={isShareable} />
+      {/* key={id} 로 현재 WS 가 바뀌면 콘텐츠를 재마운트해, 폼 state(name·retention)가 이전 WS 값에
+          고정되지 않고 현재 WS 값을 다시 초기화하도록 한다(재로그인 시 last_selected 비동기 재지정
+          포함). useState 초깃값은 최초 마운트 때만 읽히므로 workspace.id 를 key 로 사용한다. */}
+      <WorkspaceSettingsContent
+        key={currentWorkspace?.id ?? "none"}
+        workspace={currentWorkspace}
+        isShareable={isShareable}
+      />
     </RequireRole>
   );
 }
