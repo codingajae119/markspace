@@ -37,7 +37,7 @@
 
 ## 3. 백엔드: 통합 검증 (게이팅·divergence·narrow·pagination)
 
-- [ ] 3.1 게이팅 매트릭스·anti-enumeration 통합 테스트
+- [x] 3.1 게이팅 매트릭스·anti-enumeration 통합 테스트
   - 신규 `test_member_roster_integration.py` 에서 assignable 하네스를 미러해 owner→200, editor→403, viewer→403, 비-멤버→403, admin(비-owner)→200, 미인증→401 을 HTTP 경계에서 단언한다(admin override 는 요청자 owner 여부와 무관, INV-3).
   - 미존재 WS 조회가 404 가 아닌 **403** 으로 응답해 워크스페이스 존재 여부를 드러내지 않음을 별도 케이스로 단언한다.
   - 관찰 가능: 게이팅 6개 역할 경로 + anti-enumeration 케이스가 모두 통과한다.
