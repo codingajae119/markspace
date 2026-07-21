@@ -15,9 +15,16 @@ import { LoginForm } from "../components/LoginForm";
 /** 게스트 프레임에 배치되는 로그인 화면 컨텐츠. */
 export function LoginPage(): ReactElement {
   return (
-    <section aria-labelledby="login-heading">
-      <h1 id="login-heading">로그인</h1>
-      <LoginForm />
-    </section>
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 text-slate-900">
+      <section
+        aria-labelledby="login-heading"
+        className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm"
+      >
+        <h1 id="login-heading" className="mb-6 text-center text-xl font-semibold text-slate-900">
+          Notion-lite 로그인
+        </h1>
+        <LoginForm />
+      </section>
+    </div>
   );
 }

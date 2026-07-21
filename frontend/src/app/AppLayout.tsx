@@ -14,19 +14,20 @@
 
 import type { ReactElement, ReactNode } from "react";
 
-/** AppLayout props — 프레임 안에 렌더할 feature 자식. */
+/** AppLayout props — 프레임 안에 렌더할 feature 자식 + 상단 header 네비게이션 슬롯. */
 export interface AppLayoutProps {
   children: ReactNode;
+  /** 상단 header 영역에 렌더할 네비게이션 콘텐츠(선택). 라우터·세션 컨텍스트를 가진
+   *  조립부(`ProtectedRoute`)가 `AppHeaderNav` 를 주입한다. 미지정 시 헤더는 구조만 유지한다. */
+  nav?: ReactNode;
 }
 
 /** 인증 영역 공통 프레임: 상단 header 영역 + main 콘텐츠 슬롯. */
-export function AppLayout({ children }: AppLayoutProps): ReactElement {
+export function AppLayout({ children, nav }: AppLayoutProps): ReactElement {
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex h-14 w-full max-w-5xl items-center px-4">
-          {/* feature 별 네비게이션 콘텐츠는 후속 spec(s18+)이 채운다. */}
-        </div>
+        <div className="mx-auto flex h-14 w-full max-w-5xl items-center px-4">{nav}</div>
       </header>
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
     </div>

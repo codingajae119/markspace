@@ -35,10 +35,18 @@ export function LoginForm(): ReactElement {
     void submit({ login_id: loginId, password });
   };
 
+  const fieldClass =
+    "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 " +
+    "shadow-sm transition-colors focus:border-slate-500 focus:outline-none " +
+    "focus-visible:ring-2 focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50";
+  const labelClass = "mb-1 block text-sm font-medium text-slate-700";
+
   return (
-    <form onSubmit={handleSubmit} noValidate>
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
       <div>
-        <label htmlFor="login_id">아이디</label>
+        <label htmlFor="login_id" className={labelClass}>
+          아이디
+        </label>
         <input
           id="login_id"
           name="login_id"
@@ -47,10 +55,13 @@ export function LoginForm(): ReactElement {
           value={loginId}
           onChange={(event) => setLoginId(event.target.value)}
           disabled={submitting}
+          className={fieldClass}
         />
       </div>
       <div>
-        <label htmlFor="password">비밀번호</label>
+        <label htmlFor="password" className={labelClass}>
+          비밀번호
+        </label>
         <input
           id="password"
           name="password"
@@ -59,13 +70,14 @@ export function LoginForm(): ReactElement {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           disabled={submitting}
+          className={fieldClass}
         />
       </div>
 
       {/* 단일 에러 표시 유틸(s16). error 가 null 이면 아무것도 렌더하지 않는다. */}
       <ErrorMessage error={error} />
 
-      <Button type="submit" disabled={submitting}>
+      <Button type="submit" disabled={submitting} className="w-full">
         {submitting ? <Spinner /> : "로그인"}
       </Button>
     </form>

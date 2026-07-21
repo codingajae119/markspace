@@ -20,6 +20,7 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { AppLayout } from "@/app/AppLayout";
+import { AppHeaderNav } from "@/app/AppHeaderNav";
 import { buildLoginPath } from "@/app/routes";
 import { useSession } from "@/app/session/useSession";
 
@@ -53,7 +54,7 @@ export function ProtectedRoute() {
   }
 
   return (
-    <AppLayout>
+    <AppLayout nav={<AppHeaderNav />}>
       <Outlet />
     </AppLayout>
   );
