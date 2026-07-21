@@ -22,7 +22,7 @@ function sampleMember(): MemberRead {
     id: 3,
     workspace_id: 7,
     user_id: 42,
-    role: "editor",
+    role: "member",
   };
 }
 
@@ -31,7 +31,7 @@ function sampleRosterPage(): Page<MemberRosterRow> {
   return {
     items: [
       { user_id: 42, name: "Alice", email: "alice@example.com", role: "owner" },
-      { user_id: 43, name: "Bob", email: null, role: "viewer" },
+      { user_id: 43, name: "Bob", email: null, role: "member" },
     ],
     total: 2,
   };
@@ -49,11 +49,11 @@ describe("memberApi.add", () => {
     const member = sampleMember();
     postMock.mockResolvedValueOnce(member);
 
-    const result = await memberApi.add(7, { user_id: 42, role: "editor" });
+    const result = await memberApi.add(7, { user_id: 42, role: "member" });
 
     expect(postMock).toHaveBeenCalledWith("/workspaces/7/members", {
       user_id: 42,
-      role: "editor",
+      role: "member",
     });
     expect(result).toEqual(member);
   });
@@ -64,10 +64,10 @@ describe("memberApi.changeRole", () => {
     const member = sampleMember();
     patchMock.mockResolvedValueOnce(member);
 
-    const result = await memberApi.changeRole(7, 42, { role: "viewer" });
+    const result = await memberApi.changeRole(7, 42, { role: "member" });
 
     expect(patchMock).toHaveBeenCalledWith("/workspaces/7/members/42", {
-      role: "viewer",
+      role: "member",
     });
     expect(result).toEqual(member);
   });

@@ -86,7 +86,7 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
   // 배정 가능 사용자 조회: raw user_id 입력을 대체하는 선택 UI 의 데이터·reload 소스(Req 3.2·3.3·4.3).
   const assignable = useAssignableUsers(workspaceId);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [addRole, setAddRole] = useState<MemberRole>("viewer");
+  const [addRole, setAddRole] = useState<MemberRole>("member");
 
   const handleAdd = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();

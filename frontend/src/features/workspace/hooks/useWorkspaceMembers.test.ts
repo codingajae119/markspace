@@ -28,7 +28,7 @@ function member(overrides: Partial<MemberRosterRow> = {}): MemberRosterRow {
     user_id: 10,
     name: "Alice",
     email: "alice@example.com",
-    role: "editor",
+    role: "member",
     ...overrides,
   };
 }
@@ -52,7 +52,7 @@ describe("useWorkspaceMembers", () => {
   it("마운트 시 첫 페이지를 조회해 status ready·members·total 을 노출한다 (Req 3.1·3.2)", async () => {
     const items = [
       member({ user_id: 10 }),
-      member({ user_id: 11, name: "Bob", email: null, role: "viewer" }),
+      member({ user_id: 11, name: "Bob", email: null, role: "member" }),
     ];
     list.mockResolvedValueOnce(page(items, 5));
 

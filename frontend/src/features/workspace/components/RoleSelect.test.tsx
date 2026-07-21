@@ -4,42 +4,44 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { RoleSelect } from "./RoleSelect";
 import type { MemberRole } from "../api/types";
 
-// RoleSelect 는 MemberRole 3값(owner/editor/viewer)만 방출하는 순수 프리미티브다(Req 3.4).
+// RoleSelect 는 MemberRole 2값(owner/member)만 방출하는 순수 프리미티브다(Req 3.4·6.2).
 // 옵션 집합·onChange 방출값·비활성 전달을 관찰한다.
 
 describe("RoleSelect", () => {
-  it("정확히 3개 옵션(owner/editor/viewer)만 렌더한다 (Req 3.4)", () => {
-    render(<RoleSelect value="editor" onChange={() => {}} />);
+  it("정확히 2개 옵션(owner/member)만 렌더한다 (Req 3.4·6.2)", () => {
+    render(<RoleSelect value="member" onChange={() => {}} />);
 
     const options = screen.getAllByRole("option") as HTMLOptionElement[];
-    expect(options.map((o) => o.value)).toEqual(["owner", "editor", "viewer"]);
+    expect(options.map((o) => o.value)).toEqual(["owner", "member"]);
   });
 
   it("현재 value 를 선택 상태로 반영한다", () => {
-    render(<RoleSelect value="viewer" onChange={() => {}} />);
+    render(<RoleSelect value="member" onChange={() => {}} />);
     const select = screen.getByRole("combobox") as HTMLSelectElement;
-    expect(select.value).toBe("viewer");
+    expect(select.value).toBe("member");
   });
 
   it("옵션 선택 시 onChange 를 해당 MemberRole 로 호출한다", () => {
     const onChange = vi.fn<(role: MemberRole) => void>();
-    render(<RoleSelect value="viewer" onChange={onChange} />);
+    render(<RoleSelect value="member" onChange={onChange} />);
 
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "owner" } });
     expect(onChange).toHaveBeenCalledWith("owner");
 
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "editor" } });
-    expect(onChange).toHaveBeenCalledWith("editor");
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "member" } });
+    expect(onChange).toHaveBeenCalledWith("member");
   });
 
-  it("옵션에 없는 4번째 값은 방출할 수 없다(옵션 집합이 3값으로 폐쇄)", () => {
+  it("옵션에 없는 3번째 값은 방출할 수 없다(옵션 집합이 2값으로 폐쇄)", () => {
     const onChange = vi.fn<(role: MemberRole) => void>();
     render(<RoleSelect value="owner" onChange={onChange} />);
 
     const values = (screen.getAllByRole("option") as HTMLOptionElement[]).map((o) => o.value);
     expect(values).not.toContain("admin");
     expect(values).not.toContain("guest");
-    expect(values).toHaveLength(3);
+    expect(values).not.toContain("editor");
+    expect(values).not.toContain("viewer");
+    expect(values).toHaveLength(2);
   });
 
   it("disabled 를 select 에 전달한다", () => {

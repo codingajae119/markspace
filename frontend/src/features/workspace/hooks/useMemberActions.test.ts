@@ -40,7 +40,7 @@ const SELF_UID = 100;
 const OTHER_UID = 200;
 
 function member(overrides: Partial<MemberRead> = {}): MemberRead {
-  return { id: 1, workspace_id: WS, user_id: OTHER_UID, role: "viewer", ...overrides };
+  return { id: 1, workspace_id: WS, user_id: OTHER_UID, role: "member", ...overrides };
 }
 
 function authenticated(userId: number): SessionContextValue {
@@ -90,36 +90,36 @@ beforeEach(() => {
 
 describe("useMemberActions", () => {
   it("add 성공 시 반환된 MemberRead 를 로컬 members 에 추가한다 (Req 3.1)", async () => {
-    const created = member({ id: 5, user_id: OTHER_UID, role: "editor" });
+    const created = member({ id: 5, user_id: OTHER_UID, role: "member" });
     addMock.mockResolvedValueOnce(created);
 
     const { result } = renderHook(() => useMemberActions());
     expect(result.current.members).toEqual([]);
 
     await act(async () => {
-      await result.current.add(WS, { user_id: OTHER_UID, role: "editor" });
+      await result.current.add(WS, { user_id: OTHER_UID, role: "member" });
     });
 
-    expect(apiAdd).toHaveBeenCalledWith(WS, { user_id: OTHER_UID, role: "editor" });
+    expect(apiAdd).toHaveBeenCalledWith(WS, { user_id: OTHER_UID, role: "member" });
     expect(result.current.members).toEqual([created]);
     expect(result.current.error).toBeNull();
   });
 
   it("changeRole 성공 시 매칭 멤버의 role 을 갱신한다 (Req 3.2)", async () => {
-    const before = member({ id: 5, user_id: OTHER_UID, role: "viewer" });
+    const before = member({ id: 5, user_id: OTHER_UID, role: "member" });
     addMock.mockResolvedValueOnce(before);
-    const updated = member({ id: 5, user_id: OTHER_UID, role: "editor" });
+    const updated = member({ id: 5, user_id: OTHER_UID, role: "member" });
     changeRoleMock.mockResolvedValueOnce(updated);
 
     const { result } = renderHook(() => useMemberActions());
     await act(async () => {
-      await result.current.add(WS, { user_id: OTHER_UID, role: "viewer" });
+      await result.current.add(WS, { user_id: OTHER_UID, role: "member" });
     });
     await act(async () => {
-      await result.current.changeRole(WS, OTHER_UID, { role: "editor" });
+      await result.current.changeRole(WS, OTHER_UID, { role: "member" });
     });
 
-    expect(apiChangeRole).toHaveBeenCalledWith(WS, OTHER_UID, { role: "editor" });
+    expect(apiChangeRole).toHaveBeenCalledWith(WS, OTHER_UID, { role: "member" });
     expect(result.current.members).toEqual([updated]);
   });
 
@@ -130,7 +130,7 @@ describe("useMemberActions", () => {
 
     const { result } = renderHook(() => useMemberActions());
     await act(async () => {
-      await result.current.add(WS, { user_id: OTHER_UID, role: "viewer" });
+      await result.current.add(WS, { user_id: OTHER_UID, role: "member" });
     });
     expect(result.current.members).toHaveLength(1);
 
@@ -146,14 +146,14 @@ describe("useMemberActions", () => {
     addMock.mockResolvedValueOnce(seed);
     const { result } = renderHook(() => useMemberActions());
     await act(async () => {
-      await result.current.add(WS, { user_id: OTHER_UID, role: "viewer" });
+      await result.current.add(WS, { user_id: OTHER_UID, role: "member" });
     });
     const before = result.current.members;
 
     const err = conflict();
     addMock.mockRejectedValueOnce(err);
     await act(async () => {
-      await result.current.add(WS, { user_id: 999, role: "editor" });
+      await result.current.add(WS, { user_id: 999, role: "member" });
     });
 
     expect(result.current.error).toBe(err);
@@ -162,11 +162,11 @@ describe("useMemberActions", () => {
   });
 
   it("changeRole 실패 시 members 를 변경하지 않는다 (Req 3.6, 롤백)", async () => {
-    const seed = member({ id: 5, user_id: OTHER_UID, role: "viewer" });
+    const seed = member({ id: 5, user_id: OTHER_UID, role: "member" });
     addMock.mockResolvedValueOnce(seed);
     const { result } = renderHook(() => useMemberActions());
     await act(async () => {
-      await result.current.add(WS, { user_id: OTHER_UID, role: "viewer" });
+      await result.current.add(WS, { user_id: OTHER_UID, role: "member" });
     });
     const before = result.current.members;
 
@@ -184,7 +184,7 @@ describe("useMemberActions", () => {
     addMock.mockResolvedValueOnce(seed);
     const { result } = renderHook(() => useMemberActions());
     await act(async () => {
-      await result.current.add(WS, { user_id: OTHER_UID, role: "viewer" });
+      await result.current.add(WS, { user_id: OTHER_UID, role: "member" });
     });
     const before = result.current.members;
 
@@ -207,24 +207,24 @@ describe("useMemberActions", () => {
   });
 
   it("self 대상 changeRole 성공 시 recordSelfRole 로 자기 role 을 에코한다 (Req 3.7)", async () => {
-    addMock.mockResolvedValueOnce(member({ id: 9, user_id: SELF_UID, role: "editor" }));
-    changeRoleMock.mockResolvedValueOnce(member({ id: 9, user_id: SELF_UID, role: "viewer" }));
+    addMock.mockResolvedValueOnce(member({ id: 9, user_id: SELF_UID, role: "member" }));
+    changeRoleMock.mockResolvedValueOnce(member({ id: 9, user_id: SELF_UID, role: "member" }));
     const { result } = renderHook(() => useMemberActions());
     await act(async () => {
-      await result.current.add(WS, { user_id: SELF_UID, role: "editor" });
+      await result.current.add(WS, { user_id: SELF_UID, role: "member" });
     });
     recordSelfRoleMock.mockClear();
     await act(async () => {
-      await result.current.changeRole(WS, SELF_UID, { role: "viewer" });
+      await result.current.changeRole(WS, SELF_UID, { role: "member" });
     });
-    expect(recordSelfRoleMock).toHaveBeenCalledWith(WS, Role.VIEWER);
+    expect(recordSelfRoleMock).toHaveBeenCalledWith(WS, Role.MEMBER);
   });
 
   it("비-self 대상 성공 시 recordSelfRole 을 호출하지 않는다 (Req 3.7)", async () => {
-    addMock.mockResolvedValueOnce(member({ id: 9, user_id: OTHER_UID, role: "editor" }));
+    addMock.mockResolvedValueOnce(member({ id: 9, user_id: OTHER_UID, role: "member" }));
     const { result } = renderHook(() => useMemberActions());
     await act(async () => {
-      await result.current.add(WS, { user_id: OTHER_UID, role: "editor" });
+      await result.current.add(WS, { user_id: OTHER_UID, role: "member" });
     });
     expect(recordSelfRoleMock).not.toHaveBeenCalled();
   });
@@ -252,13 +252,13 @@ describe("useMemberActions", () => {
     addMock.mockRejectedValueOnce(conflict());
     const { result } = renderHook(() => useMemberActions());
     await act(async () => {
-      await result.current.add(WS, { user_id: OTHER_UID, role: "viewer" });
+      await result.current.add(WS, { user_id: OTHER_UID, role: "member" });
     });
     expect(result.current.error).not.toBeNull();
 
     addMock.mockResolvedValueOnce(member({ id: 2, user_id: OTHER_UID }));
     await act(async () => {
-      await result.current.add(WS, { user_id: OTHER_UID, role: "viewer" });
+      await result.current.add(WS, { user_id: OTHER_UID, role: "member" });
     });
     expect(result.current.error).toBeNull();
   });

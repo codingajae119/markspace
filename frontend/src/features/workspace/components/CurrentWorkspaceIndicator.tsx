@@ -4,7 +4,7 @@
  * 문제 배경: 워크스페이스 탭에서 WS 를 선택해도(현재 WS 컨텍스트는 라우터 상위에 마운트되어 탭 전환
  * 시 유지됨) 어느 WS 가 활성인지 화면에 **표시가 전혀 없어** 문서 탭 등으로 전이하면 선택을 확인할 수
  * 없었다. 이 컴포넌트는 전역 헤더(`AppHeaderNav`)에 놓여 **모든 인증 화면에서 항상** 현재 WS 이름과
- * 내 역할(owner/editor/viewer)을 노출한다.
+ * 내 역할(owner/member)을 노출한다.
  *
  * 데이터 출처(둘 다 옵셔널 읽기 — provider 밖에서도 던지지 않음):
  * - 현재 WS 이름·id·status: s16 앰비언트 `CurrentWorkspaceContext`.
@@ -23,11 +23,10 @@ import { CurrentWorkspaceContext } from "@/app/workspace-context/CurrentWorkspac
 
 import { useMembershipRoleSourceOptional } from "../context/membershipRoleSource";
 
-/** role → 배지 라벨(사용자 요청대로 owner/editor/viewer 를 명시) + 색조. */
+/** role → 배지 라벨(사용자 요청대로 owner/member 를 명시) + 색조. */
 const ROLE_BADGE: Record<Role, { label: string; className: string }> = {
   [Role.OWNER]: { label: "owner", className: "bg-amber-100 text-amber-800" },
-  [Role.EDITOR]: { label: "editor", className: "bg-sky-100 text-sky-800" },
-  [Role.VIEWER]: { label: "viewer", className: "bg-slate-200 text-slate-700" },
+  [Role.MEMBER]: { label: "member", className: "bg-sky-100 text-sky-800" },
 };
 
 /** 역할 신호 부재(best-effort 미확정) 시 표시. */

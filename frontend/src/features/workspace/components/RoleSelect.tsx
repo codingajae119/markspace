@@ -1,33 +1,32 @@
 /**
- * RoleSelect — owner/editor/viewer 세 값(`MemberRole`)만 방출하는 role 선택 프리미티브
- * (design.md "components → RoleSelect", Req 3.4).
+ * RoleSelect — owner/member 두 값(`MemberRole`)만 방출하는 role 선택 프리미티브
+ * (design.md "components → RoleSelect", Req 3.4·6.2).
  *
- * 옵션 집합을 `MemberRole` 리터럴 3개로 **폐쇄**해 그 외 값을 구조적으로 방출 불가능하게 한다:
- * `onChange` 는 항상 세 값 중 하나만 전달하며 호출부는 임의 문자열을 받을 수 없다. 순수 프리미티브로
+ * 옵션 집합을 `MemberRole` 리터럴 2개로 **폐쇄**해 그 외 값을 구조적으로 방출 불가능하게 한다:
+ * `onChange` 는 항상 두 값 중 하나만 전달하며 호출부는 임의 문자열을 받을 수 없다. 순수 프리미티브로
  * 정책(누가 어떤 role 을 줄 수 있는지)은 담지 않고 상위 패널(4.2)이 게이팅한다.
  *
  * s16 시각 언어(Button 등)와 정합한 Tailwind 유틸을 부여하되 새 shared 프리미티브를 추가하지 않고
  * 스타일드 `<select>` 로 국소 구현한다(design.md: RoleSelect 는 plain styled select). `className`
  * 은 기본 스타일 뒤에 병합되어 호출부 오버라이드가 가능하다.
  *
- * Requirements: 3.4(role 선택 UI 가 owner/editor/viewer 세 값만 허용·전송).
+ * Requirements: 3.4·6.2(role 선택 UI 가 owner/member 두 값만 허용·전송).
  */
 
 import type { ReactElement } from "react";
 
 import type { MemberRole } from "../api/types";
 
-/** 방출 가능한 role 목록 — 이 3값으로 옵션 집합을 폐쇄한다(Req 3.4). */
+/** 방출 가능한 role 목록 — 이 2값으로 옵션 집합을 폐쇄한다(Req 3.4·6.2). */
 const ROLE_OPTIONS: readonly { value: MemberRole; label: string }[] = [
   { value: "owner", label: "owner" },
-  { value: "editor", label: "editor" },
-  { value: "viewer", label: "viewer" },
+  { value: "member", label: "member" },
 ];
 
 export interface RoleSelectProps {
   /** 현재 선택된 role. */
   value: MemberRole;
-  /** 선택 변경 시 새 `MemberRole`(3값 중 하나)을 전달한다. */
+  /** 선택 변경 시 새 `MemberRole`(2값 중 하나)을 전달한다. */
   onChange: (role: MemberRole) => void;
   /** select 요소 id(label 연결·외부 참조용, 선택). */
   id?: string;
@@ -47,7 +46,7 @@ const SELECT_CLASSES =
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 " +
   "disabled:cursor-not-allowed disabled:opacity-50";
 
-/** owner/editor/viewer 3값만 방출하는 스타일드 select. `onChange` 는 항상 `MemberRole` 을 전달한다. */
+/** owner/member 2값만 방출하는 스타일드 select. `onChange` 는 항상 `MemberRole` 을 전달한다. */
 export function RoleSelect({ value, onChange, id, label, srOnlyLabel, disabled }: RoleSelectProps): ReactElement {
   return (
     <>
@@ -63,7 +62,7 @@ export function RoleSelect({ value, onChange, id, label, srOnlyLabel, disabled }
         id={id}
         value={value}
         disabled={disabled}
-        // 옵션이 3값으로 폐쇄되어 있으므로 event.target.value 는 항상 유효한 MemberRole 이다.
+        // 옵션이 2값으로 폐쇄되어 있으므로 event.target.value 는 항상 유효한 MemberRole 이다.
         onChange={(event) => onChange(event.target.value as MemberRole)}
         className={SELECT_CLASSES}
       >

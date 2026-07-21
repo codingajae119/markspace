@@ -9,7 +9,7 @@ import type { CurrentWorkspaceContextValue } from "@/app/workspace-context/types
 import type { WorkspaceRead } from "@/shared/types/workspace";
 
 /**
- * CurrentWorkspaceIndicator 표시 테스트: 전역 헤더가 현재 WS 이름과 내 역할(owner/editor/viewer)을
+ * CurrentWorkspaceIndicator 표시 테스트: 전역 헤더가 현재 WS 이름과 내 역할(owner/member)을
  * 항상 노출하는지, 선택 부재·역할 미확정·provider 부재를 정직하게 처리하는지 관찰한다.
  *
  * role 은 s18 MembershipRoleSource(best-effort)에서 오므로 옵셔널 접근자를 모킹해 roleFor 반환을
@@ -85,19 +85,12 @@ describe("CurrentWorkspaceIndicator", () => {
     ).toBeInTheDocument();
   });
 
-  it("editor·viewer 역할도 각각의 라벨로 표시한다", () => {
-    stubRoleSource(Role.EDITOR);
+  it("member 역할도 라벨로 표시한다", () => {
+    stubRoleSource(Role.MEMBER);
     render(<CurrentWorkspaceIndicator />, {
       wrapper: withWorkspaceCtx("ready", workspace(2, "test2")),
     });
-    expect(screen.getByText("editor")).toBeInTheDocument();
-    cleanup();
-
-    stubRoleSource(Role.VIEWER);
-    render(<CurrentWorkspaceIndicator />, {
-      wrapper: withWorkspaceCtx("ready", workspace(3, "shared")),
-    });
-    expect(screen.getByText("viewer")).toBeInTheDocument();
+    expect(screen.getByText("member")).toBeInTheDocument();
   });
 
   it("역할 신호가 없으면(best-effort 미확정) '역할 미확인'을 표시한다", () => {

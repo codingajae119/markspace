@@ -78,7 +78,7 @@
   - _Boundary: shared/auth_
   - _Depends: 1.2_
 
-- [ ] 4.2 멤버 role 타입·선택 UI·복원 값 집합 정합
+- [x] 4.2 멤버 role 타입·선택 UI·복원 값 집합 정합
   - feature role 타입을 owner/member로 축소하고 역할 선택 UI 옵션을 owner·member 2값으로 제한
   - 멤버 목록·현재 워크스페이스 표시의 role 라벨을 owner/member로 표기하고, 재로그인·새로고침 role 복원(s24) 메커니즘은 유지한 채 복원 값 집합만 owner/member로 정합
   - 관측 완료: 역할 선택 UI가 owner·member만 노출하고, 재로그인 후 서버 제공 owner/member role이 복원되는 것이 E2E로 통과
@@ -130,3 +130,6 @@
   - 관측 완료: 백엔드·프론트엔드 전체 스위트가 전부 통과하고 읽기 완화·편집·관리·휴지통·공유·admin 경계 불변식이 종단 검증으로 확인됨
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
   - _Depends: 1.1, 1.2, 2.1, 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 5.1, 5.2, 5.3, 5.4, 5.5_
+
+## Implementation Notes
+- 4.2 boundary 확장(설계 근거): design.md "Modified Files — Frontend"가 편집성 UI 게이팅 소비처의 `minimum: Role.EDITOR → Role.MEMBER` 스왑을 명시하나, 이 소비처는 features/document·features/sharing·features/editor 및 s24 복원 경로(app/workspace-context)에 걸쳐 있어 어느 task의 `_Boundary:_`에도 명시되지 않았다(4.1=shared/auth, 4.2=features/workspace). no-alias 리네임으로 Role.EDITOR/VIEWER 심볼이 삭제되어 이 소비처들이 컴파일·게이팅 불능이 되므로, 4.2가 승인된 설계의 FE 미러 파일 목록 전체(features 전 도메인 소스 소비처 + s24 복원 경로)를 소유하도록 확장한다. 교차-feature 게이팅 TEST 갱신은 5.4로 이연(중간 phased-red).

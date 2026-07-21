@@ -39,9 +39,9 @@ describe("MembershipRoleSource", () => {
     expect(result.current.roleFor(7)).toBe(Role.OWNER);
 
     act(() => {
-      result.current.recordSelfRole(7, Role.EDITOR);
+      result.current.recordSelfRole(7, Role.MEMBER);
     });
-    expect(result.current.roleFor(7)).toBe(Role.EDITOR);
+    expect(result.current.roleFor(7)).toBe(Role.MEMBER);
   });
 
   it("신호가 기록되지 않은 wsId 는 roleFor → null (부재 시 null, best-effort)", () => {
@@ -60,16 +60,15 @@ describe("MembershipRoleSource", () => {
     expect(result.current.roleFor(3)).toBeNull();
 
     act(() => {
-      result.current.recordSelfRole(3, Role.VIEWER);
+      result.current.recordSelfRole(3, Role.MEMBER);
     });
 
-    expect(result.current.roleFor(3)).toBe(Role.VIEWER);
+    expect(result.current.roleFor(3)).toBe(Role.MEMBER);
   });
 
   it("memberRoleToRole 은 MemberRole 문자열을 s16 Role enum 으로 번역한다", () => {
     expect(memberRoleToRole("owner")).toBe(Role.OWNER);
-    expect(memberRoleToRole("editor")).toBe(Role.EDITOR);
-    expect(memberRoleToRole("viewer")).toBe(Role.VIEWER);
+    expect(memberRoleToRole("member")).toBe(Role.MEMBER);
   });
 
   it("useMembershipRoleSource() 를 provider 밖에서 호출하면 오류를 던진다", () => {
@@ -110,7 +109,7 @@ describe("MembershipRoleSource 로드-시드", () => {
   }
 
   it("마운트 시 서버 role 로 시드한다 (role=null 은 미시드)", () => {
-    const seeded = [ws(1, "owner"), ws(2, "editor"), ws(3, null)];
+    const seeded = [ws(1, "owner"), ws(2, "member"), ws(3, null)];
     const wrapper = ({ children }: { children: ReactNode }) => (
       <CurrentWorkspaceContext.Provider value={makeCtx(seeded)}>
         <MembershipRoleProvider>{children}</MembershipRoleProvider>
@@ -120,7 +119,7 @@ describe("MembershipRoleSource 로드-시드", () => {
     const { result } = renderHook(() => useMembershipRoleSource(), { wrapper });
 
     expect(result.current.roleFor(1)).toBe(Role.OWNER);
-    expect(result.current.roleFor(2)).toBe(Role.EDITOR);
+    expect(result.current.roleFor(2)).toBe(Role.MEMBER);
     // role=null 항목은 시드되지 않는다(Req 2.4/5.4).
     expect(result.current.roleFor(3)).toBeNull();
   });
@@ -141,9 +140,9 @@ describe("MembershipRoleSource 로드-시드", () => {
 
     // in-session 기록으로 값을 낮춘 뒤,
     act(() => {
-      result.current.recordSelfRole(1, Role.VIEWER);
+      result.current.recordSelfRole(1, Role.MEMBER);
     });
-    expect(result.current.roleFor(1)).toBe(Role.VIEWER);
+    expect(result.current.roleFor(1)).toBe(Role.MEMBER);
 
     // 목록 재조회(새 workspaces 배열 참조) → 서버 role 이 덮어쓴다.
     workspaces = [ws(1, "owner")];
@@ -172,13 +171,13 @@ describe("MembershipRoleSource 로드-시드", () => {
     expect(result.current.roleFor(99)).toBe(Role.OWNER);
 
     // 99 를 포함하지 않는 새 목록으로 재-시드해도 99 는 보존된다.
-    workspaces = [ws(1, "owner"), ws(2, "editor")];
+    workspaces = [ws(1, "owner"), ws(2, "member")];
     act(() => {
       rerender();
     });
     expect(result.current.roleFor(99)).toBe(Role.OWNER);
     expect(result.current.roleFor(1)).toBe(Role.OWNER);
-    expect(result.current.roleFor(2)).toBe(Role.EDITOR);
+    expect(result.current.roleFor(2)).toBe(Role.MEMBER);
   });
 
   it("시드 후 비목록 WS 에 대한 in-session 기록은 보존된다 (단일 값 공존)", () => {

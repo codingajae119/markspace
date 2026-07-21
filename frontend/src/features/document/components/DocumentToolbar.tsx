@@ -1,8 +1,8 @@
 /**
  * DocumentToolbar — 생성·이름변경·삭제 조작 툴바 (design.md §화면 컴포넌트 DocumentToolbar).
  *
- * 생성·이름변경·삭제 컨트롤을 `<RequireRole minimum={EDITOR} currentRole=...>` 단일 게이트로
- * 감싸 viewer·비멤버에게 미노출한다. **게이팅은 RequireRole 단일 경로**이며(Req 9.2), 여기서
+ * 생성·이름변경·삭제 컨트롤을 `<RequireRole minimum={MEMBER} currentRole=...>` 단일 게이트로
+ * 감싸 비멤버(읽기 전용)에게 미노출한다. **게이팅은 RequireRole 단일 경로**이며(Req 9.2), 여기서
  * 별도 role 비교를 하지 않는다 — admin override(세션 is_admin)는 RequireRole 내부가 소유한다.
  * 조작 자체는 주입된 `useDocumentMutations` 결과에 위임하고(낙관 반영·복원·오류 표면화는 훅 책임),
  * 이 컴포넌트는 입력 수집·확인 UX·오류 표시만 담당한다.
@@ -40,8 +40,8 @@ export interface DocumentToolbarProps {
 }
 
 /**
- * 생성·이름변경·삭제 툴바. 컨트롤 전체를 RequireRole(minimum=EDITOR) 단일 게이트로 감싼다
- * (viewer·비멤버 → 빈 툴바). admin override 는 RequireRole 내부가 처리하므로 여기서 role 비교 없음.
+ * 생성·이름변경·삭제 툴바. 컨트롤 전체를 RequireRole(minimum=MEMBER) 단일 게이트로 감싼다
+ * (비멤버 → 빈 툴바). admin override 는 RequireRole 내부가 처리하므로 여기서 role 비교 없음.
  */
 export function DocumentToolbar({
   mutations,
@@ -95,7 +95,7 @@ export function DocumentToolbar({
 
   return (
     <div className="flex flex-col gap-3">
-      <RequireRole minimum={Role.EDITOR} currentRole={currentRole}>
+      <RequireRole minimum={Role.MEMBER} currentRole={currentRole}>
         <div className="flex flex-col gap-3">
           <ErrorMessage error={mutations.state.error} />
 

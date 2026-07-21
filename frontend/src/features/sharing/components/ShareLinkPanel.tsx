@@ -5,8 +5,8 @@
  * `CopyLinkButton`)을 배선·게이팅만 하는 조립 컴포넌트다. 발급/토글 로직·무효화 판정·복사
  * 폴백은 이 파일이 재구현하지 않는다.
  *
- * 게이팅(Req 1.1·1.2): 관리 UI 전체를 `<RequireRole minimum={EDITOR}
- * currentRole={useCurrentWorkspace().role}>` 로 감싼다. viewer·비멤버는 미노출, admin 은 세션
+ * 게이팅(Req 1.1·1.2): 관리 UI 전체를 `<RequireRole minimum={MEMBER}
+ * currentRole={useCurrentWorkspace().role}>` 로 감싼다. 비멤버는 미노출, admin 은 세션
  * `is_admin` override 로 통과한다(RequireRole 이 override 를 내부 소유). role 문자열을 직접
  * 비교하지 않는다.
  *
@@ -51,7 +51,7 @@ export interface ShareLinkPanelProps {
 }
 
 /**
- * 관리 UI 를 RequireRole(minimum=EDITOR) 로 감싸는 게이팅 진입점. 게이트를 통과할 때만 내부
+ * 관리 UI 를 RequireRole(minimum=MEMBER) 로 감싸는 게이팅 진입점. 게이트를 통과할 때만 내부
  * 콘텐츠가 마운트되므로 도메인 훅(`useShareManager`)은 권한이 있을 때만 실행된다.
  */
 export function ShareLinkPanel({
@@ -61,7 +61,7 @@ export function ShareLinkPanel({
   const { role } = useCurrentWorkspace();
 
   return (
-    <RequireRole minimum={Role.EDITOR} currentRole={role}>
+    <RequireRole minimum={Role.MEMBER} currentRole={role}>
       <ShareLinkPanelContent documentId={documentId} documentStatus={documentStatus} />
     </RequireRole>
   );

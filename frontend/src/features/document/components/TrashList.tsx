@@ -2,8 +2,8 @@
  * TrashList — 휴지통 묶음 목록 화면(editor+ 게이팅)
  * (design.md §화면 컴포넌트 TrashList ~602-603).
  *
- * 화면 전체를 `<RequireRole minimum={EDITOR}>` 로 게이팅한다(Req 8.6): viewer·비멤버는
- * 휴지통 화면을 보지 못하고 editor/owner/admin 만 접근한다(admin override 는 RequireRole 이
+ * 화면 전체를 `<RequireRole minimum={MEMBER}>` 로 게이팅한다(Req 8.6): 비멤버는
+ * 휴지통 화면을 보지 못하고 member/owner/admin 만 접근한다(admin override 는 RequireRole 이
  * 세션 is_admin 으로 소유 — 여기서 role 을 수동 비교하지 않는다, Req 9.2 정신). 단, 실제
  * 강제는 서버 403 이며 클라이언트 게이팅은 노출 편의일 뿐이다.
  *
@@ -38,7 +38,7 @@ export interface TrashListProps {
 }
 
 /**
- * 게이트 통과 시에만 렌더되는 내부 body. `useTrash` 를 최상단에서 무조건 호출하고
+ * 게이트 통과 시에만 렌더되는 내부 body(member+). `useTrash` 를 최상단에서 무조건 호출하고
  * status 로 분기해 로딩·오류·빈 목록·목록을 렌더한다(Req 8.1·8.5).
  */
 function TrashListBody({ workspaceId }: { workspaceId: string }): ReactElement {
@@ -78,10 +78,10 @@ function TrashListBody({ workspaceId }: { workspaceId: string }): ReactElement {
   );
 }
 
-/** 휴지통 화면 전체를 editor+ 로 게이팅하고, 통과 시 body 를 렌더한다(Req 8.6). */
+/** 휴지통 화면 전체를 member+ 로 게이팅하고, 통과 시 body 를 렌더한다(Req 8.6). */
 export function TrashList({ workspaceId, currentRole }: TrashListProps): ReactElement {
   return (
-    <RequireRole minimum={Role.EDITOR} currentRole={currentRole}>
+    <RequireRole minimum={Role.MEMBER} currentRole={currentRole}>
       <TrashListBody workspaceId={workspaceId} />
     </RequireRole>
   );

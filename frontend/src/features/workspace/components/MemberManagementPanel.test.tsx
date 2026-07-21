@@ -81,7 +81,7 @@ function setWorkspace(current: WorkspaceRead | null): void {
   } satisfies CurrentWorkspaceContextValue);
 }
 
-/** MembershipRoleSource.roleFor 반환값 제어(OWNER/EDITOR/VIEWER/null). */
+/** MembershipRoleSource.roleFor 반환값 제어(OWNER/MEMBER/null). */
 function setRoleFor(role: Role | null): void {
   vi.mocked(useMembershipRoleSource).mockReturnValue({
     roleFor: () => role,
@@ -177,10 +177,10 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
     expect(screen.getByRole("button", { name: "멤버 추가" })).toBeInTheDocument();
   });
 
-  it("non-admin + roleFor→VIEWER → 패널 은닉 (INV-2, Req 7.4)", () => {
+  it("non-admin + roleFor→MEMBER → 패널 은닉 (owner 미만, INV-2, Req 7.4)", () => {
     mockAuthenticatedNonAdmin();
     setWorkspace(ws(WS_ID));
-    setRoleFor(Role.VIEWER);
+    setRoleFor(Role.MEMBER);
     setMemberActions();
 
     const { container } = render(<MemberManagementPanel />);
@@ -189,10 +189,10 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("non-admin + roleFor→EDITOR → 패널 은닉 (owner 미만, Req 7.4)", () => {
+  it("non-admin + roleFor→null(비멤버) → 패널 은닉 (owner 미만, Req 7.4)", () => {
     mockAuthenticatedNonAdmin();
     setWorkspace(ws(WS_ID));
-    setRoleFor(Role.EDITOR);
+    setRoleFor(null);
     setMemberActions();
 
     render(<MemberManagementPanel />);
@@ -211,7 +211,7 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
     expect(screen.getByRole("button", { name: "멤버 추가" })).toBeInTheDocument();
   });
 
-  it("추가할 역할 선택은 owner/editor/viewer 3값만 노출한다 (Req 3.4)", () => {
+  it("추가할 역할 선택은 owner/member 2값만 노출한다 (Req 3.4·6.2)", () => {
     mockAuthenticatedNonAdmin();
     setWorkspace(ws(WS_ID));
     setRoleFor(Role.OWNER);
@@ -221,7 +221,7 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
 
     const roleSelect = screen.getByLabelText("역할") as HTMLSelectElement;
     const options = within(roleSelect).getAllByRole("option") as HTMLOptionElement[];
-    expect(options.map((o) => o.value)).toEqual(["owner", "editor", "viewer"]);
+    expect(options.map((o) => o.value)).toEqual(["owner", "member"]);
   });
 
   // === 서버 로스터 = 단일 표시원 (Req 3.2·3.7·4.1·4.2) ===
@@ -232,7 +232,7 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
     setRoleFor(Role.OWNER);
     // 로컬 뮤테이션 이력은 비어 있음(새 세션 재현) — 그래도 서버 로스터로 표시되어야 한다.
     setMemberActions({ members: [] });
-    setWorkspaceMembers({ members: [rosterRow(3, "Alice", "owner"), rosterRow(4, "Bob", "viewer")] });
+    setWorkspaceMembers({ members: [rosterRow(3, "Alice", "owner"), rosterRow(4, "Bob", "member")] });
 
     render(<MemberManagementPanel />);
 
@@ -245,7 +245,7 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
     setWorkspace(ws(WS_ID));
     setRoleFor(Role.OWNER);
     setMemberActions(); // 로컬 상태·이름 캡처 없음
-    setWorkspaceMembers({ members: [rosterRow(7, "그레이스", "editor", "grace@example.com")] });
+    setWorkspaceMembers({ members: [rosterRow(7, "그레이스", "member", "grace@example.com")] });
 
     render(<MemberManagementPanel />);
 
@@ -263,7 +263,7 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
     setRoleFor(Role.OWNER);
     // 로컬 뮤테이션 상태에만 있는 멤버(99)는 표시되지 않고, 로스터에만 있는 멤버(7)가 표시된다.
     setMemberActions({ members: [member(99, "owner")] });
-    setWorkspaceMembers({ members: [rosterRow(7, "그레이스", "editor")] });
+    setWorkspaceMembers({ members: [rosterRow(7, "그레이스", "member")] });
 
     render(<MemberManagementPanel />);
 
@@ -278,7 +278,7 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
     setWorkspace(ws(WS_ID));
     setRoleFor(Role.OWNER);
     setMemberActions();
-    setWorkspaceMembers({ members: [rosterRow(7, "그레이스", "viewer")] });
+    setWorkspaceMembers({ members: [rosterRow(7, "그레이스", "member")] });
 
     render(<MemberManagementPanel />);
 
@@ -354,11 +354,11 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
     render(<MemberManagementPanel />);
 
     await userEvent.selectOptions(getUserSelect(), "7");
-    await userEvent.selectOptions(screen.getByLabelText("역할"), "editor");
+    await userEvent.selectOptions(screen.getByLabelText("역할"), "member");
     await userEvent.click(screen.getByRole("button", { name: "멤버 추가" }));
 
     expect(addMock).toHaveBeenCalledTimes(1);
-    expect(addMock).toHaveBeenCalledWith(WS_ID, { user_id: 7, role: "editor" });
+    expect(addMock).toHaveBeenCalledWith(WS_ID, { user_id: 7, role: "member" });
     // 뮤테이션 완료 후 표시원(로스터)·배정 후보 모두 서버 재동기화.
     expect(rosterReloadMock).toHaveBeenCalledTimes(1);
     expect(reloadMock).toHaveBeenCalledTimes(1);
@@ -370,7 +370,7 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
     setRoleFor(Role.OWNER);
     // add 가 실패를 error 로 삼켜 void resolve 하는 계약을 재현(그래도 reload 호출·표시원 불변).
     setMemberActions({ error: new ApiError({ status: 409, code: "conflict", message: "이미 멤버입니다." }) });
-    setWorkspaceMembers({ members: [rosterRow(5, "이브", "viewer")] });
+    setWorkspaceMembers({ members: [rosterRow(5, "이브", "member")] });
     setAssignableUsers({ status: "ready", users: [assignable(9, "헨리")] });
 
     render(<MemberManagementPanel />);
@@ -378,7 +378,7 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
     await userEvent.selectOptions(getUserSelect(), "9");
     await userEvent.click(screen.getByRole("button", { name: "멤버 추가" }));
 
-    expect(addMock).toHaveBeenCalledWith(WS_ID, { user_id: 9, role: "viewer" });
+    expect(addMock).toHaveBeenCalledWith(WS_ID, { user_id: 9, role: "member" });
     // 표시원은 로스터 그대로 — 실패한 대상(9 헨리)은 낙관적으로 추가되지 않는다(Req 4.2).
     expect(screen.getByText("5 이브")).toBeInTheDocument();
     expect(screen.queryByText("9 헨리")).not.toBeInTheDocument();
@@ -407,7 +407,7 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
     setWorkspace(ws(WS_ID));
     setRoleFor(Role.OWNER);
     setMemberActions();
-    setWorkspaceMembers({ members: [rosterRow(7, "그레이스", "viewer")] });
+    setWorkspaceMembers({ members: [rosterRow(7, "그레이스", "member")] });
 
     render(<MemberManagementPanel />);
 
@@ -425,7 +425,7 @@ describe("MemberManagementPanel — owner 게이팅(실 RequireRole)·뮤테이�
     setWorkspace(ws(WS_ID));
     setRoleFor(Role.OWNER);
     setMemberActions();
-    setWorkspaceMembers({ members: [rosterRow(7, "그레이스", "viewer")] });
+    setWorkspaceMembers({ members: [rosterRow(7, "그레이스", "member")] });
 
     render(<MemberManagementPanel />);
 

@@ -153,8 +153,8 @@ function RoleProbe({ ids }: { ids: number[] }): ReactElement {
       <button type="button" onClick={() => source.recordOwner(99)}>
         record-owner-99
       </button>
-      <button type="button" onClick={() => source.recordSelfRole(1, Role.VIEWER)}>
-        record-self-1-viewer
+      <button type="button" onClick={() => source.recordSelfRole(1, Role.MEMBER)}>
+        record-self-1-member
       </button>
       <button type="button" onClick={() => void wsCtx.refresh()}>
         refresh
@@ -178,7 +178,7 @@ afterEach(() => {
 describe("조립 시드: MembershipRoleProvider + CurrentWorkspaceProvider (Req 3.2·4.2·5.x)", () => {
   it("로드 후 roleFor 가 시드 role 을 반환하고 role=null 항목은 null 유지 — in-session 기록 없음 (Req 3.2·4.2·5.4·2.4)", async () => {
     mockNonAdmin();
-    getMock.mockResolvedValue(page([ws(1, "owner"), ws(2, "editor"), ws(3, null)]));
+    getMock.mockResolvedValue(page([ws(1, "owner"), ws(2, "member"), ws(3, null)]));
 
     render(
       <Assembled>
@@ -193,14 +193,14 @@ describe("조립 시드: MembershipRoleProvider + CurrentWorkspaceProvider (Req 
     );
     // 시드-only 복원: 목록의 owner/editor 는 실제 role, role=null 항목은 null 유지(미시드).
     expect(screen.getByTestId("role-1")).toHaveTextContent(String(Role.OWNER));
-    expect(screen.getByTestId("role-2")).toHaveTextContent(String(Role.EDITOR));
+    expect(screen.getByTestId("role-2")).toHaveTextContent(String(Role.MEMBER));
     expect(screen.getByTestId("role-3")).toHaveTextContent("null");
   });
 
   it("recordOwner(in-session) 후 목록 재조회로 서버값이 덮어써도 일관, 비목록 in-session 항목은 보존 (Req 5.1·5.2·5.3)", async () => {
     mockNonAdmin();
     // 1차 로드: id1=editor.
-    getMock.mockResolvedValueOnce(page([ws(1, "editor"), ws(2, "viewer")]));
+    getMock.mockResolvedValueOnce(page([ws(1, "member"), ws(2, "member")]));
 
     render(
       <Assembled>
@@ -209,17 +209,17 @@ describe("조립 시드: MembershipRoleProvider + CurrentWorkspaceProvider (Req 
     );
 
     await waitFor(() =>
-      expect(screen.getByTestId("role-1")).toHaveTextContent(String(Role.EDITOR)),
+      expect(screen.getByTestId("role-1")).toHaveTextContent(String(Role.MEMBER)),
     );
 
-    // in-session 기록: 목록에 없는 WS 99 를 owner 로, 목록에 있는 WS 1 을 viewer 로 기록.
-    await userEvent.click(screen.getByRole("button", { name: "record-self-1-viewer" }));
+    // in-session 기록: 목록에 없는 WS 99 를 owner 로, 목록에 있는 WS 1 을 member 로 기록.
+    await userEvent.click(screen.getByRole("button", { name: "record-self-1-member" }));
     await userEvent.click(screen.getByRole("button", { name: "record-owner-99" }));
-    expect(screen.getByTestId("role-1")).toHaveTextContent(String(Role.VIEWER));
+    expect(screen.getByTestId("role-1")).toHaveTextContent(String(Role.MEMBER));
     expect(screen.getByTestId("role-99")).toHaveTextContent(String(Role.OWNER));
 
-    // 2차 로드(refresh): id1=owner. 서버 권위값이 in-session viewer 를 **덮어쓴다**(5.2).
-    getMock.mockResolvedValueOnce(page([ws(1, "owner"), ws(2, "viewer")]));
+    // 2차 로드(refresh): id1=owner. 서버 권위값이 in-session member 를 **덮어쓴다**(5.2).
+    getMock.mockResolvedValueOnce(page([ws(1, "owner"), ws(2, "member")]));
     await userEvent.click(screen.getByRole("button", { name: "refresh" }));
 
     await waitFor(() =>
@@ -227,14 +227,14 @@ describe("조립 시드: MembershipRoleProvider + CurrentWorkspaceProvider (Req 
     );
     // 목록에 없는 WS 99 의 in-session 기록은 재시드에도 보존된다(5.3).
     expect(screen.getByTestId("role-99")).toHaveTextContent(String(Role.OWNER));
-    expect(screen.getByTestId("role-2")).toHaveTextContent(String(Role.VIEWER));
+    expect(screen.getByTestId("role-2")).toHaveTextContent(String(Role.MEMBER));
   });
 });
 
 describe("배지 회귀: CurrentWorkspaceIndicator in real assembly (Req 3.1·3.2·3.3)", () => {
-  it("in-session 이력 없이 새로고침 시 배지가 실제 role(editor) 을 표시한다 (Req 3.1·3.2)", async () => {
+  it("in-session 이력 없이 새로고침 시 배지가 실제 role(member) 을 표시한다 (Req 3.1·3.2)", async () => {
     mockNonAdmin();
-    getMock.mockResolvedValue(page([ws(1, "editor")]));
+    getMock.mockResolvedValue(page([ws(1, "member")]));
 
     render(
       <Assembled>
@@ -242,7 +242,7 @@ describe("배지 회귀: CurrentWorkspaceIndicator in real assembly (Req 3.1·3.
       </Assembled>,
     );
 
-    await waitFor(() => expect(screen.getByText("editor")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("member")).toBeInTheDocument());
     expect(screen.queryByText("역할 미확인")).not.toBeInTheDocument();
   });
 
@@ -260,8 +260,7 @@ describe("배지 회귀: CurrentWorkspaceIndicator in real assembly (Req 3.1·3.
     await waitFor(() => expect(screen.getByText("WS 1")).toBeInTheDocument());
     expect(screen.getByText("역할 미확인")).toBeInTheDocument();
     expect(screen.queryByText("owner")).not.toBeInTheDocument();
-    expect(screen.queryByText("editor")).not.toBeInTheDocument();
-    expect(screen.queryByText("viewer")).not.toBeInTheDocument();
+    expect(screen.queryByText("member")).not.toBeInTheDocument();
   });
 });
 
@@ -282,10 +281,10 @@ describe("owner 패널 회귀: MemberManagementPanel in real assembly (Req 4.1·
     );
   });
 
-  it("non-admin editor 는 멤버 관리 패널이 차단된다 (Req 4.3)", async () => {
+  it("non-admin member 는 멤버 관리 패널이 차단된다 (owner 미만, Req 4.3)", async () => {
     mockNonAdmin();
     stubPanelLeaves();
-    getMock.mockResolvedValue(page([ws(1, "editor")]));
+    getMock.mockResolvedValue(page([ws(1, "member")]));
 
     render(
       <Assembled>
@@ -294,17 +293,17 @@ describe("owner 패널 회귀: MemberManagementPanel in real assembly (Req 4.1·
       </Assembled>,
     );
 
-    // 시드가 editor 로 정착했음을 확인한 뒤, 패널이 여전히 은닉인지 단언(게이팅 누수 회귀 방지).
+    // 시드가 member 로 정착했음을 확인한 뒤, 패널이 여전히 은닉인지 단언(게이팅 누수 회귀 방지).
     await waitFor(() =>
-      expect(screen.getByTestId("role-1")).toHaveTextContent(String(Role.EDITOR)),
+      expect(screen.getByTestId("role-1")).toHaveTextContent(String(Role.MEMBER)),
     );
     expect(screen.queryByRole("button", { name: "멤버 추가" })).not.toBeInTheDocument();
   });
 
-  it("non-admin viewer 는 멤버 관리 패널이 차단된다 (Req 4.3)", async () => {
+  it("non-admin 비멤버(role=null) 는 멤버 관리 패널이 차단된다 (Req 4.3)", async () => {
     mockNonAdmin();
     stubPanelLeaves();
-    getMock.mockResolvedValue(page([ws(1, "viewer")]));
+    getMock.mockResolvedValue(page([ws(1, null)]));
 
     render(
       <Assembled>
@@ -313,17 +312,17 @@ describe("owner 패널 회귀: MemberManagementPanel in real assembly (Req 4.1·
       </Assembled>,
     );
 
-    await waitFor(() =>
-      expect(screen.getByTestId("role-1")).toHaveTextContent(String(Role.VIEWER)),
-    );
+    // 비멤버는 role 신호가 시드되지 않아 roleFor null 유지 → 패널 은닉.
+    await waitFor(() => expect(screen.getByTestId("ws-status")).toHaveTextContent("ready"));
+    expect(screen.getByTestId("role-1")).toHaveTextContent("null");
     expect(screen.queryByRole("button", { name: "멤버 추가" })).not.toBeInTheDocument();
   });
 
-  it("admin 세션은 멤버십 role 이 viewer 여도 세션 경로로 패널 노출 — role 필드에 admin 미접합 (Req 4.4·5.4)", async () => {
+  it("admin 세션은 멤버십 role 이 member 여도 세션 경로로 패널 노출 — role 필드에 admin 미접합 (Req 4.4·5.4)", async () => {
     mockAdmin();
     stubPanelLeaves();
-    // admin 이 멤버인 WS 의 멤버십 role 은 viewer(권위 있는 멤버십값). admin 상승은 role 에 담기지 않는다.
-    getMock.mockResolvedValue(page([ws(1, "viewer")]));
+    // admin 이 멤버인 WS 의 멤버십 role 은 member(권위 있는 멤버십값). admin 상승은 role 에 담기지 않는다.
+    getMock.mockResolvedValue(page([ws(1, "member")]));
 
     render(
       <Assembled>
@@ -336,11 +335,11 @@ describe("owner 패널 회귀: MemberManagementPanel in real assembly (Req 4.1·
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "멤버 추가" })).toBeInTheDocument(),
     );
-    // 그러나 role 신호 자체는 멤버십 role(viewer)만 담고 owner 로 상승되지 않는다(INV-3).
+    // 그러나 role 신호 자체는 멤버십 role(member)만 담고 owner 로 상승되지 않는다(INV-3).
     // 패널 노출은 세션 우회(즉시)지만 role 신호는 시드 effect(커밋 후)로 채워지므로, 동기 읽기 대신
     // 시드 의존 신호를 waitFor 로 기다린다(부하 시 버튼 선노출→role 미시드 경합 방지).
     await waitFor(() =>
-      expect(screen.getByTestId("role-1")).toHaveTextContent(String(Role.VIEWER)),
+      expect(screen.getByTestId("role-1")).toHaveTextContent(String(Role.MEMBER)),
     );
     expect(screen.getByTestId("role-1")).not.toHaveTextContent(String(Role.OWNER));
   });

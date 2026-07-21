@@ -15,11 +15,11 @@ export type { Page, WorkspaceRead };
 /**
  * 멤버 role 의 API 직렬화용 문자열 유니온 — 백엔드 `MemberRole`(str Enum) 미러.
  *
- * 값은 백엔드 `workspace_member.role` ENUM(owner/editor/viewer)과 동일하다.
- * 위계 비교용 s16 `Role`(enum, VIEWER<EDITOR<OWNER)과는 별개다: 권한 게이팅에는
+ * 값은 백엔드 `workspace_member.role` ENUM(owner/member)과 동일하다.
+ * 위계 비교용 s16 `Role`(enum, MEMBER<OWNER)과는 별개다: 권한 게이팅에는
  * `Role` 을, 요청/응답 직렬화에는 이 `MemberRole` 을 사용한다.
  */
-export type MemberRole = "owner" | "editor" | "viewer";
+export type MemberRole = "owner" | "member";
 
 /**
  * 워크스페이스 생성 요청 본문 — 백엔드 `WorkspaceCreate` 미러 (Req 2.1).
