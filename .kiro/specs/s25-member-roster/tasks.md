@@ -62,7 +62,7 @@
   - _Requirements: 1.2, 3.1_
   - _Boundary: memberApi.list + types (features/workspace api) — 백엔드 2.2 계약 미러_
 
-- [ ] 4.2 useWorkspaceMembers 로드 훅 (신규)
+- [x] 4.2 useWorkspaceMembers 로드 훅 (신규)
   - `useAssignableUsers` 형태를 미러해 서버 로스터를 유일 표시원으로 로드하는 훅을 추가한다(items→`members`, 타입 `MemberRosterRow`, `status`·`total`·`error`·`reload` 노출). `workspaceId` non-null 변경 시 재조회(`[workspaceId]` effect), 마운트 fetch 가 로컬 세션 이력과 무관하게 서버 시드.
   - `workspaceId === null` 이면 fetch 없이 안정 `status:"ready"`·빈 목록·total 0·error null 로 정착(로딩 고착 금지, null 동안 `reload()` no-op). `loadingRef`(in-flight 가드)·`mountedRef`(언마운트 후 갱신 억제), 실패는 `toApiError` 정규화→`status:"error"`.
   - 단위 테스트로 null 가드(안정 ready·no-op reload), 마운트 fetch, `[workspaceId]` 재조회, 성공 시 members·total, 실패 시 error 상태, reload 재조회를 확인한다(useAssignableUsers 테스트 미러).
