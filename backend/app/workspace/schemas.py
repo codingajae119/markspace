@@ -83,11 +83,17 @@ class WorkspaceRead(TimestampedRead):
 
     s01 `TimestampedRead` 상속으로 id·created_at·updated_at 을 공통 제공하고
     `model_validate(workspace)` 가 ORM 속성 접근으로 동작한다.
+
+    `role` 은 호출자 관점의 멤버십 role 을 담는 가산 optional 필드다(s24 Req 1.1·1.5).
+    목록 경로만 명시 주입하며(후속 task), 그 외 경로·role 속성이 없는 ORM `Workspace`
+    를 `model_validate` 하면 기본값 None 으로 검증을 통과한다(하위 호환). admin 여부에
+    따른 role 상승은 담지 않는다(INV-3, Req 1.2).
     """
 
     name: str
     is_shareable: bool
     trash_retention_days: int
+    role: MemberRole | None = None
 
 
 class MemberCreate(BaseModel):

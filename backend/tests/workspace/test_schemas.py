@@ -66,6 +66,43 @@ def test_workspace_read_serializes_from_orm_object() -> None:
     assert dump["updated_at"] is None
 
 
+# --- WorkspaceRead: role 가산 필드 (s24 Req 1.1·1.5) ---
+
+
+def test_workspace_read_role_defaults_to_none_on_orm_without_role() -> None:
+    """role 속성이 없는 ORM Workspace 를 model_validate 해도 role=None 으로 통과(1.5)."""
+    ws = _make_orm_workspace()
+    assert not hasattr(ws, "role")
+
+    read = WorkspaceRead.model_validate(ws)
+
+    assert read.role is None
+    assert read.model_dump()["role"] is None
+
+
+def test_workspace_read_serializes_explicit_role() -> None:
+    """명시 주입한 role 은 그대로 직렬화된다(1.1)."""
+    read = WorkspaceRead(
+        id=7,
+        name="Team Space",
+        is_shareable=True,
+        trash_retention_days=45,
+        created_at=datetime(2026, 7, 16, 0, 0, 0),
+        updated_at=None,
+        role=MemberRole.OWNER,
+    )
+
+    assert read.role is MemberRole.OWNER
+    assert read.model_dump()["role"] is MemberRole.OWNER
+
+
+def test_workspace_read_role_is_optional_member_role() -> None:
+    """role 은 가산 optional 필드로 존재하며 기존 필드는 무변경 유지(1.5)."""
+    assert "role" in WorkspaceRead.model_fields
+    for field in ("name", "is_shareable", "trash_retention_days"):
+        assert field in WorkspaceRead.model_fields
+
+
 # --- WorkspaceCreate: 필수/공백 name 검증 (2.1) ---
 
 
