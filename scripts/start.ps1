@@ -43,26 +43,37 @@ if ((Test-Running $BackendPidFile) -or (Test-Running $FrontendPidFile)) {
     exit 1
 }
 
+# --- Why cmd /c instead of Start-Process -RedirectStandard* ---
+# Passing -RedirectStandardOutput/-RedirectStandardError forces
+# UseShellExecute=$false. In that mode a child console app (python/uvicorn,
+# node/vite) does NOT get its own console; it inherits THIS terminal's console
+# and shares its input buffer. After start.ps1 returns, keystrokes get split
+# between the prompt and those background apps, so the terminal appears frozen.
+# Wrapping the command in `cmd /c ... > log` lets Start-Process use ShellExecute,
+# and -WindowStyle Hidden then gives the child its OWN hidden console, fully
+# detached from this terminal. The recorded PID is the cmd.exe wrapper; stop.ps1
+# uses `taskkill /T` (tree kill), so uv->python / npm->node are terminated too.
+
 # --- Start backend ---
 Write-Host "[start] backend (uvicorn :8000) ..." -ForegroundColor Cyan
-$backend = Start-Process -FilePath "uv" `
-    -ArgumentList @("run", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8000") `
+$backendOut = Join-Path $RunDir "backend.out.log"
+$backendErr = Join-Path $RunDir "backend.err.log"
+$backend = Start-Process -FilePath "cmd.exe" `
+    -ArgumentList ('/c uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 > "{0}" 2> "{1}"' -f $backendOut, $backendErr) `
     -WorkingDirectory $BackendDir `
     -WindowStyle Hidden `
-    -RedirectStandardOutput (Join-Path $RunDir "backend.out.log") `
-    -RedirectStandardError  (Join-Path $RunDir "backend.err.log") `
     -PassThru
 $backend.Id | Out-File -FilePath $BackendPidFile -Encoding ascii
 Write-Host ("        PID={0}  log=scripts\.run\backend.*.log" -f $backend.Id) -ForegroundColor DarkGray
 
-# --- Start frontend (npm is npm.cmd on Windows) ---
+# --- Start frontend (npm resolves to npm.cmd inside cmd) ---
 Write-Host "[start] frontend (vite dev :5173) ..." -ForegroundColor Cyan
-$frontend = Start-Process -FilePath "npm.cmd" `
-    -ArgumentList @("run", "dev") `
+$frontendOut = Join-Path $RunDir "frontend.out.log"
+$frontendErr = Join-Path $RunDir "frontend.err.log"
+$frontend = Start-Process -FilePath "cmd.exe" `
+    -ArgumentList ('/c npm run dev > "{0}" 2> "{1}"' -f $frontendOut, $frontendErr) `
     -WorkingDirectory $FrontendDir `
     -WindowStyle Hidden `
-    -RedirectStandardOutput (Join-Path $RunDir "frontend.out.log") `
-    -RedirectStandardError  (Join-Path $RunDir "frontend.err.log") `
     -PassThru
 $frontend.Id | Out-File -FilePath $FrontendPidFile -Encoding ascii
 Write-Host ("        PID={0}  log=scripts\.run\frontend.*.log" -f $frontend.Id) -ForegroundColor DarkGray
