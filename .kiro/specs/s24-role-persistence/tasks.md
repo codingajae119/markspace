@@ -34,7 +34,7 @@
   - _Requirements: 2.5_
   - _Boundary: shared/auth roles, features/workspace(re-export shim·useMemberActions) — 단일 소스 마이그레이션_
 
-- [ ] 2.2 WorkspaceRead FE 미러에 role 가산 필드 추가
+- [x] 2.2 WorkspaceRead FE 미러에 role 가산 필드 추가
   - `WorkspaceRead` FE 미러에 `role?: WorkspaceRole | null` 를 가산하고(2.1 의 `WorkspaceRole` 재사용), 기존 미러 필드는 무변경으로 유지한다(superset·백엔드 응답과 형태 정합).
   - 관찰 가능: strict 타입 체크에서 미러의 role 접근이 가능하고, 목록 응답 item 의 role 값을 소비 지점에서 읽을 수 있다.
   - _Depends: 2.1_

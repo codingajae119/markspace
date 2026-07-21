@@ -1,5 +1,6 @@
 import { describe, it, expect, expectTypeOf } from "vitest";
 
+import type { WorkspaceRole } from "@/shared/auth/roles";
 import type { Page } from "@/shared/types/page";
 import type { WorkspaceRead } from "@/shared/types/workspace";
 
@@ -17,7 +18,7 @@ describe("Page<T> envelope type", () => {
 });
 
 describe("WorkspaceRead type", () => {
-  it("mirrors the backend WorkspaceRead schema field-for-field", () => {
+  it("mirrors the backend WorkspaceRead schema field-for-field (with additive role)", () => {
     expectTypeOf<WorkspaceRead>().toEqualTypeOf<{
       id: number;
       created_at: string;
@@ -25,6 +26,7 @@ describe("WorkspaceRead type", () => {
       name: string;
       is_shareable: boolean;
       trash_retention_days: number;
+      role?: WorkspaceRole | null;
     }>();
   });
 
@@ -35,6 +37,44 @@ describe("WorkspaceRead type", () => {
     expectTypeOf<WorkspaceRead>().toHaveProperty("name").toEqualTypeOf<string>();
     expectTypeOf<WorkspaceRead>().toHaveProperty("is_shareable").toEqualTypeOf<boolean>();
     expectTypeOf<WorkspaceRead>().toHaveProperty("trash_retention_days").toEqualTypeOf<number>();
+  });
+
+  it("carries an additive optional·nullable role read as WorkspaceRole | null | undefined", () => {
+    expectTypeOf<WorkspaceRead>()
+      .toHaveProperty("role")
+      .toEqualTypeOf<WorkspaceRole | null | undefined>();
+
+    const owned: WorkspaceRead = {
+      id: 1,
+      created_at: "2026-07-18T00:00:00Z",
+      updated_at: null,
+      name: "Owned",
+      is_shareable: false,
+      trash_retention_days: 30,
+      role: "owner",
+    };
+    expect(owned.role).toBe("owner");
+
+    const nulled: WorkspaceRead = {
+      id: 2,
+      created_at: "2026-07-18T00:00:00Z",
+      updated_at: null,
+      name: "Admin path",
+      is_shareable: false,
+      trash_retention_days: 30,
+      role: null,
+    };
+    expect(nulled.role).toBeNull();
+
+    const omitted: WorkspaceRead = {
+      id: 3,
+      created_at: "2026-07-18T00:00:00Z",
+      updated_at: null,
+      name: "Legacy shape",
+      is_shareable: false,
+      trash_retention_days: 30,
+    };
+    expect(omitted.role).toBeUndefined();
   });
 });
 
