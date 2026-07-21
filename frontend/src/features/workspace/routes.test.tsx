@@ -69,6 +69,20 @@ function setReadyWorkspace(): void {
   } as CurrentWorkspaceContextValue);
 }
 
+/** 현재 WS 컨텍스트를 "선택된 WS 없음"(empty) 상태로 고정한다(빈 상태 안내 검증용). */
+function setNoWorkspace(): void {
+  useCurrentWorkspaceMock.mockReturnValue({
+    status: "empty",
+    workspaces: [],
+    currentWorkspace: null,
+    workspaceId: null,
+    role: null,
+    isShareable: false,
+    selectWorkspace: vi.fn(),
+    refresh: vi.fn(),
+  } as CurrentWorkspaceContextValue);
+}
+
 /** workspaceRoutes 를 s16 실제 compose 경로로 취합·프레임에 주입하고 role 소스 provider 로 감싼다. */
 function RoutesView(): ReactElement | null {
   return useRoutes(createAppRoutes(collectRoutesByScope(workspaceRoutes)));
@@ -142,6 +156,41 @@ describe("workspaceRoutes 등록 결선 (보호 슬롯 워크스페이스 화면
     // owner 패널은 role 소스가 owner 를 조달하지 않아(비-owner) 은닉된다(RequireRole 단일 소스).
     expect(screen.queryByRole("heading", { name: "워크스페이스 설정" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "멤버 관리" })).not.toBeInTheDocument();
+  });
+
+  it("admin 인증 + WS 미선택 → '선택된 워크스페이스가 없습니다' 안내가 페이지 단위로 정확히 1번만 렌더된다 (중복 제거)", () => {
+    setSession({
+      status: "authenticated",
+      user: { id: 1, login_id: "root", name: "Root", email: null, is_admin: true },
+      settings: null,
+    });
+    setNoWorkspace();
+
+    renderAt([WORKSPACE_PATH]);
+
+    // 과거엔 멤버/설정 두 패널이 각자 같은 문구를 렌더해 admin override 진입 시 2번 노출됐다.
+    // 이제 페이지가 단일 소유하므로 정확히 1개만 존재한다.
+    expect(screen.getAllByText("선택된 워크스페이스가 없습니다. 워크스페이스를 생성하거나 선택하세요."))
+      .toHaveLength(1);
+    // 대상 WS 가 없으므로 owner 패널 자체(멤버/설정 heading)는 마운트되지 않는다.
+    expect(screen.queryByRole("heading", { name: "멤버 관리" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "워크스페이스 설정" })).not.toBeInTheDocument();
+  });
+
+  it("비-admin·비-owner 인증 + WS 미선택 → 빈 상태 안내는 은닉된다 (기존 동작 보존)", () => {
+    setSession({
+      status: "authenticated",
+      user: { id: 1, login_id: "alice", name: "Alice", email: null, is_admin: false },
+      settings: null,
+    });
+    setNoWorkspace();
+
+    renderAt([WORKSPACE_PATH]);
+
+    // owner 패널 접근권이 없는 사용자에게는(RequireRole 미통과) 안내를 노출하지 않는다.
+    expect(screen.queryByText(/선택된 워크스페이스가 없습니다/)).not.toBeInTheDocument();
+    // 생성 폼은 접근권과 무관하게 항상 노출된다(신규 사용자가 WS 를 만들 수 있어야 함).
+    expect(screen.getByRole("button", { name: "워크스페이스 생성" })).toBeInTheDocument();
   });
 
   it("비-admin 인증 + /admin → RequireAdmin 이 admin 콘솔을 차단한다 (Req 8.5)", () => {

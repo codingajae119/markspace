@@ -62,8 +62,10 @@ export function WorkspaceSettingsPanel(): ReactElement {
 }
 
 /**
- * 게이트 통과 후 실제 설정 UI. admin override 로 진입했으나 선택된 WS 가 없으면(workspace null) 대상이
- * 없음을 안내한다.
+ * 게이트 통과 후 실제 설정 UI. 선택된 WS 가 없을 때의 빈 상태 안내는 이 패널이 아니라
+ * `WorkspaceManagementPage` 가 **단일** 소유한다(과거 이 패널과 MemberManagementPanel 이 각자 같은 문구를
+ * 렌더해 admin override 진입 시 중복 노출됨). 페이지가 WS 미선택 시 이 패널을 마운트하지 않으므로 여기서는
+ * 방어적으로 아무것도 렌더하지 않는다.
  */
 function WorkspaceSettingsContent({
   workspace,
@@ -71,7 +73,7 @@ function WorkspaceSettingsContent({
 }: {
   workspace: WorkspaceRead | null;
   isShareable: boolean;
-}): ReactElement {
+}): ReactElement | null {
   const { update, remove, saving, error } = useWorkspaceActions();
   const [name, setName] = useState(workspace?.name ?? "");
   const [retention, setRetention] = useState(
@@ -79,12 +81,9 @@ function WorkspaceSettingsContent({
   );
   const [retentionError, setRetentionError] = useState<string | null>(null);
 
+  // 빈 상태 안내는 WorkspaceManagementPage 단일 소유(중복 제거). 방어적 no-render.
   if (workspace === null) {
-    return (
-      <section aria-label="워크스페이스 설정">
-        <p className="text-sm text-slate-600">선택된 워크스페이스가 없습니다.</p>
-      </section>
-    );
+    return null;
   }
 
   const workspaceId = workspace.id;

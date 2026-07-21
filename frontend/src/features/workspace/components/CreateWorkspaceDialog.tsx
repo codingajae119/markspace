@@ -46,9 +46,11 @@ export function CreateWorkspaceDialog(): ReactElement {
   };
 
   return (
-    <form onSubmit={handleSubmit} noValidate>
-      <div>
-        <label htmlFor="workspace_name">워크스페이스 이름</label>
+    <form onSubmit={handleSubmit} noValidate className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-col gap-1">
+        <label htmlFor="workspace_name" className="text-sm font-medium text-slate-700">
+          워크스페이스 이름
+        </label>
         <input
           id="workspace_name"
           name="workspace_name"
@@ -56,7 +58,11 @@ export function CreateWorkspaceDialog(): ReactElement {
           value={name}
           onChange={(event) => setName(event.target.value)}
           disabled={creating}
+          placeholder="예: 내 워크스페이스"
+          className="w-64 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 disabled:bg-slate-100"
         />
+        {/* 비활성 이유 힌트(Req 2.2): 이름을 입력해야 생성 버튼이 활성화됨을 명시(입력칸 인지 보조). */}
+        <p className="text-xs text-slate-500">이름을 입력하면 생성 버튼이 활성화됩니다.</p>
       </div>
 
       {/* 단일 에러 표시 유틸(s16). error 가 null 이면 아무것도 렌더하지 않는다. */}

@@ -119,3 +119,15 @@ export function useMembershipRoleSource(): MembershipRoleSource {
   }
   return value;
 }
+
+/**
+ * role 소스를 **옵셔널**로 읽는다(provider 밖이면 던지지 않고 `null`).
+ *
+ * 조립 실수를 조기에 드러내야 하는 뮤테이션 경로는 던지는 {@link useMembershipRoleSource} 를 쓴다.
+ * 반면 전역 헤더의 현재 WS 배지처럼 provider 유무와 무관한 여러 마운트 컨텍스트(예: 라우팅 프레임
+ * 단위 테스트)에서 렌더될 수 있는 **표시 전용** 컴포넌트는 이 옵셔널 접근자로 읽어, 조립이 미비하면
+ * 조용히 배지를 숨긴다(앱 크래시 방지). role 파생·번역 단일 소스 규칙은 그대로 유지된다.
+ */
+export function useMembershipRoleSourceOptional(): MembershipRoleSource | null {
+  return useContext(MembershipRoleContext);
+}

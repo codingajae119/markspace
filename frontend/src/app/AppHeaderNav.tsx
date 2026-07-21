@@ -23,6 +23,7 @@ import { ROUTES } from "@/app/routes";
 import { RequireAdmin } from "@/shared/auth/RequireAdmin";
 import { LogoutButton } from "@/features/auth/components/LogoutButton";
 import { WORKSPACE_PATH, ADMIN_CONSOLE_PATH } from "@/features/workspace/routes";
+import { CurrentWorkspaceIndicator } from "@/features/workspace/components/CurrentWorkspaceIndicator";
 
 /** 활성 라우트를 강조하는 NavLink 클래스 계산기. */
 function navLinkClass({ isActive }: { isActive: boolean }): string {
@@ -57,7 +58,12 @@ export function AppHeaderNav(): ReactElement {
         </RequireAdmin>
       </nav>
 
-      <div className="ml-auto">
+      {/*
+       * 현재 WS·역할 배지: 모든 인증 화면에서 활성 워크스페이스와 내 역할(owner/editor/viewer)을
+       * 항상 노출한다. 문서 탭 등으로 전이해도 선택된 WS 를 헤더에서 확인할 수 있게 하는 단일 표시 지점.
+       */}
+      <div className="ml-auto flex items-center gap-3">
+        <CurrentWorkspaceIndicator />
         <LogoutButton />
       </div>
     </div>

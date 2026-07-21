@@ -58,9 +58,11 @@ export function MemberManagementPanel(): ReactElement {
 
 /**
  * 게이트 통과 후 실제 관리 UI. 현재 WS id 를 명시적으로 받아 모든 뮤테이션 대상에 사용한다.
- * admin override 로 진입했으나 선택된 WS 가 없으면(workspaceId null) 대상이 없음을 안내한다.
+ * 선택된 WS 가 없을 때의 빈 상태 안내는 이 패널이 아니라 `WorkspaceManagementPage` 가 **단일** 소유한다
+ * (과거 이 패널과 WorkspaceSettingsPanel 이 각자 같은 문구를 렌더해 admin override 진입 시 중복 노출됨).
+ * 페이지가 WS 미선택 시 이 패널을 마운트하지 않으므로 여기서는 방어적으로 아무것도 렌더하지 않는다.
  */
-function MemberManagementContent({ workspaceId }: { workspaceId: number | null }): ReactElement {
+function MemberManagementContent({ workspaceId }: { workspaceId: number | null }): ReactElement | null {
   const { members, add, changeRole, remove, pending, error } = useMemberActions();
   const [userIdInput, setUserIdInput] = useState("");
   const [addRole, setAddRole] = useState<MemberRole>("viewer");
@@ -78,12 +80,9 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
     setUserIdInput("");
   };
 
+  // 빈 상태 안내는 WorkspaceManagementPage 단일 소유(중복 제거). 방어적 no-render.
   if (workspaceId === null) {
-    return (
-      <section aria-label="멤버 관리">
-        <p className="text-sm text-slate-600">선택된 워크스페이스가 없습니다.</p>
-      </section>
-    );
+    return null;
   }
 
   return (

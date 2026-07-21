@@ -22,6 +22,9 @@
 import type { ReactElement } from "react";
 
 import type { RouteModule } from "@/app/routeModule";
+import { Role } from "@/shared/auth/roles";
+import { RequireRole } from "@/shared/auth/RequireRole";
+import { useCurrentWorkspace } from "@/app/workspace-context/useCurrentWorkspace";
 
 import { WorkspaceSwitcher } from "./components/WorkspaceSwitcher";
 import { CreateWorkspaceDialog } from "./components/CreateWorkspaceDialog";
@@ -40,6 +43,8 @@ export const ADMIN_CONSOLE_PATH = "/admin";
  * 게이트를 재구현하지 않는다. 라우트 element 조합만 담당하는 in-boundary 컴포넌트다.
  */
 function WorkspaceManagementPage(): ReactElement {
+  const { currentWorkspace } = useCurrentWorkspace();
+
   return (
     <section aria-labelledby="workspace-management-heading" className="flex flex-col gap-8">
       <header>
@@ -50,8 +55,26 @@ function WorkspaceManagementPage(): ReactElement {
 
       <WorkspaceSwitcher />
       <CreateWorkspaceDialog />
-      <MemberManagementPanel />
-      <WorkspaceSettingsPanel />
+
+      {/*
+       * owner 패널(멤버/설정)은 현재 WS 를 대상으로만 의미가 있으므로 선택된 WS 가 있을 때만 마운트한다.
+       * 선택된 WS 가 없을 때의 빈 상태 안내는 이 페이지가 **단일** 소유한다(과거 두 패널이 각자 같은
+       * 문구를 렌더해 admin override 진입 시 중복 노출되던 것을 해소). admin override 로 owner 패널
+       * 접근권이 있으나 WS 미선택인 경우에만 노출되도록 `RequireRole`(currentRole=null → admin 만
+       * 통과) 로 게이팅한다. 비-owner·비-admin 은 은닉된다(기존 동작 보존).
+       */}
+      {currentWorkspace === null ? (
+        <RequireRole minimum={Role.OWNER} currentRole={null}>
+          <p className="text-sm text-slate-600">
+            선택된 워크스페이스가 없습니다. 워크스페이스를 생성하거나 선택하세요.
+          </p>
+        </RequireRole>
+      ) : (
+        <>
+          <MemberManagementPanel />
+          <WorkspaceSettingsPanel />
+        </>
+      )}
     </section>
   );
 }
