@@ -24,6 +24,7 @@ import type { ReactNode } from "react";
 
 import { apiClient } from "@/shared/api/client";
 import { useSession } from "@/app/session/useSession";
+import { memberRoleToRole } from "@/shared/auth/roles";
 import type { Page } from "@/shared/types/page";
 import type { WorkspaceRead } from "@/shared/types/workspace";
 import type { CurrentWorkspaceContextValue } from "@/app/workspace-context/types";
@@ -141,8 +142,10 @@ export function CurrentWorkspaceProvider({ children }: { children: ReactNode }) 
       workspaces,
       currentWorkspace,
       workspaceId: currentWorkspace !== null ? String(currentWorkspace.id) : null,
-      // s16 은 role 필드·형태·기본값(null)만 소유한다. 실제 값은 s18 멤버십 경로로 주입(9.6).
-      role: null,
+      // provider-role 파생(s24): 로드된 현재 WS 의 멤버십 role 을 Role enum 으로 번역한다. 형태
+      // (Role|null)는 s16 소유이며 여기선 값만 주입한다. currentWorkspace 부재(미선택) 또는 role
+      // 부재/null(비멤버·미시드)이면 null. 전환(selectWorkspace)은 currentWorkspace 갱신으로 재파생된다.
+      role: currentWorkspace?.role ? memberRoleToRole(currentWorkspace.role) : null,
       isShareable: currentWorkspace?.is_shareable ?? false,
       selectWorkspace,
       refresh: load,

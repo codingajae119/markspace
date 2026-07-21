@@ -10,6 +10,7 @@ import {
 import { useCurrentWorkspace } from "@/app/workspace-context/useCurrentWorkspace";
 import { apiClient } from "@/shared/api/client";
 import { useSession } from "@/app/session/useSession";
+import { Role } from "@/shared/auth/roles";
 import type { WorkspaceRead } from "@/shared/types/workspace";
 import type { Page } from "@/shared/types/page";
 
@@ -37,6 +38,39 @@ const ws2: WorkspaceRead = {
   name: "WS Two",
   is_shareable: false,
   trash_retention_days: 30,
+};
+
+/** role="owner" 를 담은 WS(멤버십 role 파생 관찰용). */
+const wsOwner: WorkspaceRead = {
+  id: 3,
+  created_at: "2026-01-03T00:00:00Z",
+  updated_at: null,
+  name: "WS Owner",
+  is_shareable: true,
+  trash_retention_days: 30,
+  role: "owner",
+};
+
+/** role="editor" 를 담은 WS(전환 시 재파생 관찰용). */
+const wsEditor: WorkspaceRead = {
+  id: 4,
+  created_at: "2026-01-04T00:00:00Z",
+  updated_at: null,
+  name: "WS Editor",
+  is_shareable: false,
+  trash_retention_days: 30,
+  role: "editor",
+};
+
+/** role=null 을 명시한 WS(비멤버/미시드 → provider-role null 관찰용). */
+const wsNullRole: WorkspaceRead = {
+  id: 5,
+  created_at: "2026-01-05T00:00:00Z",
+  updated_at: null,
+  name: "WS Null Role",
+  is_shareable: false,
+  trash_retention_days: 30,
+  role: null,
 };
 
 /** apiClient.get("/workspaces") 가 반환할 Page<WorkspaceRead> 를 구성한다. */
@@ -72,6 +106,9 @@ function Probe() {
       <span data-testid="role">{ws.role === null ? "null" : String(ws.role)}</span>
       <button type="button" onClick={() => ws.selectWorkspace(String(ws2.id))}>
         select-ws2
+      </button>
+      <button type="button" onClick={() => ws.selectWorkspace(String(wsEditor.id))}>
+        select-editor
       </button>
       <button
         type="button"
@@ -197,6 +234,64 @@ describe("CurrentWorkspaceProvider ambient context", () => {
     // 여전히 존재하는 현재 선택(ws1)은 유지된다.
     expect(screen.getByTestId("current-name")).toHaveTextContent("WS One");
     expect(getMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("role 있는 WS 선택 시 provider-role 이 멤버십 role 로 파생된다 (Req 2.2)", async () => {
+    mockAuthenticated();
+    getMock.mockResolvedValue(page([wsOwner, wsEditor]));
+
+    renderWithProvider();
+
+    await waitFor(() => expect(screen.getByTestId("current-name")).toHaveTextContent("WS Owner"));
+    // owner WS 가 첫 선택 → provider-role 은 비-null 실값(Role.OWNER).
+    expect(screen.getByTestId("role")).toHaveTextContent(String(Role.OWNER));
+  });
+
+  it("워크스페이스 전환 시 전환 WS 의 멤버십 role 로 재파생된다 (Req 2.3)", async () => {
+    mockAuthenticated();
+    getMock.mockResolvedValue(page([wsOwner, wsEditor]));
+
+    renderWithProvider();
+
+    await waitFor(() => expect(screen.getByTestId("role")).toHaveTextContent(String(Role.OWNER)));
+
+    await userEvent.click(screen.getByRole("button", { name: "select-editor" }));
+
+    expect(screen.getByTestId("current-name")).toHaveTextContent("WS Editor");
+    // 전환된 WS(editor)의 role 로 재파생.
+    expect(screen.getByTestId("role")).toHaveTextContent(String(Role.EDITOR));
+  });
+
+  it("role 부재 WS 선택 시 provider-role 은 null 이다 (Req 2.4)", async () => {
+    mockAuthenticated();
+    // ws1 은 role 필드가 없다(부재) → provider-role null.
+    getMock.mockResolvedValue(page([ws1]));
+
+    renderWithProvider();
+
+    await waitFor(() => expect(screen.getByTestId("current-name")).toHaveTextContent("WS One"));
+    expect(screen.getByTestId("role")).toHaveTextContent("null");
+  });
+
+  it("role=null 명시 WS 선택 시 provider-role 은 null 이다 (Req 2.4)", async () => {
+    mockAuthenticated();
+    getMock.mockResolvedValue(page([wsNullRole]));
+
+    renderWithProvider();
+
+    await waitFor(() => expect(screen.getByTestId("current-name")).toHaveTextContent("WS Null Role"));
+    expect(screen.getByTestId("role")).toHaveTextContent("null");
+  });
+
+  it("워크스페이스 미선택(빈 목록)이면 provider-role 은 null 이다 (Req 2.4)", async () => {
+    mockAuthenticated();
+    getMock.mockResolvedValue(page([]));
+
+    renderWithProvider();
+
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("empty"));
+    expect(screen.getByTestId("current-name")).toHaveTextContent("null");
+    expect(screen.getByTestId("role")).toHaveTextContent("null");
   });
 
   it("useCurrentWorkspace() 를 provider 밖에서 쓰면 명확한 오류를 던진다 (AC 9.1)", () => {

@@ -43,7 +43,7 @@
 
 ## 3. 프론트 로드-시드 배선
 
-- [ ] 3.1 (P) CurrentWorkspaceProvider provider-role 파생
+- [x] 3.1 (P) CurrentWorkspaceProvider provider-role 파생
   - `value.role` 을 `null` 하드코딩에서 `currentWorkspace.role` 존재 시 `memberRoleToRole` 파생, 부재·미선택 시 null 로 대체한다(`shared` 만 import, 의존 방향 준수).
   - 워크스페이스 전환(`selectWorkspace`) 시 새 `currentWorkspace` 로 role 을 재파생하고, `CurrentWorkspaceContextValue.role` 의 형태(`Role | null`, s16 소유)는 변경하지 않는다(값 주입만).
   - 관찰 가능: 단위 테스트에서 role 있는 WS 선택 시 provider-role 이 비-null 실값, role 부재·미선택 시 null, 전환 시 전환 WS 의 멤버십 role 로 재파생된다.
