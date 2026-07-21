@@ -337,7 +337,11 @@ describe("owner 패널 회귀: MemberManagementPanel in real assembly (Req 4.1·
       expect(screen.getByRole("button", { name: "멤버 추가" })).toBeInTheDocument(),
     );
     // 그러나 role 신호 자체는 멤버십 role(viewer)만 담고 owner 로 상승되지 않는다(INV-3).
-    expect(screen.getByTestId("role-1")).toHaveTextContent(String(Role.VIEWER));
+    // 패널 노출은 세션 우회(즉시)지만 role 신호는 시드 effect(커밋 후)로 채워지므로, 동기 읽기 대신
+    // 시드 의존 신호를 waitFor 로 기다린다(부하 시 버튼 선노출→role 미시드 경합 방지).
+    await waitFor(() =>
+      expect(screen.getByTestId("role-1")).toHaveTextContent(String(Role.VIEWER)),
+    );
     expect(screen.getByTestId("role-1")).not.toHaveTextContent(String(Role.OWNER));
   });
 });
