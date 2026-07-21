@@ -71,7 +71,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
   - _Boundary: backend integration / L2 contract_
 
-- [ ] 4.2 (P) 프론트 조립·시드 통합 및 배지·owner 패널 회귀
+- [x] 4.2 (P) 프론트 조립·시드 통합 및 배지·owner 패널 회귀
   - `MembershipRoleProvider` + `CurrentWorkspaceProvider` 조립(마운트 순서: `MembershipRoleProvider` 가 provider 하위)에서 로드 후 `roleFor(id)` 가 시드 role 을 반환하고 role=null 항목은 null 을 유지하며, recordOwner 후 목록 재조회로 덮어써도 값이 일관됨을 검증한다.
   - 배지 회귀: in-session 이력 없이 새로고침 시 배지가 실제 role 을 표시하고, 신호가 없으면 "역할 미확인" 을 유지한다.
   - owner 패널 회귀: in-session 없이 owner role 복원만으로 멤버 관리 패널이 노출되고, editor/viewer 는 차단, admin 은 세션 경로로 통과(role 필드에 admin 미접합)됨을 검증하며, 마운트 순서를 회귀로 고정한다.
