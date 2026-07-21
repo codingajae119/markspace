@@ -1,8 +1,8 @@
 """첨부 라우터 — `AttachmentRouter` (design.md §Components and Interfaces #AttachmentRouter).
 
 첨부 2개 엔드포인트(s01 카탈로그 행 32~33)를 노출한다: `POST /documents/{id}/attachments`
-(업로드), `GET /attachments/{id}`(조회 서빙). 업로드는 member 이상, 조회는 member 이상으로
-게이팅한다. 라우터는 multipart 수신·content-type 기반 kind 추론·게이트 결선·서비스 위임·
+(업로드), `GET /attachments/{id}`(조회 서빙). 업로드는 member 이상, 조회는 활성 사용자 전역
+개방(role 위임 없음, s26)으로 게이팅한다. 라우터는 multipart 수신·content-type 기반 kind 추론·게이트 결선·서비스 위임·
 상태코드/스트리밍 매핑만 담당한다 — 로직은 서비스, 파일 I/O 는 스토리지, 판정은 s01 resolver,
 문서/첨부 → WS 매핑은 어댑터에 위임한다(상태 전이·버전 생성·권한 위계 재구현 없음).
 
@@ -12,12 +12,13 @@
   경로 파라미터 이름이 `id`(문서 id)여야 어댑터가 바인딩하며, 문서 부재 시 어댑터가 판정에
   앞서 404 를 낸다(비멤버 403, admin bypass). kind 미지정 시 업로드 content-type 으로
   image/file 을 추론한다(붙여넣기=image 경로 포함, task 2.1 에서 이연된 추론이 여기 산다).
-- `GET /attachments/{id}`(행 33): s12 첨부→WS 어댑터 `ws_role_for_attachment(MEMBER)` 로 경로
-  첨부 id → workspace_id 를 매핑해 s01 판정에 위임한다(첨부 부재→404, 비멤버 403,
-  admin bypass). 보관 첨부의 role 무관 404 는 서비스가 권한 판정 이전에 처리하므로(8.10)
-  라우터는 별도 보관 처리를 두지 않는다. 성공 시 `StreamingResponse`(바이너리).
+- `GET /attachments/{id}`(행 33): s26 첨부 읽기 개방 게이트 `active_user_for_attachment` 로
+  경로 첨부 id → workspace_id 를 매핑해 존재만 확인하고 활성 사용자면 통과시킨다(첨부
+  부재→404, 미인증→401, role 위임 없음·403 부재 → 비멤버 활성 사용자도 200). 보관 첨부의
+  role 무관 404 는 여전히 서비스가 권한 판정 이전에 처리하므로(8.10, 게이트 전환이 이
+  불변식을 바꾸지 않음) 라우터는 별도 보관 처리를 두지 않는다. 성공 시 `StreamingResponse`(바이너리).
 
-위계 비교·admin bypass·403 판정은 전부 s01 resolver 소유이며(재구현 없음) 미인증(세션 없음·
+업로드 게이트의 위계 비교·admin bypass·403 판정은 전부 s01 resolver 소유이며(재구현 없음) 미인증(세션 없음·
 무효)은 `get_current_user` 가 401 을 산출한다. 크기 초과(422)·대상 문서 부재(404)·첨부 부재/
 보관(404)은 서비스·어댑터가 `DomainError` 로 표면화하고 s01 전역 핸들러가 공통 `ErrorResponse`
 로 직렬화한다. 라우터는 오류를 매핑하지 않는다.
@@ -31,7 +32,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.attachment.dependencies import Role, ws_role_for_attachment
+from app.attachment.dependencies import Role, active_user_for_attachment
 from app.attachment.schemas import AttachmentKind, AttachmentRead
 from app.attachment.service import AttachmentService
 from app.common.auth import AuthContext
@@ -122,15 +123,17 @@ def upload_attachment(
 def serve_attachment(
     id: int,
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(ws_role_for_attachment(Role.MEMBER)),
+    _ctx: AuthContext = Depends(active_user_for_attachment),
     service: AttachmentService = Depends(get_attachment_service),
 ) -> StreamingResponse:
-    """첨부 바이너리를 스트리밍한다 — 보관 첨부는 role 무관 404 (Req 3.3·3.4·3.6·6.2·6.3, member 이상).
+    """첨부 바이너리를 스트리밍한다 — 보관 첨부는 role 무관 404 (Req 3.4·3.6·3.7·3.8·7.2, 활성 사용자 전역 개방).
 
-    s12 첨부→WS 어댑터(`ws_role_for_attachment(MEMBER)`)로 경로 첨부 id → workspace_id 를 매핑해
-    게이트를 강제한다(첨부 부재→404, 비멤버→403, admin bypass, 미인증→401 — 판정은
-    s01 소유). 보관(`is_archived`) 첨부는 **서비스가** 권한 판정 이전에 role 무관 404 로 차단하므로
-    (admin 포함, 8.10) 라우터는 별도 보관 처리를 두지 않는다. 서비스가 돌려준 바이너리 값 객체로
+    s26 첨부 읽기 개방 게이트(`active_user_for_attachment`)로 경로 첨부 id → workspace_id 를
+    매핑해 존재만 확인하고 활성 사용자면 통과시킨다(첨부 부재→404, 미인증→401 — role 위임
+    없음, 403 부재). 비멤버 활성 사용자도 존재하는 첨부를 200 으로 조회·다운로드한다(R3.4·
+    R3.8). 보관(`is_archived`) 첨부는 **서비스가** 권한 판정 이전에 role 무관 404 로 차단하므로
+    (admin 포함, 8.10) 게이트 전환은 이 불변식을 바꾸지 않으며 라우터도 별도 보관 처리를 두지
+    않는다. 서비스가 돌려준 바이너리 값 객체로
     `StreamingResponse` 를 구성해 스트리밍한다(원본명 기반 content-type, 선택적 Content-Disposition).
     성공 시 200 + 바이너리 스트림.
     """

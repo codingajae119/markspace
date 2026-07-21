@@ -6,7 +6,7 @@
 없이 단건 조회 한 번으로 매핑한다. `/documents/{id}/attachments` 업로드 경로는 첨부가 아직
 없으므로 s07 `ws_role_for_document(EDITOR)` 를 재사용하며 이 어댑터 대상이 아니다.
 
-**판정 로직 재구현 없음**: role 위계 비교(owner ≥ editor ≥ viewer)·admin bypass(INV-3)·
+**판정 로직 재구현 없음**: role 위계 비교(owner ≥ member 2단계)·admin bypass(INV-3)·
 403 raise 는 전부 s01 `WorkspaceRoleResolver`/`require_ws_role` 이 소유한다(Req 7.3). 이
 어댑터는 첨부 id → workspace_id 로 매핑한 뒤 s01 내부 의존성에 workspace_id 를 넘겨
 **위임만** 한다. 매핑이 실패(첨부 미존재)하면 s01 판정에 앞서 404 로 거부한다.
@@ -33,7 +33,7 @@ from app.common.db import get_db
 from app.common.errors import DomainError, ErrorCode
 from app.common.permissions import Role, require_ws_role as _s01_require_ws_role
 
-__all__ = ["Role", "ws_role_for_attachment"]
+__all__ = ["Role", "ws_role_for_attachment", "active_user_for_attachment"]
 
 # 어댑터가 첨부 id → workspace_id 매핑에만 쓰는 경량 조회 지점. 세션은 요청별로
 # 주입받고 리포지토리 인스턴스 자체는 무상태이므로 모듈 단일 인스턴스를 재사용한다.
@@ -75,3 +75,33 @@ def ws_role_for_attachment(minimum: Role) -> Callable[..., AuthContext]:
         return _delegate(workspace_id=att.workspace_id, ctx=ctx, db=db)
 
     return dependency
+
+
+def active_user_for_attachment(
+    id: int,
+    ctx: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AuthContext:
+    """첨부 id→workspace 매핑(부재 404) 후 활성 사용자면 통과. role 위임 없음 (R3.4/3.7/3.8).
+
+    첨부 읽기 전역 개방 게이트(서빙 `GET /attachments/{id}`): :func:`ws_role_for_attachment`
+    의 **앞 절반**(첨부 id → workspace_id 매핑, ``None`` → 404)만 유지하고 **뒤 절반**(s01
+    role 위임)을 제거한 대칭 게이트다. 첨부 존재만 확인하고 role 을 판정하지 않은 채 ``ctx``
+    를 그대로 돌려주므로 403 발생 지점이 존재하지 않는다 — 비멤버 활성 사용자도 존재하는
+    첨부에 200 을 받는다(R3.8·R7.2). 활성 사용자(401) 강제는 ``Depends(get_current_user)``
+    가 담당하며, 멤버십을 조회하지 않는다(멤버십 쿼리 없음, role 비교 없음, 403 분기 없음).
+
+    보관(`is_archived`) 첨부의 role 무관 404 차단은 여전히 서비스가 권한 판정 이전에
+    처리하므로(8.10) 이 게이트는 보관 처리를 두지 않는다 — 게이트는 존재하는 첨부를 활성
+    사용자에게 통과시키고, 보관이면 그 뒤 서비스가 404 로 차단한다. ``ws_role_for_attachment``
+    팩토리와 병존하며(업로드 라우트는 여전히 member 게이트 사용) 라우터가 서빙/업로드
+    라우트에 올바른 게이트를 부착한다.
+    """
+    att = _repository.get(db, id)
+    if att is None:
+        raise DomainError(
+            code=ErrorCode.NOT_FOUND,
+            message="Attachment not found",
+            http_status=404,
+        )
+    return ctx
