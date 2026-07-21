@@ -88,7 +88,7 @@
   - _Depends: 3.2, 3.3_
 
 - [ ] 5. 프론트 검증: 선택·상태·오류 흐름
-- [ ] 5.1 멤버 관리 UI 상태·흐름 테스트
+- [x] 5.1 멤버 관리 UI 상태·흐름 테스트
   - 성공 경로: 선택→역할→추가 성공 후 해당 사용자가 목록에서 사라짐(reload). 빈 상태: 0명→`EmptyState`+추가 버튼 disabled. 로딩: `status=loading`→`Spinner`+추가 방지.
   - 오류 경로: 조회 403/401→`ErrorMessage`(게이팅으로 억제 안 됨); 추가 stale-409→`ErrorMessage`(409)+목록 refetch; 추가 실패 시 로컬 상태 무변경. `vi.mock` 대상은 hooks 또는 `@/shared/api/client`(기존 `MemberManagementPanel.test` 관례), `RequireRole`/`RoleSelect`/`ErrorMessage` 는 실제 사용.
   - 관찰 가능한 완료: Vitest + Testing Library 스위트가 성공·빈·로딩·조회오류·stale-409·추가실패 롤백 케이스에서 통과.
