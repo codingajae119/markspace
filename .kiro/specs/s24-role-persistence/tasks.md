@@ -51,7 +51,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4_
   - _Boundary: CurrentWorkspaceProvider (app)_
 
-- [ ] 3.2 (P) MembershipRoleSource seedRoles 추가 및 로드-시드 병합
+- [x] 3.2 (P) MembershipRoleSource seedRoles 추가 및 로드-시드 병합
   - `MembershipRoleSource` 인터페이스에 `seedRoles(entries)` 를 추가하고 `Map` upsert 로 목록 항목은 서버값으로 덮어쓰고(서버 권위 우선) 목록에 없는 WS 항목은 in-session 기록을 보존한다(WS 당 단일 role 값 노출).
   - `MembershipRoleProvider` 가 옵셔널 `CurrentWorkspaceContext` 를 읽어 로드된 `workspaces` 중 role≠null 항목만 `[id, memberRoleToRole(role)]` 로 시드하고(role=null 미시드, admin override 미접합), 컨텍스트가 null 인 standalone 마운트(단위 테스트)에서는 시드하지 않아 기존 in-session 전용 동작을 보존한다.
   - `recordOwner`/`recordSelfRole` 의 동작·시그니처는 무변경으로 유지한다(시드는 대체가 아니라 보강).
@@ -91,3 +91,4 @@
 ## Implementation Notes
 - 1.2↔1.3 은 경계 간 원자적 마이그레이션 쌍이다. 1.2 가 repository 반환 형태(`list[Workspace]`→`(Workspace, role)` 튜플)와 `list_all` 시그니처(`user_id` 추가)를 바꾸면 유일 호출자 `service.py` 가 갱신되기 전까지 service/router/integration_L2 테스트가 의도적으로 깨진다. 1.2 검증은 `tests/workspace/test_repository.py` 로 스코프하고, 1.3 이 서비스 언팩·`ctx.user_id` 전달로 파손을 닫는다(1.3 완료 후 전체 백엔드 스위트 그린 확인).
 - `list_all` LEFT OUTER JOIN 의 호출자 상관(`WorkspaceMember.user_id == user_id`)은 반드시 JOIN ON 절에 둔다(WHERE 에 두면 outer→inner 붕괴로 비멤버 행 탈락 = anti-join 버그, Req 1.3 위반). 동일 파일 `_assignable_filters` 의 상관 idiom 참고.
+- 3.2 `MembershipRoleSource` 인터페이스에 `seedRoles` 를 **required** 로 추가(design 시그니처에 `?` 없음)하면 전체 인터페이스 객체 리터럴을 만드는 소비자 테스트 목(useMemberActions/useWorkspaceActions/MemberManagementPanel/WorkspaceSettingsPanel .test)이 tsc 필수-멤버 누락으로 깨진다 → 각 목에 `seedRoles: vi.fn()` 한 줄 가산 필요(design §Revalidation Triggers 가 인터페이스 확장=소비자 재검증 트리거로 이미 명시). 프로덕션 소비자 로직·단언은 무변경. 1.1 가산 `role` 필드가 exact-set 응답 계약 가드(`WORKSPACE_READ_KEYS`)를 깨는 것과 동형의 "가산 확장→가드 갱신" 리플.

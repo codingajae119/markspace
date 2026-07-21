@@ -64,6 +64,7 @@ function roleSource(): MembershipRoleSource {
     roleFor: roleForMock,
     recordOwner: recordOwnerMock,
     recordSelfRole: recordSelfRoleMock,
+    seedRoles: vi.fn(),
   };
 }
 

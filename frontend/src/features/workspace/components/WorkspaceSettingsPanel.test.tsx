@@ -81,6 +81,7 @@ function setRoleFor(role: Role | null): void {
     roleFor: () => role,
     recordOwner: vi.fn(),
     recordSelfRole: vi.fn(),
+    seedRoles: vi.fn(),
   });
 }
 

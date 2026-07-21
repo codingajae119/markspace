@@ -22,10 +22,11 @@
  * Requirements: 1.4 (단일 role 소스, best-effort 신호 조달·부재 시 null).
  */
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactElement, ReactNode } from "react";
 
-import { Role } from "@/shared/auth/roles";
+import { Role, memberRoleToRole as translateMemberRole } from "@/shared/auth/roles";
+import { CurrentWorkspaceContext } from "@/app/workspace-context/CurrentWorkspaceProvider";
 
 /**
  * role 번역 단일 소스 재-export shim. `memberRoleToRole` 소유는 `@/shared/auth/roles` 로 이관되어
@@ -45,6 +46,14 @@ export interface MembershipRoleSource {
   recordOwner(workspaceId: number): void;
   /** 멤버 뮤테이션 응답의 자기 role 에코를 해당 WS role 로 반영(덮어쓰기). */
   recordSelfRole(workspaceId: number, role: Role): void;
+  /**
+   * 로드-시드: 목록 응답의 `[wsId, role]` 항목을 Map upsert 로 반영한다(s24, Req 5.2·5.3).
+   * 목록에 있는 WS 는 서버 권위값으로 **덮어쓰고**(server-authoritative), 목록에 없는 WS 의
+   * in-session 기록은 **보존**한다(비목록 항목 무변경). WS 당 단일 Map 항목 → 단일 role 값만
+   * 노출(모순된 두 값 동시 노출 금지). 시드는 대체가 아니라 보강이며 `recordOwner`/`recordSelfRole`
+   * 동작을 바꾸지 않는다(Req 5.1).
+   */
+  seedRoles(entries: Iterable<readonly [number, Role]>): void;
 }
 
 /**
@@ -84,13 +93,51 @@ export function MembershipRoleProvider({ children }: { children: ReactNode }): R
     [recordRole],
   );
 
+  // 로드-시드 upsert: 목록 항목은 서버값으로 덮어쓰고(server-authoritative) 비목록 항목은 보존한다.
+  // 함수형 업데이트 + 새 Map(불변 갱신 → 재렌더 보장). in-session 기록을 대체하지 않고 보강한다.
+  const seedRoles = useCallback((entries: Iterable<readonly [number, Role]>): void => {
+    setRoles((prev) => {
+      const next = new Map(prev);
+      for (const [id, role] of entries) {
+        next.set(id, role);
+      }
+      return next;
+    });
+  }, []);
+
+  // 상위 CurrentWorkspaceProvider(=app) 를 **옵셔널**로 읽는다. provider 밖(standalone 단위
+  // 테스트)에서는 null → 시드하지 않고 기존 in-session 전용 동작을 보존한다(Req 5.1). 실제 앱은
+  // MembershipRoleProvider 가 CurrentWorkspaceProvider **하위**에 마운트되어 non-null 이다(mount order).
+  const wsContext = useContext(CurrentWorkspaceContext);
+  const workspaces = wsContext?.workspaces;
+
+  useEffect(() => {
+    if (workspaces === undefined) {
+      // standalone(컨텍스트 null): 시드 없음.
+      return;
+    }
+    // role≠null 항목만 [id, Role] 로 시드한다. role=null/undefined(비멤버·미시드)는 제외하고
+    // admin override 는 접합하지 않는다(멤버십 role 문자열만 시드, Req 2.4/5.4·INV-3). 번역은
+    // memberRoleToRole 단일 소스만 사용한다.
+    const entries: [number, Role][] = [];
+    for (const ws of workspaces) {
+      if (ws.role != null) {
+        entries.push([ws.id, translateMemberRole(ws.role)]);
+      }
+    }
+    seedRoles(entries);
+    // 커밋된 workspaces 배열 참조에 반응한다(새 로드 = 새 배열). seedRoles 는 local Map 만 갱신하고
+    // 부모의 workspaces 참조를 바꾸지 않으므로 자기 시드로 재발화하지 않는다(무한 루프 없음).
+  }, [workspaces, seedRoles]);
+
   const value = useMemo<MembershipRoleSource>(
     () => ({
       roleFor: (workspaceId: number): Role | null => roles.get(workspaceId) ?? null,
       recordOwner,
       recordSelfRole,
+      seedRoles,
     }),
-    [roles, recordOwner, recordSelfRole],
+    [roles, recordOwner, recordSelfRole, seedRoles],
   );
 
   return (
