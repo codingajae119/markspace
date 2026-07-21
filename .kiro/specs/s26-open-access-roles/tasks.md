@@ -20,7 +20,7 @@
   - _Boundary: common/permissions, document/router, lock_version/router, attachment/router, sharing/router, trash/router, workspace/router (전체 게이트 심볼 스왑 — 무-alias 리네임이 강제하는 명시적 통합 작업)_
 
 - [ ] 2. 워크스페이스 멤버 role 데이터 마이그레이션
-- [ ] 2.1 (P) editor·viewer→member 이관 마이그레이션 0004 작성
+- [x] 2.1 (P) editor·viewer→member 이관 마이그레이션 0004 작성
   - 3-스텝 ENUM 재편으로 upgrade 구현: 4값 임시 확장 → editor·viewer를 member로 UPDATE → owner·member 2값 축소
   - owner 행을 어느 스텝에서도 건드리지 않아 워크스페이스당 단일 owner 불변식 보존
   - downgrade는 역순·비대칭으로 구현: member→editor 복원, viewer는 복구하지 않음(의도된 비대칭)
