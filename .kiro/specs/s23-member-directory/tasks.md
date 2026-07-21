@@ -21,7 +21,7 @@
   - _Requirements: 1.1, 1.5_
   - _Boundary: MembershipRepository_
 
-- [ ] 1.3 배정 가능 조회 서비스 메서드 추가
+- [x] 1.3 배정 가능 조회 서비스 메서드 추가
   - `workspace/service.py` 의 `MembershipService` 에 `list_assignable_users(db, workspace_id, limit, offset) -> Page[AssignableUserRead]` 추가.
   - repo `(items, total)` → `Page(items=[AssignableUserRead.model_validate(u) for u in items], total=total)` 매핑. 인증 게이팅은 미보유(호출부 책임 — 기존 관례).
   - 배정 가능 사용자가 없으면 `Page(items=[], total=0)` 반환(오류 아님).

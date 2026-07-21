@@ -20,8 +20,10 @@ from datetime import datetime
 import pytest
 
 from app.common.errors import DomainError, ErrorCode
-from app.models import Workspace, WorkspaceMember
+from app.models import User, Workspace, WorkspaceMember
+from app.schemas.base import Page
 from app.workspace.schemas import (
+    AssignableUserRead,
     MemberCreate,
     MemberRead,
     MemberRole,
@@ -63,6 +65,21 @@ def _make_member(
     )
 
 
+def _make_user(*, user_id: int, name: str = "User", email: str | None = None) -> User:
+    # narrow 스키마 검증에 필요한 필드 외 계정 필드도 채워 model_validate 가 선언 필드만
+    # 골라내는지(누출 없음) 서비스 매핑 경로에서 함께 관찰한다.
+    return User(
+        id=user_id,
+        login_id=f"login{user_id}",
+        password_hash="hash",
+        name=name,
+        email=email,
+        is_admin=False,
+        is_active=True,
+        is_deleted=False,
+    )
+
+
 class _FakeMemberRepo:
     """MembershipService 가 호출하는 MembershipRepository 계약의 최소 가짜 구현.
 
@@ -75,15 +92,25 @@ class _FakeMemberRepo:
         *,
         member: WorkspaceMember | None = None,
         user_exists: bool = True,
+        assignable: tuple[list[User], int] | None = None,
     ) -> None:
         self._member = member
         self._user_exists = user_exists
+        self._assignable = assignable if assignable is not None else ([], 0)
         self.user_exists_calls: list[int] = []
         self.get_calls: list[tuple[int, int]] = []
         self.add_calls: list[dict] = []
         self.set_role_calls: list[tuple[WorkspaceMember, str]] = []
         self.remove_calls: list[WorkspaceMember] = []
+        self.list_assignable_calls: list[tuple[int, int, int]] = []
         self._next_id = 100
+
+    def list_assignable_users(
+        self, db, workspace_id: int, limit: int, offset: int
+    ) -> tuple[list[User], int]:
+        assert db is DB
+        self.list_assignable_calls.append((workspace_id, limit, offset))
+        return self._assignable
 
     def user_exists(self, db, user_id: int) -> bool:
         assert db is DB
@@ -376,3 +403,47 @@ def test_change_owner_does_not_demote_existing_other_owners():
     # set_role 는 대상 멤버에 대해서만, owner 로만 호출된다(다른 owner 강등 없음).
     assert member_repo.set_role_calls == [(target, "owner")]
     assert member_repo.add_calls == []
+
+
+# --- list_assignable_users ----------------------------------------------------
+
+
+def test_list_assignable_users_maps_items_and_total_to_page(): # Req 1.1
+    # repo 가 반환한 (users, total) 을 Page[AssignableUserRead] 로 매핑한다.
+    users = [
+        _make_user(user_id=2, name="Alice", email="alice@example.com"),
+        _make_user(user_id=5, name="Bob", email=None),
+    ]
+    member_repo = _FakeMemberRepo(assignable=(users, 7))
+    service = MembershipService(member_repo, _FakeWsRepo())
+
+    result = service.list_assignable_users(DB, 1, 50, 0)
+
+    # 저장소에 workspace_id·limit·offset 을 그대로 위임했다.
+    assert member_repo.list_assignable_calls == [(1, 50, 0)]
+    assert isinstance(result, Page)
+    # total 은 items 페이지 길이가 아니라 repo 총수(배정 가능 전체)를 그대로 전달한다.
+    assert result.total == 7
+    assert len(result.items) == 2
+    assert all(isinstance(item, AssignableUserRead) for item in result.items)
+    # narrow 스키마: 선언 필드(id/name/email)만 노출되고 계정 필드는 없다.
+    first = result.items[0]
+    assert (first.id, first.name, first.email) == (2, "Alice", "alice@example.com")
+    assert not hasattr(first, "login_id")
+    assert not hasattr(first, "password_hash")
+    assert not hasattr(first, "is_admin")
+    # email null 인 사용자도 제외되지 않고 빈 값(None)으로 직렬화된다(Req 1.3 정합).
+    assert result.items[1].email is None
+
+
+def test_list_assignable_users_empty_result_returns_empty_page(): # Req 1.4
+    # 배정 가능 사용자가 없으면 오류가 아니라 빈 Page 를 반환한다.
+    member_repo = _FakeMemberRepo(assignable=([], 0))
+    service = MembershipService(member_repo, _FakeWsRepo())
+
+    result = service.list_assignable_users(DB, 3, 10, 20)
+
+    assert member_repo.list_assignable_calls == [(3, 10, 20)]
+    assert isinstance(result, Page)
+    assert result.items == []
+    assert result.total == 0

@@ -21,6 +21,7 @@ from app.config import get_settings
 from app.schemas.base import Page
 from app.workspace.repository import MembershipRepository, WorkspaceRepository
 from app.workspace.schemas import (
+    AssignableUserRead,
     MemberCreate,
     MemberRead,
     MemberUpdate,
@@ -253,6 +254,26 @@ class MembershipService:
                 http_status=404,
             )
         self._member_repo.remove(db, member)
+
+    def list_assignable_users(
+        self, db: Session, workspace_id: int, limit: int, offset: int
+    ) -> Page[AssignableUserRead]:
+        """대상 워크스페이스에 배정 가능한 사용자를 공통 `Page` 엔벨로프로 반환한다 (Req 1.1·1.4).
+
+        저장소의 anti-join 조회(`list_assignable_users`)에 `workspace_id`·`limit`·`offset` 을
+        그대로 위임해 `(items, total)` 을 받고, 각 `User` 를 narrow `AssignableUserRead`
+        (선언 필드 id·name·email 만)로 직렬화해 매핑한다. `total` 은 items 페이지 길이가 아니라
+        저장소가 동일 필터로 계산한 배정 가능 전체 개수를 그대로 전달한다. owner 게이트는 라우터의
+        `require_ws_role(OWNER)` 가 담당하며 서비스의 책임이 아니다(기존 관례). 배정 가능 사용자가
+        한 명도 없으면 오류가 아니라 `Page(items=[], total=0)` 을 반환한다(Req 1.4).
+        """
+        items, total = self._member_repo.list_assignable_users(
+            db, workspace_id, limit, offset
+        )
+        return Page[AssignableUserRead](
+            items=[AssignableUserRead.model_validate(user) for user in items],
+            total=total,
+        )
 
     def change_owner(
         self, db: Session, workspace_id: int, payload: OwnerChangeRequest
