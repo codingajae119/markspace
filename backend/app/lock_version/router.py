@@ -10,7 +10,7 @@ s01 resolver(`require_ws_role`)가 담당한다. 라우터는 스키마 검증·
   통해 문서 id → workspace_id 를 매핑하고 s01 판정에 위임한다. 경로 파라미터 이름은 `id`
   (어댑터 내부 의존성이 경로 `id: int` 를 읽음)로 s07 `/documents/{id}` 라우트와 정확히
   맞춘다. 어댑터가 문서 부재 시 판정에 앞서 404 를 낸다.
-- lock/save/cancel → EDITOR, force-unlock → OWNER, versions → VIEWER.
+- lock/save/cancel → MEMBER, force-unlock → OWNER, versions → MEMBER.
 
 위계 비교·admin bypass·403 판정은 전부 s01 resolver 소유이며(재구현 없음) 미인증(세션 없음·
 무효)은 `get_current_user` 가 401 을 산출한다. 스키마 형식 검증 실패는 pydantic 이 422 로 처리
@@ -61,12 +61,12 @@ def get_lock_version_service() -> LockVersionService:
 def lock_document(
     id: int,
     db: Session = Depends(get_db),
-    ctx: AuthContext = Depends(ws_role_for_document(Role.EDITOR)),
+    ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
     service: LockVersionService = Depends(get_lock_version_service),
 ) -> DocumentLockRead:
-    """문서 편집 잠금을 획득하거나 멱등/충돌을 판정한다 (Req 1.1·1.5·1.6, editor 이상).
+    """문서 편집 잠금을 획득하거나 멱등/충돌을 판정한다 (Req 1.1·1.5·1.6, member 이상).
 
-    `ws_role_for_document(EDITOR)` 어댑터로 문서 id → workspace_id 를 매핑해 s01 판정에 위임
+    `ws_role_for_document(MEMBER)` 어댑터로 문서 id → workspace_id 를 매핑해 s01 판정에 위임
     한다(문서 부재→404, 403/401 판정은 s01 소유). 게이트가 돌려준 컨텍스트(요청자)를 서비스에
     넘겨 잠금 보유자를 확정한다. 타인 잠금→409 는 서비스가 처리한다. 성공 시 200 +
     :class:`DocumentLockRead`.
@@ -79,12 +79,12 @@ def save_document(
     id: int,
     payload: DocumentSaveRequest,
     db: Session = Depends(get_db),
-    ctx: AuthContext = Depends(ws_role_for_document(Role.EDITOR)),
+    ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
     service: LockVersionService = Depends(get_lock_version_service),
 ) -> DocumentVersionRead:
-    """잠금 보유자의 본문을 저장한다 — 버전 생성·current 갱신·잠금 해제 (Req 2.1·2.5, editor 이상).
+    """잠금 보유자의 본문을 저장한다 — 버전 생성·current 갱신·잠금 해제 (Req 2.1·2.5, member 이상).
 
-    `ws_role_for_document(EDITOR)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
+    `ws_role_for_document(MEMBER)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
     s01 소유). 게이트 컨텍스트와 요청 본문(`content`, 빈 문자열 허용)을 서비스에 넘긴다.
     비보유자·타인 잠금→409 는 서비스가, `content` 누락/형식 오류 등 스키마 검증 실패는 pydantic
     이 422 로 처리한다. 성공 시 200 + :class:`DocumentVersionRead`(본문 없는 버전 메타데이터).
@@ -96,12 +96,12 @@ def save_document(
 def cancel_edit(
     id: int,
     db: Session = Depends(get_db),
-    ctx: AuthContext = Depends(ws_role_for_document(Role.EDITOR)),
+    ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
     service: LockVersionService = Depends(get_lock_version_service),
 ) -> None:
-    """잠금 보유자의 편집을 취소한다 — 잠금 해제, 변경분 폐기 (Req 3.1·3.5, editor 이상).
+    """잠금 보유자의 편집을 취소한다 — 잠금 해제, 변경분 폐기 (Req 3.1·3.5, member 이상).
 
-    `ws_role_for_document(EDITOR)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
+    `ws_role_for_document(MEMBER)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
     s01 소유). 게이트 컨텍스트를 서비스에 넘긴다 — 미잠금은 멱등 no-op, 타인 잠금→409 는
     서비스가 처리한다. 버전을 만들지 않는다. 성공 시 본문 없이 204 로 응답한다.
     """
@@ -130,12 +130,12 @@ def list_versions(
     limit: int = Query(50, ge=1),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(ws_role_for_document(Role.VIEWER)),
+    _ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
     service: LockVersionService = Depends(get_lock_version_service),
 ) -> Page[DocumentVersionRead]:
-    """문서의 저장 버전 이력을 최신 저장 순 메타데이터 페이지로 조회한다 (Req 5.1·5.5, viewer 이상).
+    """문서의 저장 버전 이력을 최신 저장 순 메타데이터 페이지로 조회한다 (Req 5.1·5.5, member 이상).
 
-    `ws_role_for_document(VIEWER)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
+    `ws_role_for_document(MEMBER)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
     s01 소유). `limit`(기본 50)·`offset`(기본 0) 쿼리 파라미터와 문서 id 를 서비스로 전달한다.
     이 조회는 요청자 컨텍스트를 쓰지 않으므로 게이트 값은 `_ctx` 로 바인딩만 한다. 성공 시
     200 + ``Page[DocumentVersionRead]``(본문·rollback 미제공).

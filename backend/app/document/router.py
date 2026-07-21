@@ -2,7 +2,7 @@
 
 문서 6개 엔드포인트(s01 카탈로그 행 18~23)를 노출한다: `POST/GET /workspaces/{id}/documents`,
 `GET/PATCH/DELETE /documents/{id}`, `POST /documents/{id}/move`. 조회·목록은
-`require_ws_role(VIEWER)`, 생성·수정·이동·삭제는 `require_ws_role(EDITOR)` 로 게이팅하고
+`require_ws_role(MEMBER)`, 생성·수정·이동·삭제는 `require_ws_role(MEMBER)` 로 게이팅하고
 (admin bypass), `/workspaces/{id}/*` 는 경로 id=workspace_id, `/documents/{id}` 는 문서→WS
 어댑터로 workspace_id 를 주입한다. DELETE 는 `DocumentStateEngine.trash_document` 를 호출한다.
 라우터는 스키마 검증·게이트·서비스/엔진 위임만 담당한다.
@@ -10,10 +10,10 @@
 게이트 결선(design.md §DocumentRouter 게이트):
 - `/workspaces/{workspace_id}/documents`(행 18·19): 경로 파라미터 이름을 `workspace_id` 로
   두어 s01 `require_ws_role` 의 내부 의존성(경로 `workspace_id: int` 요구)이 직접 바인딩되게
-  한다("경로 id=workspace_id"). 생성은 EDITOR, 목록은 VIEWER.
+  한다("경로 id=workspace_id"). 생성은 MEMBER, 목록은 MEMBER.
 - `/documents/{id}`(행 20·21·22·23): 문서 id → workspace_id 매핑 어댑터
   `ws_role_for_document`(task 1.3) 를 통해 s01 판정에 위임한다. 어댑터가 문서 부재 시 판정에
-  앞서 404 를 낸다. 조회는 VIEWER, 수정·이동·삭제는 EDITOR.
+  앞서 404 를 낸다. 조회는 MEMBER, 수정·이동·삭제는 MEMBER.
 
 위계 비교·admin bypass·403 판정은 전부 s01 resolver 소유이며(재구현 없음) 미인증(세션 없음·
 무효)은 `get_current_user` 가 401 을 산출한다. 스키마 형식 검증 실패는 pydantic 이 422 로 처리
@@ -96,12 +96,12 @@ def create_document(
     workspace_id: int,
     payload: DocumentCreate,
     db: Session = Depends(get_db),
-    ctx: AuthContext = Depends(require_ws_role(Role.EDITOR)),
+    ctx: AuthContext = Depends(require_ws_role(Role.MEMBER)),
     service: DocumentService = Depends(get_document_service),
 ) -> DocumentRead:
-    """루트/하위 문서를 생성한다 (Req 1.1·1.6·1.7·10.2, editor 이상).
+    """루트/하위 문서를 생성한다 (Req 1.1·1.6·1.7·10.2, member 이상).
 
-    `require_ws_role(EDITOR)` 로 게이트를 강제한다(위계 미달·비멤버 403, admin bypass, 미인증
+    `require_ws_role(MEMBER)` 로 게이트를 강제한다(위계 미달·비멤버 403, admin bypass, 미인증
     401 — 판정은 s01 소유). 경로 `workspace_id` 가 곧 대상 워크스페이스이며 게이트에 그대로
     바인딩된다. 게이트가 돌려준 컨텍스트(요청자)를 서비스에 넘겨 `created_by` 를 확정한다.
     부모 미존재→404·타 WS/비active 부모→409 는 서비스가, `title` 공백 등 스키마 검증 실패는
@@ -119,12 +119,12 @@ def list_documents(
     limit: int = Query(50, ge=1),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(require_ws_role(Role.VIEWER)),
+    _ctx: AuthContext = Depends(require_ws_role(Role.MEMBER)),
     service: DocumentService = Depends(get_document_service),
 ) -> Page[DocumentRead]:
-    """워크스페이스의 active 문서를 페이지네이션하여 조회한다 (Req 2.1·10.2, viewer 이상).
+    """워크스페이스의 active 문서를 페이지네이션하여 조회한다 (Req 2.1·10.2, member 이상).
 
-    `require_ws_role(VIEWER)` 로 게이트를 강제한다(403/401 판정은 s01 소유). `limit`(기본 50)·
+    `require_ws_role(MEMBER)` 로 게이트를 강제한다(403/401 판정은 s01 소유). `limit`(기본 50)·
     `offset`(기본 0) 쿼리 파라미터와 workspace_id 를 서비스로 전달한다. 성공 시 200 +
     ``Page[DocumentRead]``.
     """
@@ -135,12 +135,12 @@ def list_documents(
 def get_document(
     id: int,
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(ws_role_for_document(Role.VIEWER)),
+    _ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
     service: DocumentService = Depends(get_document_service),
 ) -> DocumentRead:
-    """문서 상세를 조회한다 — content·content_html 포함 (Req 2.1·2.4·2.6·10.3, viewer 이상).
+    """문서 상세를 조회한다 — content·content_html 포함 (Req 2.1·2.4·2.6·10.3, member 이상).
 
-    `ws_role_for_document(VIEWER)` 어댑터로 문서 id → workspace_id 를 매핑해 s01 판정에 위임
+    `ws_role_for_document(MEMBER)` 어댑터로 문서 id → workspace_id 를 매핑해 s01 판정에 위임
     한다(문서 부재 시 어댑터가 판정에 앞서 404). 성공 시 200 + :class:`DocumentRead`.
     """
     return service.get_document(db, id)
@@ -151,12 +151,12 @@ def update_document(
     id: int,
     changes: DocumentUpdate,
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(ws_role_for_document(Role.EDITOR)),
+    _ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
     service: DocumentService = Depends(get_document_service),
 ) -> DocumentRead:
-    """문서 제목을 부분 갱신한다 (Req 3.1·3.2·10.3, editor 이상).
+    """문서 제목을 부분 갱신한다 (Req 3.1·3.2·10.3, member 이상).
 
-    `ws_role_for_document(EDITOR)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
+    `ws_role_for_document(MEMBER)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
     s01 소유). 본문·버전 저장은 s09 에 위임하며 여기서는 title 메타데이터만 다룬다. `title`
     공백 등 스키마 검증 실패는 pydantic 이 422 로 처리한다. 성공 시 200 + :class:`DocumentRead`.
     """
@@ -168,12 +168,12 @@ def move_document(
     id: int,
     payload: DocumentMoveRequest,
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(ws_role_for_document(Role.EDITOR)),
+    _ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
     service: DocumentService = Depends(get_document_service),
 ) -> DocumentRead:
-    """문서를 새 부모 밑으로 옮기거나 형제 사이 순서를 재정렬한다 (Req 4.1·4.6·10.3, editor 이상).
+    """문서를 새 부모 밑으로 옮기거나 형제 사이 순서를 재정렬한다 (Req 4.1·4.6·10.3, member 이상).
 
-    `ws_role_for_document(EDITOR)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
+    `ws_role_for_document(MEMBER)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
     s01 소유). 비active 대상·순환·타 WS 부모→409, 잘못된 형제 참조→422 는 서비스가 처리한다.
     성공 시 200 + :class:`DocumentRead`.
     """
@@ -184,13 +184,13 @@ def move_document(
 def delete_document(
     id: int,
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(ws_role_for_document(Role.EDITOR)),
+    _ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
     engine: DocumentStateEngine = Depends(get_state_engine),
     repository: DocumentRepository = Depends(get_document_repository),
 ) -> None:
-    """문서를 그 시점 active 하위와 함께 trashed 로 캐스케이드한다 (Req 5.1·5.2·5.6·10.3·10.5, editor 이상).
+    """문서를 그 시점 active 하위와 함께 trashed 로 캐스케이드한다 (Req 5.1·5.2·5.6·10.3·10.5, member 이상).
 
-    `ws_role_for_document(EDITOR)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
+    `ws_role_for_document(MEMBER)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
     s01 소유). 삭제는 서비스가 아니라 **엔진**에 위임한다: 저장소로 대상 `Document` 를 로드해
     (방어적으로 없으면 404) `DocumentStateEngine.trash_document` 를 호출한다 — 대상이 active 가
     아니면 엔진이 409 를 raise 한다(비active 삭제 금지). 성공 시 본문 없이 204 로 응답한다.

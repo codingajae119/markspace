@@ -6,7 +6,7 @@
 :class:`MembershipService` 에 위임한다(design.md §Dependency Direction).
 
 게이트(design.md §WorkspaceRouter 게이트):
-- 생성·목록은 인증만(`Depends(get_current_user)`), 상세는 `require_ws_role(VIEWER)`,
+- 생성·목록은 인증만(`Depends(get_current_user)`), 상세는 `require_ws_role(MEMBER)`,
   수정·삭제·멤버 관리는 `require_ws_role(OWNER)` 를 **부착만** 한다. 위계 비교·admin bypass·
   403 판정은 전부 s01 resolver 소유이며(s05 재구현 없음), 미인증(세션 없음·무효)은
   `get_current_user` 가 401 을 산출한다.
@@ -99,12 +99,12 @@ def list_workspaces(
 def get_workspace(
     id: int,
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(require_ws_role(Role.VIEWER)),
+    _ctx: AuthContext = Depends(require_ws_role(Role.MEMBER)),
     service: WorkspaceService = Depends(get_workspace_service),
 ) -> WorkspaceRead:
-    """워크스페이스 상세를 조회한다 (Req 1.5·4.3, viewer 이상).
+    """워크스페이스 상세를 조회한다 (Req 1.5·4.3, member 이상).
 
-    `require_ws_role(VIEWER)` 로 게이트를 강제한다(위계 미달·비멤버 403, admin bypass, 미인증
+    `require_ws_role(MEMBER)` 로 게이트를 강제한다(위계 미달·비멤버 403, admin bypass, 미인증
     401 — 판정은 s01 소유). 대상 미존재는 서비스가 404 로 처리한다. 성공 시 200 +
     :class:`WorkspaceRead`.
     """

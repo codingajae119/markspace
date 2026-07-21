@@ -9,7 +9,7 @@
   - _Requirements: 1.3, 1.4, 5.5_
   - _Boundary: workspace/schemas_
 
-- [ ] 1.2 role 위계 2단계 재번호 및 전체 게이트 심볼 통일(원자적 리네임)
+- [x] 1.2 role 위계 2단계 재번호 및 전체 게이트 심볼 통일(원자적 리네임)
   - 워크스페이스 role 위계를 owner > member 2단계로 재번호(viewer/editor 심볼 삭제, editor를 member로 리네임, 하위 호환 alias 없음, 최종 수치 member=1·owner=2)하고 role 문자열→위계 매핑을 owner/member로 재정의
   - admin은 role·멤버십과 무관하게 항상 통과하는 판정(INV-3)을 그대로 유지
   - 편집·휴지통 게이트(문서 생성·이름변경·이동·휴지통이동, 잠금 획득·저장·취소, 첨부 업로드, 공유 발급·토글, 휴지통 목록·복원·완전삭제)의 최소 요구 role을 editor에서 member로 통일

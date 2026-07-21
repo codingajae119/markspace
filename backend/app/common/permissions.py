@@ -2,7 +2,7 @@
 
 design.md §Common/Permissions #PermissionResolver 계약을 구현한다. 권한은
 **워크스페이스 단위로만** 판정하며(INV-1, 문서별 개별 권한 없음), role 위계는
-owner ≥ editor ≥ viewer 이다(:class:`Role` IntEnum 비교). 요청자가 admin 이면
+owner ≥ member 2단계이다(:class:`Role` IntEnum 비교). 요청자가 admin 이면
 멤버십·role 과 무관하게 항상 통과한다(INV-3 admin bypass).
 
 권한 검사 단일화(steering config/permission-singularity): admin 전용 게이트
@@ -27,24 +27,24 @@ from app.models import WorkspaceMember
 
 
 class Role(IntEnum):
-    """워크스페이스 role 위계 비교용 (Req 5.2·5.6).
+    """워크스페이스 role 위계 비교용 (Req 1.1·1.2).
 
-    정수 순서가 곧 권한 포함 관계다: OWNER(3) ≥ EDITOR(2) ≥ VIEWER(1).
-    읽기 전용 작업은 최소 요구 role 을 ``VIEWER`` 로 표현한다(Req 5.4).
+    정수 순서가 곧 권한 포함 관계다: OWNER(2) ≥ MEMBER(1). owner 는 member 의
+    모든 권한을 포함한다. 편집·읽기 작업은 최소 요구 role 을 ``MEMBER`` 로,
+    관리 작업은 ``OWNER`` 로 표현한다. VIEWER/EDITOR 는 삭제되었으며 하위 호환
+    alias 는 두지 않는다.
     """
 
-    VIEWER = 1
-    EDITOR = 2
-    OWNER = 3
+    MEMBER = 1
+    OWNER = 2
 
 
-# WorkspaceMember.role 은 ENUM('owner','editor','viewer') 컬럼으로 Python str 을
-# 돌려준다. 위계 비교가 가능한 Role 로 매핑한다. 미정의/None 은 매핑에서 제외되어
+# WorkspaceMember.role 은 ENUM('owner','member') 컬럼으로 Python str 을 돌려준다.
+# 위계 비교가 가능한 Role 로 매핑한다. 미정의/None 은 매핑에서 제외되어
 # resolve() 가 None 을 돌려준다(멤버 아님과 동일 취급).
 _ROLE_MAP: dict[str, Role] = {
     "owner": Role.OWNER,
-    "editor": Role.EDITOR,
-    "viewer": Role.VIEWER,
+    "member": Role.MEMBER,
 }
 
 
@@ -77,7 +77,7 @@ class WorkspaceRoleResolver:
         """요구 최소 role 충족 여부. admin 이면 조회 없이 항상 True (INV-3).
 
         비-admin 은 :meth:`resolve` 결과가 존재하고 ``role >= minimum`` 일 때만
-        True (owner ≥ editor ≥ viewer 위계, Req 5.2·5.4·5.6).
+        True (owner ≥ member 위계, Req 5.2·5.4·5.6).
         """
         if ctx.is_admin:
             return True
@@ -88,7 +88,7 @@ class WorkspaceRoleResolver:
 def require_ws_role(minimum: Role) -> Callable[..., AuthContext]:
     """요구 최소 role 을 강제하는 FastAPI 의존성 팩토리 (Req 5.7).
 
-    사용법(하위 spec): ``current = Depends(require_ws_role(Role.EDITOR))``.
+    사용법(하위 spec): ``current = Depends(require_ws_role(Role.MEMBER))``.
 
     반환되는 의존성은 경로 파라미터 ``workspace_id: int`` 와 현재 사용자·DB 세션을
     주입받아 :meth:`WorkspaceRoleResolver.has_at_least` 로 판정한다. 충족하면

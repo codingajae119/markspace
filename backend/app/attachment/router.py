@@ -1,19 +1,19 @@
 """첨부 라우터 — `AttachmentRouter` (design.md §Components and Interfaces #AttachmentRouter).
 
 첨부 2개 엔드포인트(s01 카탈로그 행 32~33)를 노출한다: `POST /documents/{id}/attachments`
-(업로드), `GET /attachments/{id}`(조회 서빙). 업로드는 editor 이상, 조회는 viewer 이상으로
+(업로드), `GET /attachments/{id}`(조회 서빙). 업로드는 member 이상, 조회는 member 이상으로
 게이팅한다. 라우터는 multipart 수신·content-type 기반 kind 추론·게이트 결선·서비스 위임·
 상태코드/스트리밍 매핑만 담당한다 — 로직은 서비스, 파일 I/O 는 스토리지, 판정은 s01 resolver,
 문서/첨부 → WS 매핑은 어댑터에 위임한다(상태 전이·버전 생성·권한 위계 재구현 없음).
 
 게이트 결선(design.md §AttachmentRouter 게이트, 두 System Flows):
 - `POST /documents/{id}/attachments`(행 32): s07 문서→WS 어댑터
-  `ws_role_for_document(EDITOR)` 로 경로 문서 id → workspace_id 를 매핑해 s01 판정에 위임한다.
+  `ws_role_for_document(MEMBER)` 로 경로 문서 id → workspace_id 를 매핑해 s01 판정에 위임한다.
   경로 파라미터 이름이 `id`(문서 id)여야 어댑터가 바인딩하며, 문서 부재 시 어댑터가 판정에
-  앞서 404 를 낸다(viewer/비멤버 403, admin bypass). kind 미지정 시 업로드 content-type 으로
+  앞서 404 를 낸다(비멤버 403, admin bypass). kind 미지정 시 업로드 content-type 으로
   image/file 을 추론한다(붙여넣기=image 경로 포함, task 2.1 에서 이연된 추론이 여기 산다).
-- `GET /attachments/{id}`(행 33): s12 첨부→WS 어댑터 `ws_role_for_attachment(VIEWER)` 로 경로
-  첨부 id → workspace_id 를 매핑해 s01 판정에 위임한다(첨부 부재→404, viewer 미만·비멤버 403,
+- `GET /attachments/{id}`(행 33): s12 첨부→WS 어댑터 `ws_role_for_attachment(MEMBER)` 로 경로
+  첨부 id → workspace_id 를 매핑해 s01 판정에 위임한다(첨부 부재→404, 비멤버 403,
   admin bypass). 보관 첨부의 role 무관 404 는 서비스가 권한 판정 이전에 처리하므로(8.10)
   라우터는 별도 보관 처리를 두지 않는다. 성공 시 `StreamingResponse`(바이너리).
 
@@ -94,13 +94,13 @@ def upload_attachment(
     file: UploadFile = File(...),
     kind: AttachmentKind | None = Form(None),
     db: Session = Depends(get_db),
-    ctx: AuthContext = Depends(ws_role_for_document(Role.EDITOR)),
+    ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
     service: AttachmentService = Depends(get_attachment_service),
 ) -> AttachmentRead:
-    """문서에 이미지(붙여넣기)·파일 첨부를 업로드한다 (Req 1.1·1.5·2.1·2.3·2.4·3.5, editor 이상).
+    """문서에 이미지(붙여넣기)·파일 첨부를 업로드한다 (Req 1.1·1.5·2.1·2.3·2.4·3.5, member 이상).
 
-    s07 문서→WS 어댑터(`ws_role_for_document(EDITOR)`)로 경로 문서 id → workspace_id 를 매핑해
-    게이트를 강제한다(문서 부재→404, viewer/비멤버→403, admin bypass, 미인증→401 — 판정은 s01
+    s07 문서→WS 어댑터(`ws_role_for_document(MEMBER)`)로 경로 문서 id → workspace_id 를 매핑해
+    게이트를 강제한다(문서 부재→404, 비멤버→403, admin bypass, 미인증→401 — 판정은 s01
     소유). multipart 로 파일 바이너리(`file`)와 선택 `kind` 를 수신하고, `kind` 미지정 시
     업로드 content-type 으로 image/file 을 추론한다(`_resolve_kind`, task 2.1 이연분). 소속
     workspace_id 확정·크기 한도(초과→422)·파일 저장·레코드 생성·url 산정은 서비스에 위임한다.
@@ -122,13 +122,13 @@ def upload_attachment(
 def serve_attachment(
     id: int,
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(ws_role_for_attachment(Role.VIEWER)),
+    _ctx: AuthContext = Depends(ws_role_for_attachment(Role.MEMBER)),
     service: AttachmentService = Depends(get_attachment_service),
 ) -> StreamingResponse:
-    """첨부 바이너리를 스트리밍한다 — 보관 첨부는 role 무관 404 (Req 3.3·3.4·3.6·6.2·6.3, viewer 이상).
+    """첨부 바이너리를 스트리밍한다 — 보관 첨부는 role 무관 404 (Req 3.3·3.4·3.6·6.2·6.3, member 이상).
 
-    s12 첨부→WS 어댑터(`ws_role_for_attachment(VIEWER)`)로 경로 첨부 id → workspace_id 를 매핑해
-    게이트를 강제한다(첨부 부재→404, viewer 미만·비멤버→403, admin bypass, 미인증→401 — 판정은
+    s12 첨부→WS 어댑터(`ws_role_for_attachment(MEMBER)`)로 경로 첨부 id → workspace_id 를 매핑해
+    게이트를 강제한다(첨부 부재→404, 비멤버→403, admin bypass, 미인증→401 — 판정은
     s01 소유). 보관(`is_archived`) 첨부는 **서비스가** 권한 판정 이전에 role 무관 404 로 차단하므로
     (admin 포함, 8.10) 라우터는 별도 보관 처리를 두지 않는다. 서비스가 돌려준 바이너리 값 객체로
     `StreamingResponse` 를 구성해 스트리밍한다(원본명 기반 content-type, 선택적 Content-Disposition).

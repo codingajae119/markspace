@@ -2,16 +2,16 @@
 
 공유 4개 엔드포인트(s01 카탈로그 행 34~37)를 노출한다: `POST /documents/{id}/share`
 (발급/재발급), `PATCH /documents/{id}/share`(토글), `GET /public/{token}`(공개 렌더),
-`GET /public/{token}/attachments/{aid}`(링크 경유 첨부 서빙). 발급·토글은 editor 이상으로
+`GET /public/{token}/attachments/{aid}`(링크 경유 첨부 서빙). 발급·토글은 member 이상으로
 게이팅하고, 공개 렌더·첨부 서빙은 인증·권한 게이트 없이(공개) 노출한다. 라우터는 게이트 결선·
 서비스 위임·상태코드/스트리밍 매핑만 담당한다 — 상태 전이·게이트 설정·첨부 저장은 서비스,
 판정은 s01 resolver, 문서 → WS 매핑은 s07 어댑터에 위임한다(재구현 없음).
 
 게이트 결선(design.md §SharingRouter 게이트):
 - `POST /documents/{id}/share`(행 34)·`PATCH /documents/{id}/share`(행 35): s07 문서→WS 어댑터
-  `ws_role_for_document(EDITOR)` 로 경로 문서 id → workspace_id 를 매핑해 s01 판정에 위임한다.
+  `ws_role_for_document(MEMBER)` 로 경로 문서 id → workspace_id 를 매핑해 s01 판정에 위임한다.
   경로 파라미터 이름이 `id`(문서 id)여야 어댑터가 바인딩하며, 문서 부재 시 어댑터가 판정에
-  앞서 404 를 낸다(viewer/비멤버 403, admin bypass, 미인증 401). 게이트 off·비active 는
+  앞서 404 를 낸다(비멤버 403, admin bypass, 미인증 401). 게이트 off·비active 는
   서비스가 409 로 표면화한다(발급 불가/활성화 불가).
 - `GET /public/{token}`(행 36)·`GET /public/{token}/attachments/{aid}`(행 37): **인증·권한
   게이트가 없다(공개)**. 접근 범위는 `PublicShareService` 가 토큰·게이트·문서 status·워크스페이스
@@ -78,13 +78,13 @@ def get_public_share_service() -> PublicShareService:
 def issue_share_link(
     id: int,
     db: Session = Depends(get_db),
-    ctx: AuthContext = Depends(ws_role_for_document(Role.EDITOR)),
+    ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
     service: ShareLinkService = Depends(get_share_link_service),
 ) -> ShareLinkRead:
-    """문서 공유 링크를 발급/재발급한다 (Req 2.1·2.2·7.2·7.3, editor 이상).
+    """문서 공유 링크를 발급/재발급한다 (Req 2.1·2.2·7.2·7.3, member 이상).
 
-    s07 문서→WS 어댑터(`ws_role_for_document(EDITOR)`)로 경로 문서 id → workspace_id 를 매핑해
-    게이트를 강제한다(문서 부재→404, viewer/비멤버→403, admin bypass, 미인증→401 — 판정은 s01
+    s07 문서→WS 어댑터(`ws_role_for_document(MEMBER)`)로 경로 문서 id → workspace_id 를 매핑해
+    게이트를 강제한다(문서 부재→404, 비멤버→403, admin bypass, 미인증→401 — 판정은 s01
     소유). 게이트 통과 후 `ShareLinkService.issue_link` 에 위임한다: 게이트 off·비active 문서는
     서비스가 409 로 거부하고, 통과 시 항상 **새 토큰의 활성 링크**를 발급/재발급한다(INV-8).
     문서당 링크는 최대 1개이므로 발급/재발급을 upsert 로 통일하기 위해 200 OK 를 쓴다(순수
@@ -98,13 +98,13 @@ def toggle_share_link(
     id: int,
     payload: ShareLinkUpdate,
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(ws_role_for_document(Role.EDITOR)),
+    _ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
     service: ShareLinkService = Depends(get_share_link_service),
 ) -> ShareLinkRead:
-    """문서 공유 링크 상태를 토글한다 — 토큰 유지 (Req 4.1·7.2·7.3, editor 이상).
+    """문서 공유 링크 상태를 토글한다 — 토큰 유지 (Req 4.1·7.2·7.3, member 이상).
 
-    발급과 동일한 s07 문서→WS 어댑터(`ws_role_for_document(EDITOR)`) 게이트를 강제한다(문서
-    부재→404, viewer/비멤버→403, admin bypass, 미인증→401). 게이트 통과 후 `ShareLinkService.
+    발급과 동일한 s07 문서→WS 어댑터(`ws_role_for_document(MEMBER)`) 게이트를 강제한다(문서
+    부재→404, 비멤버→403, admin bypass, 미인증→401). 게이트 통과 후 `ShareLinkService.
     toggle_link` 에 위임한다: 비활성화는 항상 허용, 활성화는 게이트 on·문서 active 일 때만
     허용하며(아니면 409) **토큰을 유지**한다(재발급 통일 원칙의 유일한 상태 기반 예외, INV-8).
     링크 부재는 서비스가 404 로 거부한다. 성공 시 :class:`ShareLinkRead`(200).
