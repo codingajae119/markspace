@@ -62,7 +62,7 @@
 
 ## 4. 통합·회귀·E2E 검증
 
-- [ ] 4.1 (P) 백엔드 목록 응답 통합 및 L2 계약 검증
+- [x] 4.1 (P) 백엔드 목록 응답 통합 및 L2 계약 검증
   - `GET /workspaces`(비-admin): 응답 각 item 에 role 존재 + 기존 필드 무변경(superset) + 단일 응답으로 제공됨을 검증한다.
   - `GET /workspaces`(admin): 멤버 WS 는 role, 비멤버 WS 는 role null/미포함이며 admin 상승이 없음을 검증한다.
   - L2 `test_workspace_contract_conformance`(WorkspaceRead superset 필드·workspace/workspace_member exact-set 컬럼·단일 마이그레이션 리비전)가 유지 통과함을 확인한다.
