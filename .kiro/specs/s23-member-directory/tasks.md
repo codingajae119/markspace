@@ -62,7 +62,7 @@
   - _Requirements: 3.1_
   - _Boundary: assignableUserApi, workspace/api/types_
 
-- [ ] 3.2 배정 가능 조회 훅 추가
+- [x] 3.2 배정 가능 조회 훅 추가
   - `features/workspace/hooks/useAssignableUsers.ts` 신규: `status(loading|ready|error)`·`users`·`total`·`error` 상태 + `reload()`. `useVersionHistory` 형태 미러(마운트 fetch·인-플라이트 가드·`mountedRef` 언마운트 가드·`toApiError` 정규화).
   - `workspaceId === null` 이면 fetch 금지(안정 초기값). 조회 실패는 `error` 에 저장하고 `status="error"`.
   - 관찰 가능한 완료: 마운트 시 첫 페이지를 fetch 해 `status="ready"`+`users`/`total` 노출, 실패 시 `status="error"`+`error` 노출, `reload()` 호출이 재-fetch 를 트리거.
