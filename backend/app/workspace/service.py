@@ -254,10 +254,13 @@ class MembershipService:
     def change_role(
         self, db: Session, workspace_id: int, user_id: int, payload: MemberUpdate
     ) -> MemberRead:
-        """멤버의 role 을 갱신한다 (Req 3.5·3.9).
+        """멤버의 role 을 갱신한다 (Req 3.5).
 
-        대상 멤버십이 없으면 404 로 거부한다. 유일/마지막 owner 를 강등해도 하한 가드 없이
-        허용한다(Req 3.9) — owner 소실은 editor·viewer 판정에 영향을 주지 않는다.
+        대상 멤버십이 없으면 404 로 거부한다. **단독 owner 보호**: 대상이 현재 owner 이고
+        갱신 후 role 이 owner 가 아니며(member 로 강등) 해당 워크스페이스의 owner 가 그 한 명
+        뿐이면, 워크스페이스가 owner 없는 상태가 되므로 409 로 거부하고 아무것도 영속하지
+        않는다. owner 를 owner 로 재설정하거나(무변화) member 를 대상으로 하는 경우, 또는 다른
+        owner 가 남아 있는 경우에는 정상 갱신한다.
         """
         member = self._member_repo.get(db, workspace_id, user_id)
         if member is None:
@@ -266,14 +269,26 @@ class MembershipService:
                 message="Membership not found",
                 http_status=404,
             )
+        if (
+            member.role == MemberRole.OWNER.value
+            and payload.role is not MemberRole.OWNER
+            and self._member_repo.count_owners(db, workspace_id) <= 1
+        ):
+            raise DomainError(
+                code=ErrorCode.CONFLICT,
+                message="Cannot demote the sole owner of a workspace",
+                http_status=409,
+            )
         updated = self._member_repo.set_role(db, member, payload.role.value)
         return MemberRead.model_validate(updated)
 
     def remove_member(self, db: Session, workspace_id: int, user_id: int) -> None:
-        """멤버십을 물리적으로 제거한다 (Req 3.6·3.9).
+        """멤버십을 물리적으로 제거한다 (Req 3.6).
 
-        대상 멤버십이 없으면 404 로 거부한다. 유일/마지막 owner 제거도 하한 가드 없이
-        허용한다(Req 3.9).
+        대상 멤버십이 없으면 404 로 거부한다. **단독 owner 보호**: 대상이 현재 owner 이고
+        해당 워크스페이스의 owner 가 그 한 명뿐이면, 제거 시 워크스페이스가 owner 없는 상태가
+        되므로 409 로 거부하고 아무것도 제거하지 않는다. 다른 owner 가 남아 있거나 대상이
+        member 인 경우에는 정상 제거한다.
         """
         member = self._member_repo.get(db, workspace_id, user_id)
         if member is None:
@@ -281,6 +296,15 @@ class MembershipService:
                 code=ErrorCode.NOT_FOUND,
                 message="Membership not found",
                 http_status=404,
+            )
+        if (
+            member.role == MemberRole.OWNER.value
+            and self._member_repo.count_owners(db, workspace_id) <= 1
+        ):
+            raise DomainError(
+                code=ErrorCode.CONFLICT,
+                message="Cannot remove the sole owner of a workspace",
+                http_status=409,
             )
         self._member_repo.remove(db, member)
 

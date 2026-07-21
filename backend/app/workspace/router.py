@@ -224,8 +224,8 @@ def change_role(
     """멤버의 role 을 갱신한다 (Req 3.5·4.4, owner 전용).
 
     `require_ws_role(OWNER)` 로 게이트를 강제한다(403/401 판정은 s01 소유). 대상 멤버십 미존재는
-    서비스가 404, 잘못된 role 문자열은 pydantic 이 422 로 처리한다. 성공 시 200 +
-    :class:`MemberRead`.
+    서비스가 404, 단독 owner 를 member 로 강등하려는 요청은 서비스가 409, 잘못된 role 문자열은
+    pydantic 이 422 로 처리한다. 성공 시 200 + :class:`MemberRead`.
     """
     return service.change_role(db, id, uid, changes)
 
@@ -243,6 +243,7 @@ def remove_member(
     """멤버십을 제거한다 (Req 3.4·4.4, owner 전용).
 
     `require_ws_role(OWNER)` 로 게이트를 강제한다(403/401 판정은 s01 소유). 대상 멤버십 미존재는
-    서비스가 404 로 처리한다. 성공 시 본문 없이 204 로 응답한다.
+    서비스가 404, 단독 owner 를 제거하려는 요청은 서비스가 409 로 처리한다. 성공 시 본문 없이
+    204 로 응답한다.
     """
     service.remove_member(db, id, uid)

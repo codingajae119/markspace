@@ -188,6 +188,25 @@ class MembershipRepository:
             )
         )
 
+    def count_owners(self, db: Session, workspace_id: int) -> int:
+        """워크스페이스의 owner role 멤버 수를 반환한다(단독 owner 보호 판정용).
+
+        서비스가 "단독 owner 인 워크스페이스에서 그 owner 를 강등·제거하려는" 요청을 거부
+        (409)하기 위해 소비한다. `workspace_member.role == 'owner'` 행 개수만 집계하며 role
+        위계·bypass 판정은 하지 않는다(resolver 의 책임). 존재하지 않는 워크스페이스면 0 이다.
+        """
+        return (
+            db.scalar(
+                select(func.count())
+                .select_from(WorkspaceMember)
+                .where(
+                    WorkspaceMember.workspace_id == workspace_id,
+                    WorkspaceMember.role == "owner",
+                )
+            )
+            or 0
+        )
+
     def get_role(
         self, db: Session, workspace_id: int, user_id: int
     ) -> str | None:

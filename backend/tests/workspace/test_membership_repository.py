@@ -198,6 +198,59 @@ def test_get_role_returns_registered_role_string(sessionmaker_factory):
         verify.close()
 
 
+# --- count_owners --------------------------------------------------------
+
+
+def test_count_owners_counts_only_owner_role_members(sessionmaker_factory):
+    """count_owners 는 owner role 멤버만 집계한다(member 는 세지 않음, 단독 owner 보호)."""
+    seed = sessionmaker_factory()
+    try:
+        owner1 = _make_user(seed, login_id="owner1")
+        owner2 = _make_user(seed, login_id="owner2")
+        plain = _make_user(seed, login_id="plain")
+        ws = _make_workspace(seed, name="ws-count")
+        seed.commit()
+        ws_id = ws.id
+        o1, o2, p = owner1.id, owner2.id, plain.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        repo = MembershipRepository()
+        repo.add(session, workspace_id=ws_id, user_id=o1, role="owner")
+        repo.add(session, workspace_id=ws_id, user_id=o2, role="owner")
+        repo.add(session, workspace_id=ws_id, user_id=p, role="member")
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        repo = MembershipRepository()
+        assert repo.count_owners(verify, ws_id) == 2
+    finally:
+        verify.close()
+
+
+def test_count_owners_returns_zero_for_workspace_without_owners(sessionmaker_factory):
+    """count_owners 는 owner 가 없는(또는 존재하지 않는) 워크스페이스에 대해 0 을 반환한다."""
+    seed = sessionmaker_factory()
+    try:
+        ws = _make_workspace(seed, name="ws-noowner")
+        seed.commit()
+        ws_id = ws.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        repo = MembershipRepository()
+        assert repo.count_owners(session, ws_id) == 0
+        assert repo.count_owners(session, 999999) == 0
+    finally:
+        session.close()
+
+
 # --- uniqueness ----------------------------------------------------------
 
 

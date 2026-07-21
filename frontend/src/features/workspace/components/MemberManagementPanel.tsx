@@ -38,6 +38,13 @@
  * 조달한다. 컴포넌트는 role 문자열을 직접 비교하지 않으며(Req 7.1), owner 위계·admin override 판정은
  * 전적으로 `RequireRole`/`hasWorkspaceRole` 단일 소스에 있다(Req 7.3·7.4, INV-1·2·3).
  *
+ * ## 단독 owner 보호 (하드 불변식)
+ * 워크스페이스는 항상 최소 1명의 owner 를 유지해야 하므로, owner 가 한 명뿐이면 그 owner 는 member 로
+ * 강등하거나 제거할 수 없다(서버가 409 로 강제하는 하드 불변식, owner/admin 구분 없음). 표시원인 서버
+ * 로스터에서 owner 수를 세어 "단독 owner" 행을 판정하고, 그 행의 role 변경(`RoleSelect`)·제거 버튼을
+ * 비활성화해 애초에 시도할 수 없게 한다(막다른 상호작용 제거, 추가 폼 은닉과 동일 철학). owner 재지정이
+ * 필요하면 admin 이 소유권 변경(`AdminOwnerChangePanel`)으로 co-owner 를 먼저 승격해야 한다.
+ *
  * ## 클라이언트 게이팅은 보안 경계가 아님 (Req 7.5)
  * UI 를 owner 로 게이팅했더라도 서버가 반환한 403 등 **뮤테이션** 오류는 항상 s16 `ErrorMessage` 로
  * 표시한다(`useMemberActions().error`). 게이팅으로 숨겼다는 이유로 오류를 억제하지 않는다.
@@ -114,6 +121,13 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
   // 멤버 표시 라벨 — 로스터 name 사용(캡처 우회 없음, Req 3.7).
   const memberLabel = (row: MemberRosterRow): string => `${row.user_id} ${row.name}`;
 
+  // 단독 owner 보호: 워크스페이스에 owner 가 한 명뿐이면 그 owner 는 member 로 강등하거나 제거할 수
+  // 없다(서버가 409 로 강제하는 하드 불변식). 표시원인 서버 로스터에서 owner 수를 세어 판정하고,
+  // 해당 행의 role 변경·제거 컨트롤을 비활성화해 애초에 시도할 수 없게 한다(막다른 상호작용 제거).
+  const ownerCount =
+    roster.status === "ready" ? roster.members.filter((row) => row.role === "owner").length : 0;
+  const isSoleOwner = (row: MemberRosterRow): boolean => row.role === "owner" && ownerCount === 1;
+
   // 배정 가능 사용자가 확정적으로 0명(조회 성공·빈 목록)이면 추가 UI 자체를 노출하지 않는다.
   // 비활성 버튼 + "배정 가능한 사용자가 없습니다" 를 남기는 대신 폼 전체를 숨겨 막다른 UI 를 제거한다.
   const hasNoAssignableUsers = assignable.status === "ready" && assignable.users.length === 0;
@@ -181,30 +195,39 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
         <p className="text-sm text-slate-500">이 워크스페이스에 멤버가 없습니다.</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {roster.members.map((row) => (
-            <li
-              key={row.user_id}
-              className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 px-3 py-2"
-            >
-              <span className="text-sm text-slate-800">{memberLabel(row)}</span>
-              <RoleSelect
-                id={`member-role-${row.user_id}`}
-                label={`${memberLabel(row)} 역할`}
-                srOnlyLabel
-                value={row.role}
-                onChange={(next) => void handleChangeRole(row.user_id, next)}
-                disabled={pending}
-              />
-              <Button
-                variant="secondary"
-                aria-label={`${memberLabel(row)} 제거`}
-                disabled={pending}
-                onClick={() => void handleRemove(row.user_id)}
+          {roster.members.map((row) => {
+            // 단독 owner 는 강등·제거 불가(하드 불변식). 두 컨트롤을 비활성화하고 사유를 표기한다.
+            const soleOwner = isSoleOwner(row);
+            return (
+              <li
+                key={row.user_id}
+                className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 px-3 py-2"
               >
-                제거
-              </Button>
-            </li>
-          ))}
+                <span className="text-sm text-slate-800">{memberLabel(row)}</span>
+                <RoleSelect
+                  id={`member-role-${row.user_id}`}
+                  label={`${memberLabel(row)} 역할`}
+                  srOnlyLabel
+                  value={row.role}
+                  onChange={(next) => void handleChangeRole(row.user_id, next)}
+                  disabled={pending || soleOwner}
+                />
+                <Button
+                  variant="secondary"
+                  aria-label={`${memberLabel(row)} 제거`}
+                  disabled={pending || soleOwner}
+                  onClick={() => void handleRemove(row.user_id)}
+                >
+                  제거
+                </Button>
+                {soleOwner ? (
+                  <span className="text-xs text-slate-500">
+                    단독 owner 는 강등하거나 제거할 수 없습니다.
+                  </span>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>
