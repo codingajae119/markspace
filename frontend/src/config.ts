@@ -8,8 +8,13 @@
  * 모든 환경 값은 단일 Vite env 소스(`import.meta.env.VITE_*`)에서만 읽는다.
  */
 
-/** `.env` 없이도 부팅되도록 하는 유일한 base URL 기본값(단일 지점). */
-const DEFAULT_API_BASE_URL = "http://localhost:8000";
+/**
+ * `.env` 없이도 부팅되도록 하는 유일한 base URL 기본값(단일 지점).
+ * 백엔드는 모든 API 를 버전 네임스페이스(`/api/1.0`) 하위에 마운트하므로 base URL 에
+ * 그 prefix 를 포함한다(feature 호출부는 `/auth/login` 등 논리 경로만 넘기고, 이 base 가
+ * origin+prefix 를 책임진다). dev 는 `.env.development` 가 same-origin 상대경로로 덮어쓴다.
+ */
+const DEFAULT_API_BASE_URL = "http://localhost:8000/api/1.0";
 
 function resolveApiBaseUrl(): string {
   const fromEnv = import.meta.env.VITE_API_BASE_URL;

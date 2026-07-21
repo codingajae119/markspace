@@ -21,6 +21,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import type { ReactElement } from "react";
 
+import { apiConfig } from "@/config";
 import { SessionProvider } from "@/app/session/SessionProvider";
 import { useSession } from "@/app/session/useSession";
 import { ROUTES } from "@/app/routes";
@@ -44,11 +45,20 @@ const AUTH_USER = {
 /** `/me/settings` → UserSettings 형태. */
 const SETTINGS = { autosave_enabled: true } as const;
 
-/** apiClient 는 `fetch(buildUrl(path), ...)` 로 호출한다. base URL 을 떼고 pathname 만 뽑는다. */
+/**
+ * base URL 의 경로 부분(예: `/api/1.0`) — 백엔드가 모든 API 를 마운트한 버전 전송 prefix.
+ * apiClient 가 요청 앞에 붙이므로, 테스트 라우팅은 이를 벗긴 **논리 경로**로 대조한다.
+ */
+const API_BASE_PATH = new URL(apiConfig.baseUrl, "http://localhost").pathname.replace(/\/+$/, "");
+
+/** apiClient 는 `fetch(buildUrl(path), ...)` 로 호출한다. base URL(origin+prefix)을 떼고 논리 경로만 뽑는다. */
 function pathOf(input: RequestInfo | URL): string {
   const raw =
     typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-  return new URL(raw, "http://localhost").pathname;
+  const pathname = new URL(raw, "http://localhost").pathname;
+  return API_BASE_PATH && pathname.startsWith(API_BASE_PATH)
+    ? pathname.slice(API_BASE_PATH.length)
+    : pathname;
 }
 
 /** 요청 메서드(2번째 fetch 인자). 기본 GET. */

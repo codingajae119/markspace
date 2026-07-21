@@ -11,14 +11,17 @@ s01 ``create_app()`` 의 feature 라우터 조립 지점에 s02 auth 라우터�
 from app.main import create_app
 
 
+from tests.support import logical_openapi_paths
+
+
 def test_auth_routes_registered_at_assembly_point() -> None:
     app = create_app()
-    paths = app.openapi()["paths"]
+    paths = logical_openapi_paths(app)
     for path in ("/auth/login", "/auth/logout", "/auth/me", "/auth/password"):
         assert path in paths, f"{path} 가 OpenAPI paths 에 없음"
 
 
 def test_health_route_still_present() -> None:
     app = create_app()
-    paths = app.openapi()["paths"]
+    paths = logical_openapi_paths(app)
     assert "/health" in paths

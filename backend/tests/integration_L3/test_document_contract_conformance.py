@@ -164,6 +164,9 @@ S01_DOCUMENT_READ_FIELDS = S01_TIMESTAMPED_READ_FIELDS | {
 MISSING_DOCUMENT_ID = 999_999_999
 
 
+from tests.support import logical_openapi_paths
+
+
 def _title(prefix: str) -> str:
     """공유 ``notion_lite_test`` DB 충돌을 피하는 고유 문서 제목을 만든다."""
     return f"{prefix}-{uuid4().hex[:12]}"
@@ -501,7 +504,7 @@ def test_openapi_exposes_document_catalog_rows_18_to_23(harness):
     `{workspace_id}`/`{id}` 를 씀)은 계약 요소가 아니므로 `_normalize_path` 로 정규화해 구조로
     대조한다. 문서 CRUD·이동·삭제 표면이 s01 카탈로그 18~23 과 정합함을 보증한다.
     """
-    paths = harness.app.openapi()["paths"]
+    paths = logical_openapi_paths(harness.app)
     observed = {
         (_normalize_path(path), method.lower())
         for path, methods in paths.items()
@@ -756,7 +759,7 @@ def test_router_exposes_only_active_to_trashed_transition_no_restore(harness):
     성립함을 보증한다. (묶음 단위 휴지통 복구·완전삭제(행 29~31)는 s10 이 정당하게 소유하며 deleted
     에서 되돌리는 경로가 아니므로 이 가드 대상이 아니다.)
     """
-    paths = harness.app.openapi()["paths"]
+    paths = logical_openapi_paths(harness.app)
     observed = {
         (_normalize_path(path), method.lower())
         for path, methods in paths.items()

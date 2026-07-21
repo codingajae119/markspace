@@ -72,6 +72,9 @@ S01_ENDPOINT_CATALOG_1_TO_8 = [
 SENSITIVE_FIELDS = ("password_hash", "password")
 
 
+from tests.support import logical_openapi_paths
+
+
 def _assert_error_response_shape(body: object) -> None:
     """관측된 에러 본문이 s01 ``ErrorResponse`` 형태를 따르는지 강제한다(Req 2.4).
 
@@ -179,7 +182,7 @@ def test_openapi_exposes_catalog_endpoints_1_to_8(harness):
     각 (경로, 메서드) 쌍이 `app.openapi()["paths"]` 에 존재함을 확인한다(경로 파라미터는
     s01 이 정한 `user_id` 명명). 이는 인증·계정 API 표면이 s01 카탈로그와 정합함을 보증한다.
     """
-    paths = harness.app.openapi()["paths"]
+    paths = logical_openapi_paths(harness.app)
 
     for path, method in S01_ENDPOINT_CATALOG_1_TO_8:
         assert path in paths, (

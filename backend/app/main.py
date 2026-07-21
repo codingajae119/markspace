@@ -9,7 +9,7 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.admin_account.router import router as admin_account_router
@@ -28,6 +28,12 @@ from app.trash.router import router as trash_router
 from app.user_settings.router import router as user_settings_router
 from app.workspace.admin_router import router as workspace_admin_router
 from app.workspace.router import router as workspace_router
+
+# 전송(HTTP) 네임스페이스. 모든 API 는 이 버전 prefix 하위에 마운트된다. 각 라우터
+# 데코레이터 경로(`/auth/login` 등)와 콘텐츠에 박히는 논리 참조 토큰
+# (`/attachments/{id}`·`/public/{token}`)은 prefix 를 포함하지 않으며, 실제 발신 시
+# 프론트 `apiConfig.baseUrl`(또는 테스트 클라이언트)이 이 prefix 를 앞에 붙인다.
+API_V1_PREFIX = "/api/1.0"
 
 
 @asynccontextmanager
@@ -60,21 +66,26 @@ def create_app() -> FastAPI:
         same_site="lax",
     )
     register_error_handlers(app)
-    app.include_router(health_router)
+    # 모든 라우터를 단일 버전 네임스페이스(`/api/1.0`) 하위에 조립한다. 각 라우터의
+    # 경로는 그대로 두고 전송 prefix 만 이 조립 지점에서 일괄 부여한다(라우터 데코레이터
+    # 는 prefix 를 모른다 — 단위 라우터 테스트는 bare 라우터를 그대로 검증).
+    api = APIRouter(prefix=API_V1_PREFIX)
+    api.include_router(health_router)
     # feature 라우터 조립 지점: s02~s14가 여기에 include_router로 추가한다
     # (s01 Req 8.4는 이 지점을 비운 채 제공했고, s02가 auth 라우터를, s03가 admin_account
     # 라우터를 등록한다).
-    app.include_router(auth_router)
-    app.include_router(admin_account_router)
-    app.include_router(workspace_router)
-    app.include_router(workspace_admin_router)
-    app.include_router(document_router)
-    app.include_router(lock_version_router)
-    app.include_router(trash_router)
-    app.include_router(attachment_router)
-    app.include_router(sharing_router)
+    api.include_router(auth_router)
+    api.include_router(admin_account_router)
+    api.include_router(workspace_router)
+    api.include_router(workspace_admin_router)
+    api.include_router(document_router)
+    api.include_router(lock_version_router)
+    api.include_router(trash_router)
+    api.include_router(attachment_router)
+    api.include_router(sharing_router)
     # user_setting additive 확장: 본인 설정 조회·수정(/me/settings).
-    app.include_router(user_settings_router)
+    api.include_router(user_settings_router)
+    app.include_router(api)
     return app
 
 

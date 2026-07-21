@@ -89,6 +89,9 @@ S01_ENDPOINT_CATALOG_9_TO_17 = [
 ]
 
 
+from tests.support import logical_openapi_paths
+
+
 def _assert_error_response_shape(body: object) -> None:
     """관측된 에러 본문이 s01 ``ErrorResponse`` 형태를 따르는지 강제한다(Req 2.5).
 
@@ -340,7 +343,7 @@ def test_openapi_exposes_workspace_catalog_rows_9_to_17(harness):
     s01 이 정한 `{id}`/`{uid}` 명명). 이는 워크스페이스·멤버십·admin 소유권 변경 API 표면이
     s01 카탈로그와 정합함을 보증한다.
     """
-    paths = harness.app.openapi()["paths"]
+    paths = logical_openapi_paths(harness.app)
 
     for path, method in S01_ENDPOINT_CATALOG_9_TO_17:
         assert path in paths, (

@@ -37,6 +37,7 @@ from app.common.db import Base, get_db
 from app.common.security import hash_password
 from app.main import create_app
 from app.models import User
+from tests.support import logical_openapi_paths
 
 TEST_DB_NAME = "notion_lite_test"
 
@@ -304,7 +305,7 @@ def test_openapi_exposes_exactly_the_four_auth_endpoints(seeded):
     (`/auth/login`·`/auth/logout`·`/auth/me`·`/auth/password`)이며 각 메서드가 카탈로그와
     일치함을 강제한다.
     """
-    paths = seeded.app.openapi()["paths"]
+    paths = logical_openapi_paths(seeded.app)
 
     # auth 표면만 추출: /auth/ 로 시작하는 경로 → {메서드 대문자 집합}.
     auth_surface = {
@@ -334,7 +335,7 @@ def test_openapi_has_no_account_lifecycle_endpoints(seeded):
     네임스페이스를 **제외한** 나머지 표면에 계정 생명주기/재설정 경로가 없음을 강제한다.
     (`/admin/*` 는 s03 spec이 소유·검증하므로 이 s02 경계 테스트의 금지 검사 대상이 아니다.)
     """
-    paths = seeded.app.openapi()["paths"]
+    paths = logical_openapi_paths(seeded.app)
     all_paths = set(paths.keys())
 
     # auth 경로는 정확히 이 4개뿐이어야 한다(생명주기 auth 경로 부재의 상위 보장).

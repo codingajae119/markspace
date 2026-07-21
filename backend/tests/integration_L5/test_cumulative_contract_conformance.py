@@ -161,6 +161,9 @@ MISSING_DOCUMENT_ID = 999_999_999
 MISSING_ATTACHMENT_ID = 999_999_999
 
 
+from tests.support import logical_openapi_paths
+
+
 def _normalize_path(path: str) -> str:
     """경로의 `{param}` 세그먼트를 `{}` 로 정규화한다(파라미터 명명 비의존 구조 대조).
 
@@ -396,7 +399,7 @@ def test_openapi_exposes_attachment_catalog_rows_32_to_33(harness):
     (`POST /documents/{id}/attachments`)·서빙(`GET /attachments/{id}`) 표면이 s01 카탈로그
     32~33 과 정합함을 보증한다.
     """
-    paths = harness.app.openapi()["paths"]
+    paths = logical_openapi_paths(harness.app)
     observed = {
         (_normalize_path(path), method.lower())
         for path, methods in paths.items()
@@ -753,7 +756,7 @@ def test_create_app_boots_cleanly_with_archival_scheduler_wired(harness):
     )
     observed = {
         (_normalize_path(path), method.lower())
-        for path, methods in app.openapi()["paths"].items()
+        for path, methods in logical_openapi_paths(app).items()
         for method in methods
     }
     assert ("/documents/{}/attachments", "post") in observed, (

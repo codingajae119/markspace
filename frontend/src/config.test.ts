@@ -17,7 +17,7 @@ describe("apiConfig", () => {
     vi.stubEnv("VITE_API_BASE_URL", "");
     vi.resetModules();
     const { apiConfig: reloaded } = await import("@/config");
-    expect(reloaded.baseUrl).toBe("http://localhost:8000");
+    expect(reloaded.baseUrl).toBe("http://localhost:8000/api/1.0");
   });
 
   it("reflects the single VITE_API_BASE_URL env var when set", async () => {

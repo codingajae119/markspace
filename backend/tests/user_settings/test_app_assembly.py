@@ -8,9 +8,12 @@ s01 ``create_app()`` 의 feature 라우터 조립 지점에 user_settings 라우
 from app.main import create_app
 
 
+from tests.support import logical_openapi_paths
+
+
 def test_user_settings_routes_registered_at_assembly_point():
     app = create_app()
-    paths = app.openapi()["paths"]
+    paths = logical_openapi_paths(app)
     assert "/me/settings" in paths, "/me/settings 가 OpenAPI paths 에 없음"
     assert "get" in paths["/me/settings"], "GET /me/settings 가 노출되지 않음"
     assert "patch" in paths["/me/settings"], "PATCH /me/settings 가 노출되지 않음"
@@ -19,6 +22,6 @@ def test_user_settings_routes_registered_at_assembly_point():
 def test_prior_spec_routes_still_present():
     """기존 spec 경로가 조립에서 회귀 없이 유지되는지 확인."""
     app = create_app()
-    paths = app.openapi()["paths"]
+    paths = logical_openapi_paths(app)
     for path in ("/auth/login", "/auth/me", "/workspaces", "/health"):
         assert path in paths, f"{path} 가 OpenAPI paths 에 없음"

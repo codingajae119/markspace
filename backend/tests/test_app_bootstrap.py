@@ -33,6 +33,9 @@ _AUTH_PATHS = (
 )
 
 
+from tests.support import logical_openapi_paths
+
+
 def test_create_app_loads_settings_title() -> None:
     """8.1: create_app()이 Settings를 로드해 app.title을 설정한다."""
     app = create_app()
@@ -85,7 +88,7 @@ def test_feature_router_assembly_point_hosts_only_implemented_specs() -> None:
     집합이므로, 이를 기준으로 등록 여부를 검증한다.
     """
     app = create_app()
-    paths = set(app.openapi()["paths"].keys())
+    paths = set(logical_openapi_paths(app).keys())
 
     # health(s01) 및 auth(s02 task 3.2)는 조립되어 노출된다.
     assert "/health" in paths

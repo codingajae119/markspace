@@ -207,6 +207,9 @@ MISSING_DOCUMENT_ID = 999_999_999
 BOGUS_TOKEN = "bogus-token-does-not-resolve-000000000000"
 
 
+from tests.support import logical_openapi_paths
+
+
 def _normalize_path(path: str) -> str:
     """경로의 `{param}` 세그먼트를 `{}` 로 정규화한다(파라미터 명명 비의존 구조 대조).
 
@@ -241,7 +244,7 @@ def _assert_error_response_shape(body: object) -> None:
 
 def _observed_routes(harness) -> set[tuple[str, str]]:
     """부팅 앱 OpenAPI 의 (정규화 경로, 메서드) 집합을 만든다(구조 대조용)."""
-    paths = harness.app.openapi()["paths"]
+    paths = logical_openapi_paths(harness.app)
     return {
         (_normalize_path(path), method.lower())
         for path, methods in paths.items()

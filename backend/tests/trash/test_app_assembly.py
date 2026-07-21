@@ -16,9 +16,12 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 
 
+from tests.support import logical_openapi_paths
+
+
 def test_trash_routes_registered_at_assembly_point() -> None:
     app = create_app()
-    paths = app.openapi()["paths"]
+    paths = logical_openapi_paths(app)
     expected = {
         "/workspaces/{id}/trash": {"get"},
         "/trash/{bundleId}/restore": {"post"},
@@ -32,7 +35,7 @@ def test_trash_routes_registered_at_assembly_point() -> None:
 
 def test_earlier_spec_routes_still_present() -> None:
     app = create_app()
-    paths = app.openapi()["paths"]
+    paths = logical_openapi_paths(app)
     # 조립 seam 회귀 가드: s09 잠금·s07 문서·s01 health 라우트가 여전히 노출되어야 한다.
     assert "/documents/{id}/lock" in paths, "s09 /documents/{id}/lock 가 사라짐"
     assert (

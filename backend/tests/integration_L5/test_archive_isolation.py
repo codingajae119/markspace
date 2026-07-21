@@ -30,6 +30,7 @@ bypass(INV-3)한 뒤에도 서비스가 404 를 낸다 — 두 경우 모두 보
 from datetime import datetime
 
 from tests.integration_L5 import helpers as h
+from tests.support import logical_openapi_paths
 
 # 업로드 바이너리(일반 파일 첨부; kind=file 은 8.7 참조 소멸(image 한정)에서 제외되므로 이
 # 첨부를 보관 이동시킬 수 있는 경로는 오직 8.6 완전삭제 반응뿐이다 — 보관 유발 seam 을 격리).
@@ -50,21 +51,6 @@ _RESTORE_KEYWORDS = (
     "activate",
     "recover",
 )
-
-
-def _iter_all_routes(app):
-    """부팅 앱의 모든 라우트를 산출한다 — 최상위 라우트 + `_IncludedRouter` 래퍼 하위 라우트.
-
-    `s01` 조립 지점은 `include_router` 로 각 feature 라우터를 `_IncludedRouter` 래퍼로 감싸
-    앱에 등록하며, 실제 `APIRoute`(`.path`·`.methods` 보유)는 래퍼의 `.original_router.routes`
-    아래에 있다. 첨부 라우트를 놓치지 않으려면 두 층을 모두 훑어야 한다(라우트 열거가 빈
-    결과로 검증을 무의미화하지 않도록 6.4 단언 전에 발견 여부도 확인한다).
-    """
-    for route in app.routes:
-        yield route
-        original = getattr(route, "original_router", None)
-        if original is not None:
-            yield from getattr(original, "routes", [])
 
 
 def _drive_document_to_deleted(scenario, document_id, workspace_id):
@@ -277,12 +263,10 @@ def test_no_restore_route_and_archived_stays_404_for_all_roles(
         scenario, harness, archival_sweep, doc_tree_scenario.root_id, ws_id
     )
 
-    # 부팅 앱 라우트 열거 — 첨부 관련 경로와 메서드 수집(복원 경로 부재 관찰). 부팅 앱은
-    # `include_router` 로 각 라우터를 `_IncludedRouter` 래퍼(`.original_router.routes` 에 실제
-    # `APIRoute` 보유)로 조립하므로, 최상위 라우트와 래퍼 하위 라우트를 모두 훑는다.
+    # 부팅 앱 라우트 열거 — 첨부 관련 경로와 메서드 수집(복원 경로 부재 관찰). 전송 prefix
+    # (`/api/1.0`)를 벗긴 논리 경로를 권위 소스(OpenAPI)로 쓴다(다른 라우트 대조 스위트와 동일).
     attachment_routes: dict[str, set[str]] = {}
-    for route in _iter_all_routes(harness.app):
-        path = getattr(route, "path", "") or ""
+    for path, methods in logical_openapi_paths(harness.app).items():
         if "attachment" not in path.lower():
             continue
         # s14 링크 경유 공개 서빙(`GET /public/{token}/attachments/{aid}`, 카탈로그 행 37)은
@@ -293,8 +277,7 @@ def test_no_restore_route_and_archived_stays_404_for_all_roles(
         # 게이트·보관·격리 차단을 별도 검증한다).
         if path.startswith("/public/"):
             continue
-        methods = set(getattr(route, "methods", None) or set())
-        attachment_routes.setdefault(path, set()).update(methods)
+        attachment_routes.setdefault(path, set()).update(m.upper() for m in methods)
 
     # 첨부 라우트가 실제로 발견되어야 한다(열거 방식이 라우트를 놓치지 않았음을 보증 — 빈
     # 집합이 우연히 "복원 경로 없음"으로 오판되지 않게 함).

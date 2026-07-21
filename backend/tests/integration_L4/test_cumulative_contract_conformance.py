@@ -143,6 +143,9 @@ MISSING_DOCUMENT_ID = 999_999_999
 MISSING_BUNDLE_ID = 999_999_999
 
 
+from tests.support import logical_openapi_paths
+
+
 def _normalize_path(path: str) -> str:
     """경로의 `{param}` 세그먼트를 `{}` 로 정규화한다(파라미터 명명 비의존 구조 대조).
 
@@ -390,7 +393,7 @@ def test_openapi_exposes_lock_trash_catalog_rows_24_to_31(harness):
     구조로 대조한다. 잠금·저장·취소·강제해제·버전목록·휴지통목록·복구·완전삭제 표면이 s01
     카탈로그 24~31 과 정합함을 보증한다.
     """
-    paths = harness.app.openapi()["paths"]
+    paths = logical_openapi_paths(harness.app)
     observed = {
         (_normalize_path(path), method.lower())
         for path, methods in paths.items()
@@ -732,7 +735,7 @@ def test_create_app_boots_cleanly_with_scheduler_wired(harness):
     )
     observed = {
         (_normalize_path(path), method.lower())
-        for path, methods in app.openapi()["paths"].items()
+        for path, methods in logical_openapi_paths(app).items()
         for method in methods
     }
     assert ("/documents/{}/lock", "post") in observed, (

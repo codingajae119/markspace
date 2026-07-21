@@ -57,6 +57,9 @@ S01_TABLES = {
 DOCUMENT_VERSION_COLUMNS = {"id", "document_id", "content", "created_by", "created_at"}
 
 
+from tests.support import logical_openapi_paths
+
+
 def _provision_editor(scenario, harness, *, prefix: str):
     """admin 이 사용자를 만들고 owner 가 editor 로 멤버 추가한 뒤 그 자격으로 로그인한다.
 
@@ -408,7 +411,7 @@ def test_no_rollback_or_past_version_body_route_exists():
     부팅 앱 OpenAPI 경로에서 (a) `/versions/{...}` 형태의 개별 버전 본문 경로가 없고, (b)
     rollback/restore 를 뜻하는 경로가 없음을 확인한다 — s09 는 목록(메타데이터) 열람만 노출한다.
     """
-    paths = booted_app.openapi()["paths"]
+    paths = logical_openapi_paths(booted_app)
 
     # (a) `/documents/{id}/versions/{version_id}` 같은 개별 버전(본문) 경로 부재.
     version_item_paths = [p for p in paths if re.search(r"/versions/\{[^}]+\}", p)]
@@ -447,7 +450,7 @@ def test_catalog_rows_24_28_exposed_with_expected_methods():
     lazy 라우터(`_IncludedRouter`) 때문에 `app.routes` 가 아니라 `app.openapi()["paths"]` 로
     확인한다. 5개 경로가 각각 post/post/post/post/get 으로 존재해야 한다.
     """
-    paths = booted_app.openapi()["paths"]
+    paths = logical_openapi_paths(booted_app)
     for path, method in CATALOG_PATHS.items():
         assert path in paths, f"카탈로그 경로가 노출되어야 한다: {path} (Req 7.1·7.6)"
         assert method in paths[path], (
