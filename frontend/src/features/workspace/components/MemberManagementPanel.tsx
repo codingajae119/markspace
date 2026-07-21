@@ -1,38 +1,49 @@
 /**
  * MemberManagementPanel — owner 전용 멤버 관리 UI
- * (design.md "MemberManagementPanel / WorkspaceSettingsPanel", Req 3.1·3.5·3.6·3.7·7.1·7.3·7.4·7.5).
+ * (design.md "MemberManagementPanel (UI, 표시원 전환)", Req 3.5·3.7·4.1·4.2·7.1·7.3·7.4·7.5).
  *
  * 현재 워크스페이스의 멤버를 배정 가능 사용자 선택(`AssignableUserSelect`)+role 로 추가하고, role 을
- * 변경하고, 제거한다. 배정 가능 목록·reload 는 `useAssignableUsers`(현재 WS id), 뮤테이션은
- * `useMemberActions`(현재 WS id 를 대상)로 위임하며, 이 패널은 표시·선택·결선만 소유한다.
+ * 변경하고, 제거한다. 뮤테이션은 `useMemberActions`(현재 WS id 를 대상)로 위임하며, 이 패널은 표시·
+ * 선택·결선만 소유한다.
  *
- * ## 노출 게이팅 (D-1 role seam, 사용자 승인 2026-07-19)
+ * ## 서버 로스터가 유일 표시원 (Req 3.7·4.2)
+ * 멤버 목록의 **표시원은 서버 로스터**(`useWorkspaceMembers(workspaceId).members`, 타입
+ * `MemberRosterRow`)다. 재로그인(새 세션)이어도 마운트 시 서버에서 시드되므로 기존 멤버를 즉시
+ * 볼 수 있다(Req 3.2). 로컬 세션 뮤테이션 상태(`useMemberActions().members`)는 **표시에 사용하지
+ * 않는다**(단일 소스, Req 4.2) — 로컬 델타를 병합하지 않아 "두 목록 분리"를 원천 차단한다. 멤버
+ * 라벨은 로스터가 제공한 `name` 을 그대로 쓰며(`` `${row.user_id} ${row.name}` ``), 추가 시점에
+ * 이름을 별도로 캡처하는 우회(`nameById`)에 의존하지 않는다(Req 3.7).
+ *
+ * ## 뮤테이션 후 로스터 재동기화 (Req 4.1·4.3)
+ * add/changeRole/remove 는 `useMemberActions` 를 그대로 호출하고, 완료(await, pending false) 후
+ * `roster.reload()` 로 서버 진실을 다시 읽어 반영한다(중복 없는 추가·제거 반영·role 변경 반영이
+ * 서버 권위로 자명하게 성립, Req 4.1). add·remove 는 배정 가능 집합도 변하므로 `assignable.reload()`
+ * 도 유지하고, changeRole 은 assignable 이 불변이라 로스터만 reload 한다. reload 는 뮤테이션의 in-flight
+ * 가드와 경합하지 않도록 pending 해소 후 호출한다.
+ *
+ * ## 로드 상태 표면화 (Req 3.3·3.4·3.5)
+ * 로딩(`roster.status==="loading"`)·오류(`roster.status==="error"`→`roster.error`)·빈
+ * (`roster.status==="ready"` && `members.length===0`) 상태를 표면화한다.
+ *
+ * ## 노출 게이팅 (D-1 role seam, 사용자 승인 2026-07-19 — 무변경)
  * 패널 전체를 s16 `<RequireRole minimum={Role.OWNER} currentRole={role}>` 로 감싼다. `currentRole` 은
- * s16 `useCurrentWorkspace().role`(s16 이 `null` 하드코딩 → 실제 owner 를 은닉)이 아니라 s18
- * `MembershipRoleSource.roleFor(currentWorkspace.id)` 에서 조달한다. 컴포넌트는 role 문자열을 직접
- * 비교하지 않으며(Req 7.1), owner 위계·admin override(세션 `is_admin`) 판정은 전적으로 `RequireRole`/
- * `hasWorkspaceRole` 단일 소스에 있다(Req 7.3·7.4, INV-1·2·3). owner 미만(viewer/editor)·비-admin 은
- * 은닉된다(fallback `null`).
- *
- * ## S1 열거 한계 (Req 3.7)
- * 계약에 멤버 목록 조회(GET) 엔드포인트가 없다(design.md Contract Constraints S1). 따라서 표시하는
- * 멤버는 `useMemberActions().members` — 이 세션의 뮤테이션으로 확인된 멤버뿐이며 권위 있는 전체
- * 열거가 아니다. 이 한계를 UI 에 명시한다.
+ * s16 `useCurrentWorkspace().role`(하드코딩 null)이 아니라 s18 `MembershipRoleSource.roleFor(id)` 에서
+ * 조달한다. 컴포넌트는 role 문자열을 직접 비교하지 않으며(Req 7.1), owner 위계·admin override 판정은
+ * 전적으로 `RequireRole`/`hasWorkspaceRole` 단일 소스에 있다(Req 7.3·7.4, INV-1·2·3).
  *
  * ## 클라이언트 게이팅은 보안 경계가 아님 (Req 7.5)
- * UI 를 owner 로 게이팅했더라도 서버가 반환한 403 등 오류는 항상 s16 `ErrorMessage` 로 표시한다
- * (`useMemberActions().error`). 게이팅으로 숨겼다는 이유로 오류를 억제하지 않는다.
+ * UI 를 owner 로 게이팅했더라도 서버가 반환한 403 등 **뮤테이션** 오류는 항상 s16 `ErrorMessage` 로
+ * 표시한다(`useMemberActions().error`). 게이팅으로 숨겼다는 이유로 오류를 억제하지 않는다.
  *
- * Requirements: 3.1(추가·role변경·제거), 3.2(raw user_id 입력 → 선택 교체), 3.3(선택 사용자+role 추가),
- * 3.4(성공 시 목록 갱신·reload), 3.5(owner 게이팅 s16 경유), 3.6(오류 표시), 3.7(열거 한계),
- * 4.2(추가 실패 표시·상태 롤백), 4.3(stale-409 표시 + 목록 갱신), 7.1(role 직접비교 금지),
- * 7.3(admin override), 7.4(owner 미만 은닉), 7.5(서버 403 항상 표시).
+ * Requirements: 3.1(추가·role변경·제거), 3.2(재로그인 서버 시드), 3.3(로딩), 3.4(오류), 3.5(빈 상태),
+ * 3.7(이름=서버 값·캡처 우회 미의존), 4.1(뮤테이션 로스터 반영), 4.2(단일 소스 표시), 4.3(재동기화),
+ * 7.1(role 직접비교 금지), 7.3(admin override), 7.4(owner 미만 은닉), 7.5(서버 오류 항상 표시).
  */
 
 import { useState } from "react";
 import type { FormEvent, ReactElement } from "react";
 
-import { Button, ErrorMessage } from "@/shared/ui";
+import { Button, ErrorMessage, Spinner } from "@/shared/ui";
 import { Role } from "@/shared/auth/roles";
 import { RequireRole } from "@/shared/auth/RequireRole";
 import { useCurrentWorkspace } from "@/app/workspace-context/useCurrentWorkspace";
@@ -42,7 +53,8 @@ import { AssignableUserSelect } from "./AssignableUserSelect";
 import { useMembershipRoleSource } from "../context/membershipRoleSource";
 import { useMemberActions } from "../hooks/useMemberActions";
 import { useAssignableUsers } from "../hooks/useAssignableUsers";
-import type { MemberRead, MemberRole } from "../api/types";
+import { useWorkspaceMembers } from "../hooks/useWorkspaceMembers";
+import type { MemberRosterRow, MemberRole } from "../api/types";
 
 /**
  * owner(및 admin override) 조건에서만 노출되는 멤버 관리 패널. 노출 판정은 s16 `RequireRole` 단일
@@ -62,44 +74,35 @@ export function MemberManagementPanel(): ReactElement {
 }
 
 /**
- * 게이트 통과 후 실제 관리 UI. 현재 WS id 를 명시적으로 받아 모든 뮤테이션 대상에 사용한다.
- * 선택된 WS 가 없을 때의 빈 상태 안내는 이 패널이 아니라 `WorkspaceManagementPage` 가 **단일** 소유한다
- * (과거 이 패널과 WorkspaceSettingsPanel 이 각자 같은 문구를 렌더해 admin override 진입 시 중복 노출됨).
+ * 게이트 통과 후 실제 관리 UI. 현재 WS id 를 명시적으로 받아 로스터 조회·모든 뮤테이션 대상에 사용한다.
+ * 선택된 WS 가 없을 때의 빈 상태 안내는 이 패널이 아니라 `WorkspaceManagementPage` 가 **단일** 소유한다.
  * 페이지가 WS 미선택 시 이 패널을 마운트하지 않으므로 여기서는 방어적으로 아무것도 렌더하지 않는다.
  */
 function MemberManagementContent({ workspaceId }: { workspaceId: number | null }): ReactElement | null {
-  const { members, add, changeRole, remove, pending, error } = useMemberActions();
-  // 배정 가능 사용자 조회(신규): raw user_id 입력을 대체하는 선택 UI 의 데이터·reload 소스(Req 3.2·3.3·4.3).
+  // 표시원(유일): 서버 멤버 로스터. WS 미선택 시 안정 비로딩(hook 내부 null 가드, Req 3.6).
+  const roster = useWorkspaceMembers(workspaceId);
+  // 뮤테이션만 위임(표시에 members 를 사용하지 않는다 — 단일 소스, Req 4.2). pending·error 는 유지.
+  const { add, changeRole, remove, pending, error } = useMemberActions();
+  // 배정 가능 사용자 조회: raw user_id 입력을 대체하는 선택 UI 의 데이터·reload 소스(Req 3.2·3.3·4.3).
   const assignable = useAssignableUsers(workspaceId);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [addRole, setAddRole] = useState<MemberRole>("viewer");
-  // 표시용 user_id→name 맵. 계약상 MemberRead 는 name 을 담지 않고(백엔드 스키마), S1 상 목록에 보이는
-  // 멤버는 모두 이 화면의 배정 선택으로 추가된 사용자이므로, 추가 시점의 배정 목록에서 이름을 포착해 보존한다.
-  const [nameById, setNameById] = useState<Map<number, string>>(new Map());
 
   const handleAdd = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (workspaceId === null || selectedUserId === null || pending) {
       return;
     }
-    const targetUserId = selectedUserId;
-    // 이름은 추가 시점의 배정 목록에만 있으므로 await·reload 로 목록이 바뀌기 전에 포착한다.
-    const selectedName = assignable.users.find((user) => user.id === targetUserId)?.name;
     // add 는 항상 void resolve(실패는 useMemberActions.error 로 삼킴) → await 후 단일 경로 reload 안전.
-    await add(workspaceId, { user_id: targetUserId, role: addRole });
-    if (selectedName !== undefined) {
-      setNameById((prev) => new Map(prev).set(targetUserId, selectedName));
-    }
+    await add(workspaceId, { user_id: selectedUserId, role: addRole });
     setSelectedUserId(null); // 선택 초기화
-    // 단일 경로: 성공(추가 사용자 제외)·stale-409(목록 교정)·기타 실패(서버 진실 재확인) 모두 reload(Req 3.4·4.3).
+    // 서버 재동기화: 로스터(표시원) + 배정 후보(추가로 감소). 성공·stale·실패 모두 서버 진실 재확인(Req 4.1·4.3).
+    void roster.reload();
     void assignable.reload();
   };
 
-  // 멤버 표시 라벨 — 이름을 포착했으면 "{id} {name}", 아니면 방어적으로 "사용자 {id}"(직접 주입 등 이름 미상).
-  const memberLabel = (member: MemberRead): string => {
-    const name = nameById.get(member.user_id);
-    return name ? `${member.user_id} ${name}` : `사용자 ${member.user_id}`;
-  };
+  // 멤버 표시 라벨 — 로스터 name 사용(캡처 우회 없음, Req 3.7).
+  const memberLabel = (row: MemberRosterRow): string => `${row.user_id} ${row.name}`;
 
   // 배정 가능 목록이 준비되지 않았거나(로딩·오류) 0명이거나, 사용자 미선택·진행 중이면 추가 비활성(Req 3.5·3.6).
   const isAddDisabled =
@@ -110,18 +113,26 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
     return null;
   }
 
+  // changeRole 은 assignable 불변 → 로스터만 재동기화(Req 4.1).
+  const handleChangeRole = async (userId: number, next: MemberRole): Promise<void> => {
+    await changeRole(workspaceId, userId, { role: next });
+    void roster.reload();
+  };
+
+  // remove 는 배정 후보가 늘 수 있어 로스터 + assignable 재동기화(Req 4.1·4.3).
+  const handleRemove = async (userId: number): Promise<void> => {
+    await remove(workspaceId, userId);
+    void roster.reload();
+    void assignable.reload();
+  };
+
   return (
     <section aria-label="멤버 관리" className="flex flex-col gap-4">
       <header>
         <h2 className="text-base font-semibold text-slate-900">멤버 관리</h2>
-        {/* S1 열거 한계 명시(Req 3.7): 뮤테이션으로 확인된 멤버만 표시, 전체 목록 아님. */}
-        <p className="mt-1 text-xs text-slate-500">
-          여기 표시되는 멤버는 이 화면에서 추가·변경으로 확인된 멤버뿐이며, 워크스페이스의 전체 멤버
-          목록이 아닙니다.
-        </p>
       </header>
 
-      {/* 서버 403 등 오류는 게이팅 여부와 무관하게 항상 표시(Req 7.5). */}
+      {/* 서버 403 등 뮤테이션 오류는 게이팅 여부와 무관하게 항상 표시(Req 7.5). */}
       <ErrorMessage error={error} />
 
       <form onSubmit={(event) => void handleAdd(event)} className="flex flex-wrap items-end gap-3">
@@ -145,35 +156,40 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
         </Button>
       </form>
 
-      {members.length > 0 ? (
+      {/* 멤버 목록: 서버 로스터 단일 표시원. status 판별자로 로딩·오류·빈·목록 중 하나를 표면화. */}
+      {roster.status === "loading" ? (
+        <Spinner label="멤버 로스터 불러오는 중" />
+      ) : roster.status === "error" ? (
+        <ErrorMessage error={roster.error} />
+      ) : roster.members.length === 0 ? (
+        <p className="text-sm text-slate-500">이 워크스페이스에 멤버가 없습니다.</p>
+      ) : (
         <ul className="flex flex-col gap-2">
-          {members.map((member) => (
+          {roster.members.map((row) => (
             <li
-              key={member.user_id}
+              key={row.user_id}
               className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 px-3 py-2"
             >
-              <span className="text-sm text-slate-800">{memberLabel(member)}</span>
+              <span className="text-sm text-slate-800">{memberLabel(row)}</span>
               <RoleSelect
-                id={`member-role-${member.user_id}`}
-                label={`${memberLabel(member)} 역할`}
+                id={`member-role-${row.user_id}`}
+                label={`${memberLabel(row)} 역할`}
                 srOnlyLabel
-                value={member.role}
-                onChange={(next) => void changeRole(workspaceId, member.user_id, { role: next })}
+                value={row.role}
+                onChange={(next) => void handleChangeRole(row.user_id, next)}
                 disabled={pending}
               />
               <Button
                 variant="secondary"
-                aria-label={`${memberLabel(member)} 제거`}
+                aria-label={`${memberLabel(row)} 제거`}
                 disabled={pending}
-                onClick={() => void remove(workspaceId, member.user_id)}
+                onClick={() => void handleRemove(row.user_id)}
               >
                 제거
               </Button>
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="text-sm text-slate-500">이 화면에서 확인된 멤버가 아직 없습니다.</p>
       )}
     </section>
   );

@@ -73,7 +73,7 @@
 
 ## 5. 프론트: 패널 표시원 전환 (단일 소스화)
 
-- [ ] 5.1 MemberManagementPanel 서버 로스터 단일 표시원 전환
+- [x] 5.1 MemberManagementPanel 서버 로스터 단일 표시원 전환
   - 표시원을 `useWorkspaceMembers(workspaceId).members`(서버 로스터)로 전환하고 `useMemberActions().members` 를 표시에서 사용하지 않는다(단일 소스). `nameById` Map 을 제거하고 멤버 라벨은 로스터 `name` 을 사용한다(`` `${row.user_id} ${row.name}` ``). S1 열거 한계 안내 문구는 제거한다.
   - 뮤테이션(add/changeRole/remove)은 `useMemberActions` 를 그대로 호출하고 await 후 `void roster.reload()` 로 서버 재동기화한다(add·remove 시 `void assignable.reload()` 유지, changeRole 은 로스터만). 로딩(`status==="loading"`)·오류(`status==="error"`→`error`)·빈(`status==="ready"` && `members.length===0`) 상태를 표면화하고, 뮤테이션 오류는 기존 `useMemberActions().error` 표시를 유지한다. 게이팅 노출(`RequireRole`+`MembershipRoleSource`)은 무변경.
   - 패널 테스트로 재로그인 시드(로컬 이력 없이 마운트 시 서버 로스터 표시), 이름=서버 값(`nameById` 부재), 단일 소스(로스터가 표시원), reload-after-mutation(add/changeRole/remove 후 재조회 반영), 로딩·오류·빈 상태, WS 미선택 시 안정 비로딩을 확인한다.
