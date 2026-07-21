@@ -24,6 +24,7 @@ from app.workspace.schemas import (
     AssignableUserRead,
     MemberCreate,
     MemberRead,
+    MemberRole,
     MemberUpdate,
     OwnerChangeRequest,
     WorkspaceCreate,
@@ -71,18 +72,38 @@ class WorkspaceService:
     def list_workspaces(
         self, db: Session, ctx: AuthContext, limit: int, offset: int
     ) -> Page[WorkspaceRead]:
-        """워크스페이스 목록을 공통 `Page` 엔벨로프로 반환한다 (Req 1.3·1.4).
+        """워크스페이스 목록을 공통 `Page` 엔벨로프로 반환한다 (Req 1.1·1.2·1.3·1.4·1.5).
 
         admin 은 전체 워크스페이스를(`list_all`), 비-admin 은 요청자가 멤버인 워크스페이스만
-        (`list_for_user`) 조회한다. `total` 은 저장소가 계산한 스코프 전체 개수를 그대로 전달한다.
+        (`list_for_user`) 조회한다. 두 저장소 메서드 모두 `(Workspace, role)` 튜플 목록을
+        반환하며(role 은 admin 경로에서 비멤버 WS 는 `None`), 각 항목의 role 을 해당
+        `WorkspaceRead` 에 주입해 호출자 관점의 멤버십 role 을 응답에 싣는다(Req 1.1·1.4).
+
+        role 은 리포지토리가 산출한 멤버십 role(또는 None)을 그대로 노출하며 admin 여부로
+        상승시키지 않는다(Req 1.2, INV-3). `total` 은 저장소가 계산한 스코프 전체 개수를 그대로
+        전달한다. `list_all` 은 호출자 멤버십 상관 조건을 위해 `ctx.user_id` 를 전달받는다.
         """
         if ctx.is_admin:
-            items, total = self._ws_repo.list_all(db, limit, offset)
+            pairs, total = self._ws_repo.list_all(db, ctx.user_id, limit, offset)
         else:
-            items, total = self._ws_repo.list_for_user(db, ctx.user_id, limit, offset)
+            pairs, total = self._ws_repo.list_for_user(
+                db, ctx.user_id, limit, offset
+            )
         return Page[WorkspaceRead](
-            items=[WorkspaceRead.model_validate(ws) for ws in items],
+            items=[self._to_read(ws, role) for ws, role in pairs],
             total=total,
+        )
+
+    @staticmethod
+    def _to_read(ws, role: str | None) -> WorkspaceRead:
+        """ORM `Workspace` 를 `WorkspaceRead` 로 직렬화하고 호출자 role 을 주입한다(Req 1.1·1.5).
+
+        기존 필드는 `model_validate` 로 무변경 직렬화하고, 가산 optional `role` 만
+        `model_copy` 로 덮어쓴다. role 원시 문자열(owner/editor/viewer)은 `MemberRole` 로
+        정규화하며, 비멤버(None)는 그대로 None 을 싣는다(admin 상승 없음, INV-3).
+        """
+        return WorkspaceRead.model_validate(ws).model_copy(
+            update={"role": MemberRole(role) if role is not None else None}
         )
 
     def get_workspace(self, db: Session, workspace_id: int) -> WorkspaceRead:

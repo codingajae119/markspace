@@ -29,7 +29,12 @@ from app.common.errors import DomainError, ErrorCode
 from app.config import get_settings
 from app.models import Workspace
 from app.schemas.base import Page
-from app.workspace.schemas import WorkspaceCreate, WorkspaceRead, WorkspaceUpdate
+from app.workspace.schemas import (
+    MemberRole,
+    WorkspaceCreate,
+    WorkspaceRead,
+    WorkspaceUpdate,
+)
 from app.workspace.service import WorkspaceService
 
 
@@ -101,12 +106,15 @@ class _FakeWorkspaceRepo:
         self._raise_on_delete = raise_on_delete
         self.create_calls: list[dict] = []
         self.get_by_id_calls: list[int] = []
-        self.list_all_calls: list[tuple[int, int]] = []
+        # list_all 은 이제 호출자 user_id 를 받는다(admin LEFT JOIN 상관 조건, s24).
+        self.list_all_calls: list[tuple[int, int, int]] = []
         self.list_for_user_calls: list[tuple[int, int, int]] = []
         self.apply_updates_calls: list[tuple[Workspace, dict]] = []
         self.delete_calls: list[Workspace] = []
-        self.list_all_result: tuple[list[Workspace], int] = ([], 0)
-        self.list_for_user_result: tuple[list[Workspace], int] = ([], 0)
+        # list_all/list_for_user 는 이제 (Workspace, role) 튜플 목록을 반환한다(s24).
+        # list_all 의 role 은 str|None(비멤버 WS 는 None), list_for_user 는 str.
+        self.list_all_result: tuple[list[tuple[Workspace, str | None]], int] = ([], 0)
+        self.list_for_user_result: tuple[list[tuple[Workspace, str]], int] = ([], 0)
         # create 가 반환할 워크스페이스(서비스가 요청한 trash_retention_days 를 반영).
         self._next_id = 100
 
@@ -115,14 +123,16 @@ class _FakeWorkspaceRepo:
         self.get_by_id_calls.append(workspace_id)
         return self._by_id
 
-    def list_all(self, db, limit: int, offset: int) -> tuple[list[Workspace], int]:
+    def list_all(
+        self, db, user_id: int, limit: int, offset: int
+    ) -> tuple[list[tuple[Workspace, str | None]], int]:
         assert isinstance(db, _FakeDb)
-        self.list_all_calls.append((limit, offset))
+        self.list_all_calls.append((user_id, limit, offset))
         return self.list_all_result
 
     def list_for_user(
         self, db, user_id: int, limit: int, offset: int
-    ) -> tuple[list[Workspace], int]:
+    ) -> tuple[list[tuple[Workspace, str]], int]:
         assert isinstance(db, _FakeDb)
         self.list_for_user_calls.append((user_id, limit, offset))
         return self.list_for_user_result
@@ -234,23 +244,31 @@ def test_create_workspace_defaults_shareable_false_default_retention_and_owner()
 def test_list_workspaces_admin_uses_list_all():
     db = _FakeDb()
     ws_repo = _FakeWorkspaceRepo()
-    ws_repo.list_all_result = ([_make_ws(ws_id=1), _make_ws(ws_id=2)], 5)
+    # admin 은 (Workspace, role|None) 튜플 목록을 받는다: 멤버 WS 는 role, 비멤버 WS 는 None.
+    ws_repo.list_all_result = (
+        [(_make_ws(ws_id=1), "owner"), (_make_ws(ws_id=2), None)],
+        5,
+    )
     service = WorkspaceService(ws_repo, _FakeMembershipRepo(db))
 
     page = service.list_workspaces(db, ADMIN_CTX, limit=10, offset=0)
 
-    assert ws_repo.list_all_calls == [(10, 0)]
+    # list_all 은 호출자 user_id 를 함께 전달받는다(admin LEFT JOIN 상관 조건).
+    assert ws_repo.list_all_calls == [(ADMIN_CTX.user_id, 10, 0)]
     assert ws_repo.list_for_user_calls == []
     assert isinstance(page, Page)
     assert page.total == 5
     assert [i.id for i in page.items] == [1, 2]
     assert all(isinstance(i, WorkspaceRead) for i in page.items)
+    # role 은 리포지토리가 산출한 멤버십 role/None 을 그대로 반영한다(admin 상승 없음, INV-3).
+    assert page.items[0].role == MemberRole.OWNER
+    assert page.items[1].role is None
 
 
 def test_list_workspaces_non_admin_uses_list_for_user():
     db = _FakeDb()
     ws_repo = _FakeWorkspaceRepo()
-    ws_repo.list_for_user_result = ([_make_ws(ws_id=3)], 1)
+    ws_repo.list_for_user_result = ([(_make_ws(ws_id=3), "editor")], 1)
     service = WorkspaceService(ws_repo, _FakeMembershipRepo(db))
 
     page = service.list_workspaces(db, USER_CTX, limit=20, offset=5)
@@ -259,6 +277,73 @@ def test_list_workspaces_non_admin_uses_list_for_user():
     assert ws_repo.list_all_calls == []
     assert page.total == 1
     assert [i.id for i in page.items] == [3]
+    # 비-admin 목록의 각 항목 role 은 호출자 멤버십 role 을 반영한다(Req 1.1).
+    assert page.items[0].role == MemberRole.EDITOR
+
+
+def test_list_workspaces_non_admin_injects_each_membership_role():
+    """비-admin 목록: 각 항목 role 이 해당 워크스페이스에서의 호출자 멤버십 role 을 반영한다."""
+    db = _FakeDb()
+    ws_repo = _FakeWorkspaceRepo()
+    ws_repo.list_for_user_result = (
+        [
+            (_make_ws(ws_id=1), "owner"),
+            (_make_ws(ws_id=2), "editor"),
+            (_make_ws(ws_id=3), "viewer"),
+        ],
+        3,
+    )
+    service = WorkspaceService(ws_repo, _FakeMembershipRepo(db))
+
+    page = service.list_workspaces(db, USER_CTX, limit=10, offset=0)
+
+    assert [(i.id, i.role) for i in page.items] == [
+        (1, MemberRole.OWNER),
+        (2, MemberRole.EDITOR),
+        (3, MemberRole.VIEWER),
+    ]
+
+
+def test_list_workspaces_admin_no_role_elevation():
+    """admin 이 어떤 WS 의 viewer 여도 role 은 'viewer' 로 노출되고 owner 로 상승되지 않는다(INV-3)."""
+    db = _FakeDb()
+    ws_repo = _FakeWorkspaceRepo()
+    # admin(user_id=7)이 WS1 의 viewer 멤버, WS2 의 비멤버(None)인 상황을 모사한다.
+    ws_repo.list_all_result = (
+        [(_make_ws(ws_id=1), "viewer"), (_make_ws(ws_id=2), None)],
+        2,
+    )
+    service = WorkspaceService(ws_repo, _FakeMembershipRepo(db))
+
+    page = service.list_workspaces(db, ADMIN_CTX, limit=10, offset=0)
+
+    # 멤버십 role 그대로: viewer 는 owner 로 상승하지 않고, 비멤버는 None 이다.
+    assert page.items[0].role == MemberRole.VIEWER
+    assert page.items[0].role != MemberRole.OWNER
+    assert page.items[1].role is None
+
+
+def test_list_workspaces_preserves_existing_fields_with_role_added():
+    """role 주입은 기존 응답 필드(id·name·is_shareable·trash_retention_days·타임스탬프)를 무변경 유지한다(Req 1.5)."""
+    db = _FakeDb()
+    ws_repo = _FakeWorkspaceRepo()
+    ws = _make_ws(
+        ws_id=42, name="Docs", is_shareable=True, trash_retention_days=15
+    )
+    ws_repo.list_for_user_result = ([(ws, "owner")], 1)
+    service = WorkspaceService(ws_repo, _FakeMembershipRepo(db))
+
+    page = service.list_workspaces(db, USER_CTX, limit=10, offset=0)
+
+    item = page.items[0]
+    assert item.id == 42
+    assert item.name == "Docs"
+    assert item.is_shareable is True
+    assert item.trash_retention_days == 15
+    assert item.created_at == datetime(2026, 1, 1)
+    assert item.updated_at is None
+    # 가산 필드 role 만 추가된다.
+    assert item.role == MemberRole.OWNER
 
 
 # --- get_workspace ------------------------------------------------------------

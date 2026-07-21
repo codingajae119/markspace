@@ -17,7 +17,7 @@
   - _Requirements: 1.1, 1.2, 1.3, 1.4_
   - _Boundary: WorkspaceRepository (backend data)_
 
-- [ ] 1.3 워크스페이스 서비스에서 role 주입 및 admin 상승 금지
+- [x] 1.3 워크스페이스 서비스에서 role 주입 및 admin 상승 금지
   - `list_workspaces` 가 `(ws, role)` 튜플을 받아 각 `WorkspaceRead` 에 role 을 주입해 매핑하고, `list_all` 호출에 `ctx.user_id` 를 전달한다.
   - admin 여부로 role 을 상승시키지 않고 리포지토리가 산출한 멤버십 role(또는 None)을 그대로 노출한다(INV-3).
   - 관찰 가능: 단위 테스트에서 비-admin·admin 모두 응답 각 item.role 이 멤버십 role 만 반영하고(admin 상승 없음), 기존 응답 필드는 무변경이다.

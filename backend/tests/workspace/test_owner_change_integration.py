@@ -56,6 +56,9 @@ S01_ALL_TABLES = {
 }
 
 # s01 §Base Schemas — WorkspaceRead = TimestampedRead(id/created_at/updated_at) + 고유 필드.
+# s24-role-persistence: 가산 optional `role` 필드가 추가됐다(호출자 멤버십 role, 목록 경로만
+# 실값 주입·그 외 경로 None). optional 기본값이라도 FastAPI 는 키를 직렬화하므로 exact-set
+# 계약 가드에 `role` 을 포함한다(create/change_owner=null·list item=멤버 role, 키는 항상 존재).
 WORKSPACE_READ_KEYS = {
     "id",
     "created_at",
@@ -63,6 +66,7 @@ WORKSPACE_READ_KEYS = {
     "name",
     "is_shareable",
     "trash_retention_days",
+    "role",
 }
 
 _DEFAULT_PW = "ws-member-pass-123"
