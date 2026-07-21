@@ -30,6 +30,7 @@ from app.workspace.schemas import (
     AssignableUserRead,
     MemberCreate,
     MemberRead,
+    MemberRosterRead,
     MemberUpdate,
     WorkspaceCreate,
     WorkspaceRead,
@@ -163,6 +164,30 @@ def list_assignable_users(
     ``Page[AssignableUserRead]``(빈 목록도 오류 아님, R1.4).
     """
     return service.list_assignable_users(db, id, limit, offset)
+
+
+@router.get(
+    "/workspaces/{id}/members",
+    response_model=Page[MemberRosterRead],
+)
+def list_members(
+    id: int,
+    limit: int = Query(50, ge=1),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    _ctx: AuthContext = Depends(require_ws_role(Role.OWNER)),
+    service: MembershipService = Depends(get_membership_service),
+) -> Page[MemberRosterRead]:
+    """대상 워크스페이스의 현재 멤버 로스터를 페이지네이션 조회한다 (Req 1.1·1.4·2.1~2.5, owner 전용).
+
+    `require_ws_role(OWNER)` 로 게이트를 강제한다(위계 미달·비멤버 403, admin override 통과,
+    미인증 401 — 판정은 s01·s05 소유, 여기서 재구현하지 않는다). 존재하지 않는 워크스페이스도
+    게이트 단계에서 비-멤버 → 403 이며 404 로 존재를 노출하지 않는다(anti-enumeration, 별도
+    존재 검사 없음 — 게이트 선행이 유일 판정점). POST `/workspaces/{id}/members`(add_member)와
+    동일 경로·다른 메서드로 충돌 없이 공존한다. `limit`(기본 50)·`offset`(기본 0) 범위 위반은
+    FastAPI 가 422 로 처리한다. 성공 시 200 + ``Page[MemberRosterRead]``(빈 로스터도 오류 아님).
+    """
+    return service.list_members(db, id, limit, offset)
 
 
 @router.post(

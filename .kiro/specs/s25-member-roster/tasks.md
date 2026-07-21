@@ -27,7 +27,7 @@
   - _Requirements: 1.1, 1.2, 1.4_
   - _Boundary: MembershipService (backend service)_
 
-- [ ] 2.2 GET /workspaces/{id}/members owner-gated 라우트 결선
+- [x] 2.2 GET /workspaces/{id}/members owner-gated 라우트 결선
   - `response_model=Page[MemberRosterRead]`, `Depends(require_ws_role(Role.OWNER))` 게이트 부착만으로 서비스에 위임하고(위계 미달·비-멤버·미존재 WS→403, 미인증→401, admin override→통과: 판정은 s01·s05 소유·재구현 금지), `limit`(기본 50, ge=1)·`offset`(기본 0, ge=0) query 를 수용한다.
   - 기존 POST `/workspaces/{id}/members`(add_member)와 동일 경로·다른 메서드로 충돌 없이 등록되고, **별도 존재검사를 추가하지 않아**(게이트 선행이 유일 판정점) 미존재 WS 가 404 로 존재를 노출하지 않음을 확인한다.
   - 관찰 가능: owner 세션의 GET 이 200 `Page[MemberRosterRead]` 를 반환하고, 라우트가 앱에 등록되어 게이트가 선행 실행된다.

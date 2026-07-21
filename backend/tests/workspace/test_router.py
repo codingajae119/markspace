@@ -13,7 +13,7 @@ DB 없이 라우터 결선만 확인한다:
   을 재현한다.
 
 핵심 불변식:
-- 워크스페이스·멤버십 8개 + s23 assignable-users 1개 = 9개 엔드포인트가 등록된다
+- 워크스페이스·멤버십 8개 + s23 assignable-users 1개 + s25 멤버 로스터 GET 1개 = 10개 엔드포인트가 등록된다
   (POST/GET /workspaces, GET/PATCH/DELETE /workspaces/{id},
   GET /workspaces/{id}/assignable-users,
   POST /workspaces/{id}/members, PATCH/DELETE /workspaces/{id}/members/{uid}).
@@ -39,7 +39,12 @@ from app.workspace.router import (
     get_workspace_service,
 )
 from app.workspace.router import router as workspace_router
-from app.workspace.schemas import AssignableUserRead, MemberRead, WorkspaceRead
+from app.workspace.schemas import (
+    AssignableUserRead,
+    MemberRead,
+    MemberRosterRead,
+    WorkspaceRead,
+)
 
 _NOW = datetime(2026, 1, 1, 0, 0, 0)
 _WS_READ = WorkspaceRead(
@@ -54,6 +59,8 @@ _WS_PAGE = Page[WorkspaceRead](items=[_WS_READ], total=1)
 _MEMBER_READ = MemberRead(id=5, workspace_id=42, user_id=9, role="editor")
 _ASSIGNABLE_READ = AssignableUserRead(id=11, name="배정 가능 사용자", email="a@example.com")
 _ASSIGNABLE_PAGE = Page[AssignableUserRead](items=[_ASSIGNABLE_READ], total=1)
+_ROSTER_READ = MemberRosterRead(user_id=9, name="멤버 사용자", email="m@example.com", role="editor")
+_ROSTER_PAGE = Page[MemberRosterRead](items=[_ROSTER_READ], total=1)
 
 
 class _FakeWorkspaceService:
@@ -105,6 +112,10 @@ class _FakeMembershipService:
     def list_assignable_users(self, db, workspace_id, limit, offset) -> Page[AssignableUserRead]:
         self.calls.append(("list_assignable_users", workspace_id, limit, offset))
         return _ASSIGNABLE_PAGE
+
+    def list_members(self, db, workspace_id, limit, offset) -> Page[MemberRosterRead]:
+        self.calls.append(("list_members", workspace_id, limit, offset))
+        return _ROSTER_PAGE
 
 
 # --- 가짜 DB 세션: resolver 의 role 조회만 흉내낸다 ---------------------------------
@@ -205,6 +216,7 @@ def test_all_routes_registered():
         ("/workspaces/{id}", "PATCH"),
         ("/workspaces/{id}", "DELETE"),
         ("/workspaces/{id}/assignable-users", "GET"),
+        ("/workspaces/{id}/members", "GET"),
         ("/workspaces/{id}/members", "POST"),
         ("/workspaces/{id}/members/{uid}", "PATCH"),
         ("/workspaces/{id}/members/{uid}", "DELETE"),
@@ -472,3 +484,62 @@ def test_list_assignable_users_owner_returns_200_and_delegates():
     assert body["items"][0]["id"] == 11
     assert body["items"][0]["email"] == "a@example.com"
     assert member_fake.calls[-1] == ("list_assignable_users", 42, 50, 0)
+
+
+# --- s25 멤버 로스터(OWNER 게이트, GET /workspaces/{id}/members) 결선 -------------
+# NOTE: 전체 게이팅 매트릭스(editor/viewer/비멤버·미존재 WS→403, admin→200, 미인증→401,
+# anti-enumeration)와 결정적 순서·전체 count 경계는 통합 테스트(task 3.x)의 경계다.
+# 여기서는 라우트 결선 + owner happy path + Page[MemberRosterRead] 봉투 + 쿼리 수용/범위
+# 위반 422 만 DB 없이 단위 검증한다.
+
+
+def test_list_members_owner_returns_200_and_delegates():
+    app, _, member_fake = _build_app()
+    _login(app, user_id=3, is_admin=False)
+    _set_db_member(app, role="owner")
+    client = TestClient(app)
+
+    resp = client.get("/workspaces/42/members?limit=50&offset=0")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 1
+    assert body["items"][0]["user_id"] == 9
+    assert body["items"][0]["name"] == "멤버 사용자"
+    assert body["items"][0]["email"] == "m@example.com"
+    assert body["items"][0]["role"] == "editor"
+    assert member_fake.calls[-1] == ("list_members", 42, 50, 0)
+
+
+def test_list_members_default_pagination():
+    app, _, member_fake = _build_app()
+    _login(app, is_admin=True)
+    client = TestClient(app)
+
+    resp = client.get("/workspaces/42/members")
+
+    assert resp.status_code == 200
+    assert member_fake.calls[-1] == ("list_members", 42, 50, 0)
+
+
+def test_list_members_forwards_query_params():
+    app, _, member_fake = _build_app()
+    _login(app, is_admin=True)
+    client = TestClient(app)
+
+    resp = client.get("/workspaces/42/members", params={"limit": 10, "offset": 20})
+
+    assert resp.status_code == 200
+    assert member_fake.calls[-1] == ("list_members", 42, 10, 20)
+
+
+@pytest.mark.parametrize("params", [{"limit": 0}, {"offset": -1}])
+def test_list_members_query_range_violation_returns_422(params):
+    app, _, _ = _build_app()
+    _login(app, is_admin=True)  # 게이트 통과 후 쿼리 검증이 422 를 산출.
+    client = TestClient(app)
+
+    resp = client.get("/workspaces/42/members", params=params)
+
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "validation_error"
