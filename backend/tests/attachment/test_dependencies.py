@@ -10,8 +10,10 @@ design.md §Components and Interfaces #AttWsAdapter 검증:
 
 이 테스트의 핵심 주장(이 task 고유): 라우트 경로 파라미터가 첨부 `{id}` 로 선언될 때
 어댑터가 `AttachmentRepository.get` 으로 첨부 → workspace_id 를 실제로 매핑해 s01 semantics
-를 그대로 재현한다(viewer 이상→viewer 게이트 200 / viewer→editor 게이트 403 / 비멤버→403 /
-admin→200 / 미존재 첨부→404 / 미인증→401).
+를 그대로 재현한다(owner·member→member 게이트 200 / 비멤버→403 / admin→200 / 미존재
+첨부→404 / 미인증→401). s26 2단계 모델에서 편집 어댑터 `ws_role_for_attachment` 의 최소
+요구 role 은 member 이다(업로드 편집 경로). 첨부 조회·다운로드 서빙은 별도 읽기 개방
+게이트 `active_user_for_attachment` 로 전역 개방되었다(그 게이트의 전용 테스트가 담당).
 
 격리: s07 `tests/document/test_dependencies.py` 와 동일한 확립된 패턴을 재사용한다. `DB_NAME`
 을 전용 테스트 DB(`notion_lite_test`)로 바꾸고 `get_settings` 캐시를 비운 뒤 그 시점 URL 로
@@ -84,8 +86,7 @@ class _Wiring:
         attachment_id,
         missing_attachment_id,
         owner_id,
-        editor_id,
-        viewer_id,
+        member_id,
         non_member_id,
         admin_id,
     ):
@@ -94,8 +95,7 @@ class _Wiring:
         self.attachment_id = attachment_id
         self.missing_attachment_id = missing_attachment_id
         self.owner_id = owner_id
-        self.editor_id = editor_id
-        self.viewer_id = viewer_id
+        self.member_id = member_id
         self.non_member_id = non_member_id
         self.admin_id = admin_id
 
@@ -105,9 +105,9 @@ def wiring():
     """테스트 DB 를 마이그레이션·시드하고, get_db 를 override 한 실제 앱을 제공한다.
 
     핵심: 보호 라우트를 경로 파라미터 첨부 `{id}` 로 선언하고 s12 어댑터
-    `ws_role_for_attachment(...)` 를 부착한다(첨부 id → workspace_id 매핑 검증). 두 게이트를
-    노출한다 — EDITOR 게이트(`/_att_probe`)로 위계·admin·404·401 을, VIEWER 게이트
-    (`/_att_viewer_probe`)로 viewer 통과(실제 서빙 라우트 role)를 검증한다.
+    `ws_role_for_attachment(Role.MEMBER)` 를 부착한다(첨부 id → workspace_id 매핑 검증).
+    편집 어댑터의 최소 요구 role 은 member 이며(업로드 경로), owner·member 통과·비멤버
+    403·admin bypass·404·401 을 검증한다.
     """
     from app.config import get_settings
 
@@ -141,8 +141,7 @@ def wiring():
         seed.flush()
 
         owner = _make_user(seed, login_id=f"att-adapter-owner-{suffix}")
-        editor = _make_user(seed, login_id=f"att-adapter-editor-{suffix}")
-        viewer = _make_user(seed, login_id=f"att-adapter-viewer-{suffix}")
+        member = _make_user(seed, login_id=f"att-adapter-member-{suffix}")
         non_member = _make_user(seed, login_id=f"att-adapter-nonmember-{suffix}")
         admin = _make_user(
             seed, login_id=f"att-adapter-admin-{suffix}", is_admin=True
@@ -151,8 +150,7 @@ def wiring():
         seed.add_all(
             [
                 WorkspaceMember(workspace_id=ws.id, user_id=owner.id, role="owner"),
-                WorkspaceMember(workspace_id=ws.id, user_id=editor.id, role="editor"),
-                WorkspaceMember(workspace_id=ws.id, user_id=viewer.id, role="viewer"),
+                WorkspaceMember(workspace_id=ws.id, user_id=member.id, role="member"),
             ]
         )
 
@@ -189,8 +187,7 @@ def wiring():
             attachment_id=attachment_id,
             missing_attachment_id=attachment_id + 100_000,  # 존재하지 않는 첨부 id.
             owner_id=owner.id,
-            editor_id=editor.id,
-            viewer_id=viewer.id,
+            member_id=member.id,
             non_member_id=non_member.id,
             admin_id=admin.id,
         )
@@ -218,23 +215,16 @@ def wiring():
         request.session.clear()
         return {"ok": True}
 
-    # 핵심: 경로 파라미터를 첨부 {id} 로 선언하고 s12 어댑터를 부착한다(첨부→WS 매핑 검증).
+    # 핵심: 경로 파라미터를 첨부 {id} 로 선언하고 s12 편집 어댑터를 부착한다(첨부→WS 매핑 검증).
     def _att_probe(
         id: int,
-        ctx: AuthContext = Depends(ws_role_for_attachment(Role.EDITOR)),
-    ):
-        return {"id": id, "user_id": ctx.user_id}
-
-    def _att_viewer_probe(
-        id: int,
-        ctx: AuthContext = Depends(ws_role_for_attachment(Role.VIEWER)),
+        ctx: AuthContext = Depends(ws_role_for_attachment(Role.MEMBER)),
     ):
         return {"id": id, "user_id": ctx.user_id}
 
     app.add_api_route("/_test/login/{uid}", _login_as, methods=["POST"])
     app.add_api_route("/_test/logout", _logout, methods=["POST"])
     app.add_api_route("/_att_probe/{id}", _att_probe, methods=["GET"])
-    app.add_api_route("/_att_viewer_probe/{id}", _att_viewer_probe, methods=["GET"])
 
     ids.app = app
 
@@ -257,51 +247,40 @@ def _probe_url(wiring: _Wiring) -> str:
     return f"/_att_probe/{wiring.attachment_id}"
 
 
-# --- 첨부 id → workspace_id 브리징 후 s01 위임 (Req 3.4, 7.3) ---
+# --- 첨부 id → workspace_id 브리징 후 s01 위임 (Req 4.3, 4.6, 7.1) ---
 
 
-def test_viewer_via_attachment_id_passes_viewer_gate_200(wiring):
-    """viewer 멤버는 첨부 {id} 경로로 구성한 ws_role_for_attachment(VIEWER) 통과 → 200.
+def test_owner_via_attachment_id_passes_member_gate_200(wiring):
+    """owner 멤버는 첨부 {id} 경로로 구성한 ws_role_for_attachment(MEMBER) 통과 → 200.
 
     경로가 첨부 `{id}` 인데도 통과한다는 것은 어댑터가 첨부→workspace_id 를 실제로 매핑해
     s01 resolver 가 role 을 판정했음을 의미한다(매핑이 없었다면 workspace_id 를 찾지 못한다).
-    이것이 실제 서빙 라우트(GET /attachments/{id}, viewer)의 정상 경로다(Req 3.3).
     """
-    with TestClient(wiring.app) as client:
-        assert client.post(f"/_test/login/{wiring.viewer_id}").status_code == 200
-        resp = client.get(f"/_att_viewer_probe/{wiring.attachment_id}")
-
-    assert resp.status_code == 200, resp.text
-    body = resp.json()
-    assert body["id"] == wiring.attachment_id
-    assert body["user_id"] == wiring.viewer_id
-
-
-def test_owner_via_attachment_id_passes_editor_gate_200(wiring):
-    """owner 멤버는 EDITOR 요구 라우트를 위계 충족으로 통과 → 200 (Req 3.4)."""
     with TestClient(wiring.app) as client:
         assert client.post(f"/_test/login/{wiring.owner_id}").status_code == 200
         resp = client.get(_probe_url(wiring))
 
     assert resp.status_code == 200, resp.text
-    assert resp.json()["user_id"] == wiring.owner_id
+    body = resp.json()
+    assert body["id"] == wiring.attachment_id
+    assert body["user_id"] == wiring.owner_id
 
 
-def test_viewer_denied_for_editor_gate_403(wiring):
-    """viewer 는 EDITOR 요구 라우트에서 위계 미달 → 403 (Req 3.4, s01 소유 판정)."""
+def test_member_via_attachment_id_passes_member_gate_200(wiring):
+    """member 는 MEMBER 요구 편집 라우트를 위계 충족으로 통과 → 200 (Req 4.3)."""
     with TestClient(wiring.app) as client:
-        assert client.post(f"/_test/login/{wiring.viewer_id}").status_code == 200
+        assert client.post(f"/_test/login/{wiring.member_id}").status_code == 200
         resp = client.get(_probe_url(wiring))
 
-    assert resp.status_code == 403
-    assert resp.json()["code"] == "forbidden"
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["user_id"] == wiring.member_id
 
 
 def test_non_member_denied_403(wiring):
-    """비멤버는 어떤 role 도 없어 거부 → 403 (Req 3.4)."""
+    """비멤버는 어떤 role 도 없어 편집 게이트에서 거부 → 403 (Req 4.6)."""
     with TestClient(wiring.app) as client:
         assert client.post(f"/_test/login/{wiring.non_member_id}").status_code == 200
-        resp = client.get(f"/_att_viewer_probe/{wiring.attachment_id}")
+        resp = client.get(_probe_url(wiring))
 
     assert resp.status_code == 403
     assert resp.json()["code"] == "forbidden"
@@ -323,8 +302,8 @@ def test_admin_bypasses_to_200(wiring):
 def test_missing_attachment_returns_404(wiring):
     """존재하지 않는 첨부 id 는 workspace_id 매핑 실패로 404 (not_found)."""
     with TestClient(wiring.app) as client:
-        assert client.post(f"/_test/login/{wiring.viewer_id}").status_code == 200
-        resp = client.get(f"/_att_viewer_probe/{wiring.missing_attachment_id}")
+        assert client.post(f"/_test/login/{wiring.member_id}").status_code == 200
+        resp = client.get(f"/_att_probe/{wiring.missing_attachment_id}")
 
     assert resp.status_code == 404
     assert resp.json()["code"] == "not_found"

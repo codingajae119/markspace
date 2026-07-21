@@ -7,16 +7,16 @@
 
 이 엔드포인트는 task 2.2 에서 이미 커밋되어 통과하므로 본 파일은 **이미 배포된 동작을
 검증하는 커버리지 task** 다(RED→GREEN 아님, assignable 통합 테스트와 동일 성격). 대신
-게이팅이 trivially 통과가 아니라 실질 판정됨(예: editor·viewer 가 실제 role 로 등록되었음에도
-진짜 403)을 HTTP 경계에서 단언한다. no-op 게이트라면 editor/viewer/비-멤버/미인증/미존재 WS
+게이팅이 trivially 통과가 아니라 실질 판정됨(예: member 가 실제 role 로 등록되었음에도
+진짜 403)을 HTTP 경계에서 단언한다. no-op 게이트라면 member/비-멤버/미인증/미존재 WS
 케이스가 모두 200 을 받아 이 파일의 단언들이 실패하므로 vacuous 통과가 아니다.
 
 게이팅은 s23 assignable 과 **동일**하다(둘 다 ``require_ws_role(Role.OWNER)`` 부착):
-owner→200, editor→403, viewer→403, 비-멤버→403, admin(비-owner)→200(INV-3 override, 요청자
+owner→200, member→403, 비-멤버→403, admin(비-owner)→200(INV-3 override, 요청자
 owner 여부와 무관), 미인증(세션 없음·무효)→401, 미존재 WS→403(404 아님, anti-enumeration).
 
 검증 대상(tasks.md 3.1 + design.md):
-- 게이팅 매트릭스: owner→200, editor→403, viewer→403, 비-멤버→403, admin(비-owner)→200,
+- 게이팅 매트릭스: owner→200, member→403, 비-멤버→403, admin(비-owner)→200,
   미인증→401 (Req 2.1·2.2·2.3·2.5).
 - 무효 세션 쿠키(변조)→401 (Req 2.1, 미인증 경계 세분).
 - 존재하지 않는 워크스페이스→403(≠404, 존재 노출 안 함, anti-enumeration) (Req 2.4).
@@ -101,40 +101,34 @@ def _seed_user(
 
 
 def test_gating_matrix_owner_admin_pass_others_rejected(ws_harness):
-    """owner·admin→200, editor·viewer·비멤버→403, 미인증→401 (Req 2.1·2.2·2.3·2.5).
+    """owner·admin→200, member·비멤버→403, 미인증→401 (Req 2.1·2.2·2.3·2.5).
 
-    게이팅이 trivially 통과가 아니라 실질 판정임을 증명한다: editor·viewer 는 실제 role 로
+    게이팅이 trivially 통과가 아니라 실질 판정임을 증명한다: member 는 실제 role 로
     등록되었음에도 OWNER 미달로 진짜 403 을 받고, owner·admin(비-owner 멤버)만 200 을 받는다.
     admin override 는 요청자가 해당 WS 의 owner 인지와 무관하다(INV-3).
     """
     admin = ws_harness.login_admin()
     ws_harness.create_user(admin, "mr-owner", name="오너")
-    editor_id = ws_harness.create_user(admin, "mr-editor", name="에디터")
-    viewer_id = ws_harness.create_user(admin, "mr-viewer", name="뷰어")
+    member_id = ws_harness.create_user(admin, "mr-member", name="멤버")
     ws_harness.create_user(admin, "mr-nonmember", name="비멤버")
 
     owner = ws_harness.login("mr-owner", "ws-member-pass-123")
-    editor = ws_harness.login("mr-editor", "ws-member-pass-123")
-    viewer = ws_harness.login("mr-viewer", "ws-member-pass-123")
+    member = ws_harness.login("mr-member", "ws-member-pass-123")
     nonmember = ws_harness.login("mr-nonmember", "ws-member-pass-123")
 
     ws_id = _create_workspace(owner, "게이팅 공간")
-    # editor·viewer 를 실제 role 로 등록 → 게이트가 실제 role 로 판정하게 만든다.
-    assert _add_member(owner, ws_id, editor_id, "editor").status_code == 201
-    assert _add_member(owner, ws_id, viewer_id, "viewer").status_code == 201
+    # member 를 실제 role 로 등록 → 게이트가 실제 role 로 판정하게 만든다.
+    assert _add_member(owner, ws_id, member_id, "member").status_code == 201
 
     # owner ≥ OWNER → 200 (Req 2.5 의 대비군: 정상 owner 는 통과).
     r_owner = _get_members(owner, ws_id)
     assert r_owner.status_code == 200, f"owner 는 200: {r_owner.text}"
     assert set(r_owner.json().keys()) == {"items", "total"}
 
-    # editor·viewer 는 OWNER 미달 → 진짜 403 (trivial 통과 아님, Req 2.2).
-    r_editor = _get_members(editor, ws_id)
-    assert r_editor.status_code == 403, f"editor 는 403: {r_editor.text}"
-    assert r_editor.json()["code"] == "forbidden"
-    r_viewer = _get_members(viewer, ws_id)
-    assert r_viewer.status_code == 403, f"viewer 는 403: {r_viewer.text}"
-    assert r_viewer.json()["code"] == "forbidden"
+    # member 는 OWNER 미달 → 진짜 403 (trivial 통과 아님, Req 5.4).
+    r_member = _get_members(member, ws_id)
+    assert r_member.status_code == 403, f"member 는 403: {r_member.text}"
+    assert r_member.json()["code"] == "forbidden"
 
     # 비멤버(로그인했으나 멤버 아님) → 403 (Req 2.3).
     r_non = _get_members(nonmember, ws_id)
@@ -212,8 +206,8 @@ def test_roster_includes_inactive_deleted_members_and_owner_self(ws_harness):
     deleted_id = _seed_user(
         ws_harness, "mr-div-deleted", name="삭제", email="del@x.com", is_deleted=True
     )
-    assert _add_member(owner, ws_id, inactive_id, "editor").status_code == 201
-    assert _add_member(owner, ws_id, deleted_id, "viewer").status_code == 201
+    assert _add_member(owner, ws_id, inactive_id, "member").status_code == 201
+    assert _add_member(owner, ws_id, deleted_id, "member").status_code == 201
 
     r = _get_members(owner, ws_id)
     assert r.status_code == 200, r.text
@@ -226,9 +220,9 @@ def test_roster_includes_inactive_deleted_members_and_owner_self(ws_harness):
 
     # 비활성·삭제 멤버가 role 과 함께 존재(Req 1.5) — assignable 이면 배제될 대상.
     assert inactive_id in by_id, "비활성 멤버는 로스터에 role 과 함께 존재해야 한다(soft-delete 미필터)"
-    assert by_id[inactive_id]["role"] == "editor"
+    assert by_id[inactive_id]["role"] == "member"
     assert deleted_id in by_id, "삭제 멤버는 로스터에 role 과 함께 존재해야 한다(soft-delete 미필터)"
-    assert by_id[deleted_id]["role"] == "viewer"
+    assert by_id[deleted_id]["role"] == "member"
 
     # total 은 소속 멤버 전체 개수(owner + 2) — 소프트삭제로 감소하지 않는다.
     assert body["total"] == 3, f"소속 멤버 전량(3)이어야 한다: {body['total']}"
@@ -255,8 +249,8 @@ def test_narrow_envelope_exposes_only_user_id_name_email_role(ws_harness):
         ws_harness, "mr-nar-1", name="이메일있음", email="present@example.com"
     )
     without_email = _seed_user(ws_harness, "mr-nar-2", name="이메일없음", email=None)
-    assert _add_member(owner, ws_id, with_email, "editor").status_code == 201
-    assert _add_member(owner, ws_id, without_email, "viewer").status_code == 201
+    assert _add_member(owner, ws_id, with_email, "member").status_code == 201
+    assert _add_member(owner, ws_id, without_email, "member").status_code == 201
 
     r = _get_members(owner, ws_id)
     assert r.status_code == 200, r.text
@@ -307,7 +301,7 @@ def test_pagination_limit_offset_items_and_total_consistent(ws_harness):
         for i in range(5)
     ]
     for uid in seeded_ids:
-        assert _add_member(owner, ws_id, uid, "editor").status_code == 201
+        assert _add_member(owner, ws_id, uid, "member").status_code == 201
 
     # 결정적 순서는 User.id 오름차순 → 기대 전체 순서(owner 포함 6명).
     expected_order = sorted([owner_id] + seeded_ids)

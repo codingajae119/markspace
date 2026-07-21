@@ -8,18 +8,18 @@ WS role + 비멤버 WS role null") + §System Flows "목록 role 조달 (Backend
 
 두 개의 검증 축:
 
-1. **비-admin(Req 1.1·1.4·1.5)**: 사용자가 owner 인 WS 와 editor/viewer 로 초대된 WS 를
+1. **비-admin(Req 1.1·1.4·1.5)**: 사용자가 owner 인 WS 와 member 로 초대된 WS 를
    가진 상태에서 단일 `GET /workspaces` 응답의 각 item 이 (a) 호출자의 실제 멤버십 role 을
    담은 `role` 키를 갖고, (b) 기존 WorkspaceRead 필드(id·created_at·updated_at·name·
    is_shareable·trash_retention_days)를 타입까지 그대로 유지하며(superset), (c) 워크스페이스별
    추가 조회 없이 하나의 응답으로 제공됨을 관찰한다.
-2. **admin(Req 1.2·1.3)**: admin 이 **viewer 로만** 소속된 WS 는 role 이 "viewer" 로 조달되어
+2. **admin(Req 1.2·1.3)**: admin 이 **member 로만** 소속된 WS 는 role 이 "member" 로 조달되어
    admin 상승이 없음(Req 1.2, INV-3), admin 이 비멤버인 WS 는 role 이 null 임(Req 1.3)을
    admin 전체 조회(`list_all`) 경로에서 관찰한다.
 
 RED 의미(1.1 이전 대비): pre-1.1 `WorkspaceRead` 는 `role` 키가 아예 없었으므로
-``item["role"]`` 접근이 KeyError 로 실패하고, `role` 을 admin 여부로 상승시키면 admin-viewer
-단언(role == "viewer")이 "owner"/상승값으로 깨진다 — 각 단언은 role 부재·오값·상승에
+``item["role"]`` 접근이 KeyError 로 실패하고, `role` 을 admin 여부로 상승시키면 admin-member
+단언(role == "member")이 "owner"/상승값으로 깨진다 — 각 단언은 role 부재·오값·상승에
 민감하다(무의미한 통과 아님).
 
 DB 미가용 시 하네스가 그대로 실패한다(``pytest.skip`` 을 쓰지 않는다 — 미검증을 통과로
@@ -85,11 +85,11 @@ def _admin_user_id(ws_harness) -> int:
 def test_non_admin_list_carries_caller_role_per_workspace(ws_harness):
     """비-admin 목록: owner WS 는 role=owner, 초대된 WS 는 초대 role 을 단일 응답에 담는다.
 
-    (a) 사용자 U 가 WS_own 을 생성 → owner 로 등록됨. (b) 별도 owner O 가 WS_editor·WS_viewer
-    를 만들어 U 를 각각 editor·viewer 로 초대. (c) U 로 로그인해 단 한 번의 `GET /workspaces`
-    → 세 WS 항목이 모두 반환되고 각 item 의 `role` 이 U 의 실제 멤버십 role 과 일치함을
-    관찰한다(owner/editor/viewer). role 은 호출자 관점이므로 owner O 가 만든 WS 라도 U 에겐
-    editor/viewer 로 보인다(Req 1.1).
+    (a) 사용자 U 가 WS_own 을 생성 → owner 로 등록됨. (b) 별도 owner O 가 WS_member 를
+    만들어 U 를 member 로 초대. (c) U 로 로그인해 단 한 번의 `GET /workspaces`
+    → 두 WS 항목이 모두 반환되고 각 item 의 `role` 이 U 의 실제 멤버십 role 과 일치함을
+    관찰한다(owner/member). role 은 호출자 관점이므로 owner O 가 만든 WS 라도 U 에겐
+    member 로 보인다(Req 1.1).
     """
     admin = ws_harness.login_admin()
     u_id = ws_harness.create_user(admin, "lr-user-1", name="목록사용자")
@@ -99,12 +99,10 @@ def test_non_admin_list_carries_caller_role_per_workspace(ws_harness):
     user = ws_harness.login("lr-user-1", _DEFAULT_PW)
     ws_own = _create_workspace(user, "내 소유 공간")
 
-    # 별도 owner O 가 두 WS 를 만들어 U 를 editor·viewer 로 초대.
+    # 별도 owner O 가 WS 를 만들어 U 를 member 로 초대.
     owner = ws_harness.login("lr-owner-1", _DEFAULT_PW)
-    ws_editor = _create_workspace(owner, "에디터 초대 공간")
-    ws_viewer = _create_workspace(owner, "뷰어 초대 공간")
-    _add_member(owner, ws_editor, u_id, "editor")
-    _add_member(owner, ws_viewer, u_id, "viewer")
+    ws_member = _create_workspace(owner, "멤버 초대 공간")
+    _add_member(owner, ws_member, u_id, "member")
 
     # 단일 GET /workspaces 로 U 의 모든 WS 와 role 을 조달(추가 요청 없음, Req 1.4).
     resp = user.get("/workspaces")
@@ -112,13 +110,13 @@ def test_non_admin_list_carries_caller_role_per_workspace(ws_harness):
     page = resp.json()
     items = _items_by_id(page)
 
-    # U 는 정확히 세 WS 의 멤버(owner O 소유라도 U 가 비멤버인 WS 는 목록에 없음).
-    assert set(items.keys()) == {ws_own, ws_editor, ws_viewer}, (
+    # U 는 정확히 두 WS 의 멤버(owner O 소유라도 U 가 비멤버인 WS 는 목록에 없음).
+    assert set(items.keys()) == {ws_own, ws_member}, (
         f"비-admin 은 자신이 멤버인 WS 만 봐야 한다: 관측={sorted(items.keys())}"
     )
 
     # 각 item 의 role 이 U 의 실제 멤버십 role 과 일치(Req 1.1) — role 부재면 KeyError 로 실패.
-    expected_role = {ws_own: "owner", ws_editor: "editor", ws_viewer: "viewer"}
+    expected_role = {ws_own: "owner", ws_member: "member"}
     for ws_id, want in expected_role.items():
         assert items[ws_id]["role"] == want, (
             f"WS {ws_id} 의 role 은 호출자 멤버십 role({want})이어야 한다: "
@@ -171,17 +169,17 @@ def test_non_admin_role_delivered_in_single_response(ws_harness):
 
 
 def test_admin_list_reflects_membership_role_without_elevation(ws_harness):
-    """admin 전체 조회: viewer 로 소속된 WS 는 role=viewer(상승 없음), 비멤버 WS 는 role=null.
+    """admin 전체 조회: member 로 소속된 WS 는 role=member(상승 없음), 비멤버 WS 는 role=null.
 
     (a) 비-admin owner O 가 WS_member·WS_nonmember 를 생성. (b) O 가 admin 을 WS_member 의
-    **viewer** 로 초대(관리자를 낮은 role 로 소속시킴). (c) admin 으로 로그인 → `GET /workspaces`
+    **member** 로 초대(관리자를 낮은 role 로 소속시킴). (c) admin 으로 로그인 → `GET /workspaces`
     는 admin 전체 스캔(`list_all`)으로 두 WS 를 모두 반환. (d) WS_member 의 role 이 "owner"
-    로 상승되지 않고 admin 의 실제 멤버십 role 인 "viewer" 임(Req 1.2, INV-3), WS_nonmember 의
+    로 상승되지 않고 admin 의 실제 멤버십 role 인 "member" 임(Req 1.2, INV-3), WS_nonmember 의
     role 이 null 임(Req 1.3)을 관찰한다.
 
     핵심(무의미 통과 방지): admin 은 is_admin=True 이지만 role 필드는 멤버십에서만 산출되므로
-    WS_member 는 viewer, WS_nonmember 는 null 이어야 한다. role 을 admin 으로 상승시키는 회귀는
-    이 단언(viewer/null)을 깨뜨린다.
+    WS_member 는 member, WS_nonmember 는 null 이어야 한다. role 을 admin 으로 상승시키는 회귀는
+    이 단언(member/null)을 깨뜨린다.
     """
     admin = ws_harness.login_admin()
     admin_id = _admin_user_id(ws_harness)
@@ -189,11 +187,11 @@ def test_admin_list_reflects_membership_role_without_elevation(ws_harness):
 
     # 비-admin owner O 가 두 WS 를 생성(O 가 owner).
     owner = ws_harness.login("lr-owner-adm", _DEFAULT_PW)
-    ws_member = _create_workspace(owner, "관리자-viewer 소속 공간")
+    ws_member = _create_workspace(owner, "관리자-member 소속 공간")
     ws_nonmember = _create_workspace(owner, "관리자 비소속 공간")
 
-    # O 가 admin 을 WS_member 의 viewer 로 초대(낮은 role 소속 — 상승 없음 단언의 전제).
-    _add_member(owner, ws_member, admin_id, "viewer")
+    # O 가 admin 을 WS_member 의 member 로 초대(낮은 role 소속 — 상승 없음 단언의 전제).
+    _add_member(owner, ws_member, admin_id, "member")
 
     # admin 으로 로그인 → 전체 스캔이라 두 WS 모두 목록에 존재.
     resp = admin.get("/workspaces")
@@ -202,9 +200,9 @@ def test_admin_list_reflects_membership_role_without_elevation(ws_harness):
     assert ws_member in items, "admin 전체 조회는 소속 WS 를 포함해야 한다"
     assert ws_nonmember in items, "admin 전체 조회는 비소속 WS 도 포함해야 한다(list_all)"
 
-    # 소속 WS: admin 의 실제 role(viewer)로 조달 — admin 상승 없음(Req 1.2, INV-3).
-    assert items[ws_member]["role"] == "viewer", (
-        f"admin 이 viewer 로 소속된 WS 는 role=viewer 여야 한다(owner 로 상승 금지): "
+    # 소속 WS: admin 의 실제 role(member)로 조달 — admin 상승 없음(Req 1.2, INV-3).
+    assert items[ws_member]["role"] == "member", (
+        f"admin 이 member 로 소속된 WS 는 role=member 여야 한다(owner 로 상승 금지): "
         f"관측={items[ws_member].get('role')!r}"
     )
 

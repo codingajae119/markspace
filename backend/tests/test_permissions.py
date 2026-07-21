@@ -132,14 +132,25 @@ def _ctx(user, *, is_admin=None):
 
 
 def test_resolve_returns_role_for_member(test_session):
-    """멤버는 부여된 role 로 매핑된다 (Req 5.2)."""
+    """멤버는 부여된 role 로 매핑된다 (Req 5.2, 1.1)."""
     ws = _make_workspace(test_session)
     user = _make_user(test_session)
-    _add_member(test_session, workspace_id=ws.id, user_id=user.id, role="editor")
+    _add_member(test_session, workspace_id=ws.id, user_id=user.id, role="member")
 
     role = WorkspaceRoleResolver().resolve(test_session, _ctx(user), ws.id)
 
-    assert role is Role.EDITOR
+    assert role is Role.MEMBER
+
+
+def test_resolve_returns_role_for_owner(test_session):
+    """owner 멤버는 OWNER 로 매핑된다 (Req 5.2, 1.1)."""
+    ws = _make_workspace(test_session)
+    user = _make_user(test_session)
+    _add_member(test_session, workspace_id=ws.id, user_id=user.id, role="owner")
+
+    role = WorkspaceRoleResolver().resolve(test_session, _ctx(user), ws.id)
+
+    assert role is Role.OWNER
 
 
 def test_resolve_returns_none_for_non_member(test_session):
@@ -152,24 +163,49 @@ def test_resolve_returns_none_for_non_member(test_session):
     assert role is None
 
 
-# --- has_at_least() 위계 (Req 5.2, INV-2, INV-3) ---------------------------
+# --- Role 2단계 위계·심볼 (Req 1.1, 1.2) -----------------------------------
 
 
-def test_editor_meets_editor_and_viewer_but_not_owner(test_session):
-    """editor 는 EDITOR·VIEWER 를 만족하고 OWNER 는 만족하지 못한다 (Req 5.2 위계)."""
+def test_role_is_two_tier_owner_over_member():
+    """Role 은 owner/member 2값이며 owner > member 위계이다 (Req 1.1, 1.2)."""
+    assert Role.OWNER > Role.MEMBER
+    assert int(Role.MEMBER) == 1
+    assert int(Role.OWNER) == 2
+    assert {r.name for r in Role} == {"MEMBER", "OWNER"}
+
+
+def test_role_has_no_editor_or_viewer_symbols():
+    """삭제된 EDITOR/VIEWER 심볼은 존재하지 않는다 (하위 호환 alias 없음, Req 1.1)."""
+    assert not hasattr(Role, "EDITOR")
+    assert not hasattr(Role, "VIEWER")
+
+
+def test_role_map_holds_only_two_values():
+    """_ROLE_MAP 은 owner/member 두 문자열만 번역하고 legacy 값은 매핑에서 제외된다 (Req 1.1)."""
+    from app.common.permissions import _ROLE_MAP
+
+    assert _ROLE_MAP == {"owner": Role.OWNER, "member": Role.MEMBER}
+    assert _ROLE_MAP.get("editor") is None
+    assert _ROLE_MAP.get("viewer") is None
+
+
+# --- has_at_least() 위계 (Req 1.2, 5.2, INV-2, INV-3) ----------------------
+
+
+def test_member_meets_member_but_not_owner(test_session):
+    """member 는 MEMBER 요구를 만족하고 OWNER 는 만족하지 못한다 (Req 1.2·5.2 위계)."""
     ws = _make_workspace(test_session)
     user = _make_user(test_session)
-    _add_member(test_session, workspace_id=ws.id, user_id=user.id, role="editor")
+    _add_member(test_session, workspace_id=ws.id, user_id=user.id, role="member")
     resolver = WorkspaceRoleResolver()
     ctx = _ctx(user)
 
-    assert resolver.has_at_least(test_session, ctx, ws.id, Role.EDITOR) is True
-    assert resolver.has_at_least(test_session, ctx, ws.id, Role.VIEWER) is True
+    assert resolver.has_at_least(test_session, ctx, ws.id, Role.MEMBER) is True
     assert resolver.has_at_least(test_session, ctx, ws.id, Role.OWNER) is False
 
 
 def test_owner_meets_all_levels(test_session):
-    """owner 는 editor 의 모든 권한을 포함한다 (Req 5.6 위계)."""
+    """owner 는 member 의 모든 권한을 포함한다 (Req 1.2·5.6 위계)."""
     ws = _make_workspace(test_session)
     user = _make_user(test_session)
     _add_member(test_session, workspace_id=ws.id, user_id=user.id, role="owner")
@@ -177,20 +213,7 @@ def test_owner_meets_all_levels(test_session):
     ctx = _ctx(user)
 
     assert resolver.has_at_least(test_session, ctx, ws.id, Role.OWNER) is True
-    assert resolver.has_at_least(test_session, ctx, ws.id, Role.EDITOR) is True
-    assert resolver.has_at_least(test_session, ctx, ws.id, Role.VIEWER) is True
-
-
-def test_viewer_denied_for_editor_action(test_session):
-    """viewer 는 editor 이상 요구 작업에서 거부된다 (Req 5.4, INV-2)."""
-    ws = _make_workspace(test_session)
-    user = _make_user(test_session)
-    _add_member(test_session, workspace_id=ws.id, user_id=user.id, role="viewer")
-    resolver = WorkspaceRoleResolver()
-    ctx = _ctx(user)
-
-    assert resolver.has_at_least(test_session, ctx, ws.id, Role.EDITOR) is False
-    assert resolver.has_at_least(test_session, ctx, ws.id, Role.VIEWER) is True
+    assert resolver.has_at_least(test_session, ctx, ws.id, Role.MEMBER) is True
 
 
 def test_non_member_denied_for_any_role(test_session):
@@ -200,7 +223,7 @@ def test_non_member_denied_for_any_role(test_session):
     resolver = WorkspaceRoleResolver()
     ctx = _ctx(user)
 
-    assert resolver.has_at_least(test_session, ctx, ws.id, Role.VIEWER) is False
+    assert resolver.has_at_least(test_session, ctx, ws.id, Role.MEMBER) is False
     assert resolver.has_at_least(test_session, ctx, ws.id, Role.OWNER) is False
 
 
@@ -218,11 +241,11 @@ def test_admin_bypasses_membership(test_session):
 
 
 def test_require_ws_role_passes_for_sufficient_role(test_session):
-    """editor 요구를 만족하는 멤버는 ctx 를 그대로 돌려받는다 (Req 5.7)."""
+    """member 요구를 만족하는 멤버는 ctx 를 그대로 돌려받는다 (Req 5.7, 4.1)."""
     ws = _make_workspace(test_session)
     user = _make_user(test_session)
-    _add_member(test_session, workspace_id=ws.id, user_id=user.id, role="editor")
-    dep = require_ws_role(Role.EDITOR)
+    _add_member(test_session, workspace_id=ws.id, user_id=user.id, role="member")
+    dep = require_ws_role(Role.MEMBER)
     ctx = _ctx(user)
 
     result = dep(workspace_id=ws.id, ctx=ctx, db=test_session)
@@ -230,12 +253,12 @@ def test_require_ws_role_passes_for_sufficient_role(test_session):
     assert result is ctx
 
 
-def test_require_ws_role_denies_viewer_with_403(test_session):
-    """viewer 가 editor 요구 작업을 요청하면 403 FORBIDDEN (Req 5.3·5.4, INV-2)."""
+def test_require_ws_role_denies_member_for_owner_action_with_403(test_session):
+    """member 가 owner 요구 관리 작업을 요청하면 403 FORBIDDEN (Req 5.4, INV-2)."""
     ws = _make_workspace(test_session)
     user = _make_user(test_session)
-    _add_member(test_session, workspace_id=ws.id, user_id=user.id, role="viewer")
-    dep = require_ws_role(Role.EDITOR)
+    _add_member(test_session, workspace_id=ws.id, user_id=user.id, role="member")
+    dep = require_ws_role(Role.OWNER)
     ctx = _ctx(user)
 
     with pytest.raises(DomainError) as exc:
@@ -246,10 +269,10 @@ def test_require_ws_role_denies_viewer_with_403(test_session):
 
 
 def test_require_ws_role_denies_non_member_with_403(test_session):
-    """멤버가 아니면 403 FORBIDDEN (Req 5.3)."""
+    """멤버가 아니면 403 FORBIDDEN (Req 5.3, 4.6)."""
     ws = _make_workspace(test_session)
     user = _make_user(test_session)
-    dep = require_ws_role(Role.VIEWER)
+    dep = require_ws_role(Role.MEMBER)
     ctx = _ctx(user)
 
     with pytest.raises(DomainError) as exc:

@@ -184,7 +184,7 @@ def test_get_role_returns_registered_role_string(sessionmaker_factory):
     session = sessionmaker_factory()
     try:
         repo = MembershipRepository()
-        repo.add(session, workspace_id=ws_id, user_id=user_id, role="editor")
+        repo.add(session, workspace_id=ws_id, user_id=user_id, role="member")
     finally:
         session.close()
 
@@ -192,7 +192,7 @@ def test_get_role_returns_registered_role_string(sessionmaker_factory):
     try:
         repo = MembershipRepository()
         role = repo.get_role(verify, ws_id, user_id)
-        assert role == "editor"
+        assert role == "member"
         assert isinstance(role, str), "get_role 은 원시 문자열을 반환해야 한다"
     finally:
         verify.close()
@@ -224,7 +224,7 @@ def test_duplicate_member_insert_raises_integrity_error(sessionmaker_factory):
     try:
         repo = MembershipRepository()
         with pytest.raises(IntegrityError):
-            repo.add(dup, workspace_id=ws_id, user_id=user_id, role="viewer")
+            repo.add(dup, workspace_id=ws_id, user_id=user_id, role="member")
     finally:
         dup.close()
 
@@ -246,7 +246,7 @@ def test_set_role_updates_role(sessionmaker_factory):
     session = sessionmaker_factory()
     try:
         repo = MembershipRepository()
-        member = repo.add(session, workspace_id=ws_id, user_id=user_id, role="viewer")
+        member = repo.add(session, workspace_id=ws_id, user_id=user_id, role="member")
         updated = repo.set_role(session, member, "owner")
         assert updated.role == "owner"
     finally:
@@ -277,7 +277,7 @@ def test_remove_physically_removes_member(sessionmaker_factory):
     session = sessionmaker_factory()
     try:
         repo = MembershipRepository()
-        member = repo.add(session, workspace_id=ws_id, user_id=user_id, role="editor")
+        member = repo.add(session, workspace_id=ws_id, user_id=user_id, role="member")
         repo.remove(session, member)
     finally:
         session.close()
@@ -312,7 +312,7 @@ def test_remove_all_for_workspace_removes_all_members(sessionmaker_factory):
     try:
         repo = MembershipRepository()
         repo.add(session, workspace_id=ws_id, user_id=u1_id, role="owner")
-        repo.add(session, workspace_id=ws_id, user_id=u2_id, role="editor")
+        repo.add(session, workspace_id=ws_id, user_id=u2_id, role="member")
         # 다른 워크스페이스의 멤버는 보존되어야 한다.
         repo.add(session, workspace_id=other_ws_id, user_id=u3_id, role="owner")
         repo.remove_all_for_workspace(session, ws_id)
@@ -431,7 +431,7 @@ def test_list_assignable_users_filters_and_returns_only_assignable(
         member = _make_assignable_user(seed, login_id="already-member")
         seed.flush()
         seed.add(
-            WorkspaceMember(workspace_id=ws.id, user_id=member.id, role="editor")
+            WorkspaceMember(workspace_id=ws.id, user_id=member.id, role="member")
         )
         seed.commit()
         ws_id = ws.id
@@ -575,10 +575,10 @@ def test_list_members_includes_inactive_and_deleted_with_role(sessionmaker_facto
         seed.flush()
         seed.add(WorkspaceMember(workspace_id=ws.id, user_id=active.id, role="owner"))
         seed.add(
-            WorkspaceMember(workspace_id=ws.id, user_id=inactive.id, role="editor")
+            WorkspaceMember(workspace_id=ws.id, user_id=inactive.id, role="member")
         )
         seed.add(
-            WorkspaceMember(workspace_id=ws.id, user_id=deleted.id, role="viewer")
+            WorkspaceMember(workspace_id=ws.id, user_id=deleted.id, role="member")
         )
         seed.commit()
         ws_id = ws.id
@@ -595,8 +595,8 @@ def test_list_members_includes_inactive_and_deleted_with_role(sessionmaker_facto
         assert inactive_id in by_id, "비활성 멤버도 로스터에 포함되어야 한다"
         assert deleted_id in by_id, "삭제 멤버도 로스터에 포함되어야 한다"
         assert by_id[active_id] == "owner"
-        assert by_id[inactive_id] == "editor"
-        assert by_id[deleted_id] == "viewer"
+        assert by_id[inactive_id] == "member"
+        assert by_id[deleted_id] == "member"
         assert total == 3, "total 은 소속 멤버십 전체(비활성·삭제 포함) 개수여야 한다"
     finally:
         session.close()
@@ -644,7 +644,7 @@ def test_list_members_orders_ascending_by_user_id(sessionmaker_factory):
         # 삽입 순서를 user.id 역순으로 하여 order_by(User.id) 를 실증한다.
         for user_id in reversed(user_ids):
             seed.add(
-                WorkspaceMember(workspace_id=ws.id, user_id=user_id, role="viewer")
+                WorkspaceMember(workspace_id=ws.id, user_id=user_id, role="member")
             )
         seed.commit()
         ws_id = ws.id
@@ -684,7 +684,7 @@ def test_list_members_total_is_full_membership_count_not_page_size(
         seed.flush()
         for user_id in member_ids:
             seed.add(
-                WorkspaceMember(workspace_id=ws.id, user_id=user_id, role="viewer")
+                WorkspaceMember(workspace_id=ws.id, user_id=user_id, role="member")
             )
         seed.add(
             WorkspaceMember(

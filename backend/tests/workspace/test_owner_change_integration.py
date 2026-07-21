@@ -167,29 +167,29 @@ def test_admin_assigns_owner_to_nonmember_from_owner_absent_state(ws_harness):
 
 
 def test_admin_owner_change_promotes_existing_member_to_owner(ws_harness):
-    """이미 비-owner 멤버(viewer)인 사용자를 admin 이 owner 로 승격 → role 갱신·게이트 통과.
+    """이미 비-owner 멤버(member)인 사용자를 admin 이 owner 로 승격 → role 갱신·게이트 통과.
 
-    upsert 의 "기존 멤버 → role owner 로 갱신" 경로(Req 5.3)를 커버한다. viewer 로 등록된
+    upsert 의 "기존 멤버 → role owner 로 갱신" 경로(Req 5.3)를 커버한다. member 로 등록된
     사용자는 초기에는 OWNER 게이트에서 403 이지만, admin 소유권 변경 후 owner 로 갱신되어
     같은 사용자가 이제 통과한다.
     """
     admin = ws_harness.login_admin()
     ws_harness.create_user(admin, "oc-owner-2", name="오너")
-    member_id = ws_harness.create_user(admin, "oc-viewer-2", name="뷰어멤버")
+    member_id = ws_harness.create_user(admin, "oc-member-2", name="일반멤버")
 
     owner = ws_harness.login("oc-owner-2", _DEFAULT_PW)
     ws_id = _create_workspace(owner, "승격 공간")
-    # viewer 로 등록 → 초기에는 OWNER 게이트 미달.
+    # member 로 등록 → 초기에는 OWNER 게이트 미달.
     assert (
         owner.post(
             f"/workspaces/{ws_id}/members",
-            json={"user_id": member_id, "role": "viewer"},
+            json={"user_id": member_id, "role": "member"},
         ).status_code
         == 201
     )
-    member = ws_harness.login("oc-viewer-2", _DEFAULT_PW)
+    member = ws_harness.login("oc-member-2", _DEFAULT_PW)
     before = member.patch(f"/workspaces/{ws_id}", json={"name": "미달-시도"})
-    assert before.status_code == 403, f"viewer 는 승격 전 403: {before.text}"
+    assert before.status_code == 403, f"member 는 승격 전 403: {before.text}"
 
     # admin 이 기존 멤버를 owner 로 승격 → 200, 멤버십 role 이 owner 로 갱신.
     resp = admin.post(
@@ -429,8 +429,8 @@ def test_base_metadata_uses_only_s01_workspace_schema(ws_harness):
         f"workspace_member 컬럼이 s01 계약과 일치해야 한다: 관측={sorted(member_cols)}"
     )
 
-    # workspace_member.role 은 s01 ENUM(owner/editor/viewer) 계약을 따른다(정합 재확인).
+    # workspace_member.role 은 s26 2단계 ENUM(owner/member) 계약을 따른다(정합 재확인).
     role_type = Base.metadata.tables["workspace_member"].columns["role"].type
-    assert set(getattr(role_type, "enums", [])) == {"owner", "editor", "viewer"}, (
-        f"role ENUM 값이 s01 계약과 일치해야 한다: {getattr(role_type, 'enums', None)!r}"
+    assert set(getattr(role_type, "enums", [])) == {"owner", "member"}, (
+        f"role ENUM 값이 2단계 모델(owner/member)과 일치해야 한다: {getattr(role_type, 'enums', None)!r}"
     )

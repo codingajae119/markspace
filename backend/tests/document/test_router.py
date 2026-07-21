@@ -16,7 +16,8 @@ DB 없이 라우터 결선만 확인한다:
 핵심 불변식:
 - 정확히 6개 엔드포인트가 등록된다(POST/GET /workspaces/{id}/documents,
   GET/PATCH/DELETE /documents/{id}, POST /documents/{id}/move).
-- 생성·수정·이동·삭제는 EDITOR, 조회·목록은 VIEWER 게이트를 부착한다.
+- 생성·수정·이동·삭제는 MEMBER 게이트, 조회·목록은 s26 읽기 전역 개방(활성 사용자 게이트,
+  role 판정 없음 — 비멤버도 200)을 부착한다.
 - 성공 계약: POST create 201, GET 200, PATCH 200, POST move 200, DELETE 204(no body).
 - DELETE 는 엔진 `trash_document` 를 호출하고 비active 대상→409(엔진 raise)로 직렬화된다.
 - `/documents/{id}` 대상 문서 미존재 → 어댑터가 404 를 낸다.
@@ -135,8 +136,9 @@ class _FakeMember:
 
 
 class _FakeQuery:
-    def __init__(self, member) -> None:
+    def __init__(self, member, *, ws_exists) -> None:
         self._member = member
+        self._ws_exists = ws_exists
 
     def filter(self, *args, **kwargs) -> "_FakeQuery":
         return self
@@ -144,19 +146,25 @@ class _FakeQuery:
     def one_or_none(self):
         return self._member
 
+    def first(self):
+        # s26 require_active_workspace 의 ``db.query(Workspace.id)...first()`` 존재검사.
+        # WS 존재 시 truthy row, 부재 시 None(→404) 을 흉내낸다.
+        return (1,) if self._ws_exists else None
+
 
 class _FakeSession:
-    """어댑터의 ``db.scalar``(문서→workspace_id)·resolver 의 ``db.query`` 를 지원한다."""
+    """어댑터의 ``db.scalar``(문서→workspace_id)·resolver 의 ``db.query``(role/WS 존재)를 지원한다."""
 
-    def __init__(self, *, workspace_id, member) -> None:
+    def __init__(self, *, workspace_id, member, ws_exists=True) -> None:
         self._workspace_id = workspace_id
         self._member = member
+        self._ws_exists = ws_exists
 
     def scalar(self, *args, **kwargs):
         return self._workspace_id
 
     def query(self, model) -> _FakeQuery:
-        return _FakeQuery(self._member)
+        return _FakeQuery(self._member, ws_exists=self._ws_exists)
 
 
 def _build_app():
@@ -183,12 +191,12 @@ def _login(app: FastAPI, *, user_id: int = 7, is_admin: bool = False) -> None:
     )
 
 
-def _set_db(app: FastAPI, *, workspace_id, role) -> None:
-    """get_db 를 override — 어댑터엔 workspace_id, resolver 엔 role 멤버를 노출한다."""
+def _set_db(app: FastAPI, *, workspace_id, role, ws_exists=True) -> None:
+    """get_db 를 override — 어댑터엔 workspace_id, resolver 엔 role 멤버, 읽기 게이트엔 WS 존재를 노출한다."""
     member = _FakeMember(role) if role is not None else None
 
     def _fake_db():
-        yield _FakeSession(workspace_id=workspace_id, member=member)
+        yield _FakeSession(workspace_id=workspace_id, member=member, ws_exists=ws_exists)
 
     app.dependency_overrides[get_db] = _fake_db
 
@@ -370,13 +378,13 @@ def test_delete_missing_document_via_repo_guard_returns_404():
     assert resp.json()["code"] == "not_found"
 
 
-# --- 게이트: 생성(EDITOR) --------------------------------------------------------
+# --- 게이트: 생성(MEMBER) --------------------------------------------------------
 
 
-def test_create_document_editor_passes():
+def test_create_document_member_passes():
     app, service_fake, _, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role="editor")
+    _set_db(app, workspace_id=42, role="member")
     client = TestClient(app)
 
     resp = client.post("/workspaces/42/documents", json={"title": "문서"})
@@ -385,11 +393,11 @@ def test_create_document_editor_passes():
     assert service_fake.calls[-1][0] == "create_document"
 
 
-@pytest.mark.parametrize("role", ["viewer", None])
-def test_create_document_below_editor_forbidden_403(role):
+def test_create_document_non_member_forbidden_403():
+    """비멤버는 MEMBER 편집 게이트에서 403 (Req 4.6)."""
     app, _, _, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role=role)
+    _set_db(app, workspace_id=42, role=None)
     client = TestClient(app)
 
     resp = client.post("/workspaces/42/documents", json={"title": "문서"})
@@ -410,13 +418,13 @@ def test_create_document_admin_bypasses():
     assert service_fake.calls[-1][0] == "create_document"
 
 
-# --- 게이트: 목록(VIEWER) --------------------------------------------------------
+# --- 게이트: 목록(읽기 전역 개방, s26) ------------------------------------------
 
 
-def test_list_documents_viewer_passes():
+def test_list_documents_member_passes():
     app, service_fake, _, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role="viewer")
+    _set_db(app, workspace_id=42, role="member")
     client = TestClient(app)
 
     resp = client.get("/workspaces/42/documents")
@@ -425,25 +433,39 @@ def test_list_documents_viewer_passes():
     assert service_fake.calls[-1][0] == "list_documents"
 
 
-def test_list_documents_non_member_forbidden_403():
-    app, _, _, _ = _build_app()
+def test_list_documents_non_member_open_read_200():
+    """비멤버 활성 사용자도 트리를 읽는다 → 200 (Req 3.2·3.8, 읽기 개방, 403 제거)."""
+    app, service_fake, _, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role=None)
+    _set_db(app, workspace_id=42, role=None)  # 비멤버.
     client = TestClient(app)
 
     resp = client.get("/workspaces/42/documents")
 
-    assert resp.status_code == 403
-    assert resp.json()["code"] == "forbidden"
+    assert resp.status_code == 200
+    assert service_fake.calls[-1][0] == "list_documents"
 
 
-# --- 게이트: /documents/{id} 조회(VIEWER) ---------------------------------------
+def test_list_documents_missing_workspace_404():
+    """존재하지 않는 워크스페이스의 트리 조회 → 404 (Req 3.7)."""
+    app, _, _, _ = _build_app()
+    _login(app, user_id=3, is_admin=False)
+    _set_db(app, workspace_id=42, role=None, ws_exists=False)
+    client = TestClient(app)
+
+    resp = client.get("/workspaces/42/documents")
+
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "not_found"
 
 
-def test_get_document_viewer_passes():
+# --- 게이트: /documents/{id} 조회(읽기 전역 개방, s26) --------------------------
+
+
+def test_get_document_member_passes():
     app, service_fake, _, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role="viewer")
+    _set_db(app, workspace_id=42, role="member")
     client = TestClient(app)
 
     resp = client.get("/documents/100")
@@ -452,19 +474,20 @@ def test_get_document_viewer_passes():
     assert service_fake.calls[-1][0] == "get_document"
 
 
-def test_get_document_non_member_forbidden_403():
-    app, _, _, _ = _build_app()
+def test_get_document_non_member_open_read_200():
+    """비멤버 활성 사용자도 문서 상세를 읽는다 → 200 (Req 3.1·3.8, 읽기 개방, 403 제거)."""
+    app, service_fake, _, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role=None)
+    _set_db(app, workspace_id=42, role=None)  # 비멤버.
     client = TestClient(app)
 
     resp = client.get("/documents/100")
 
-    assert resp.status_code == 403
-    assert resp.json()["code"] == "forbidden"
+    assert resp.status_code == 200
+    assert service_fake.calls[-1][0] == "get_document"
 
 
-# --- 게이트: /documents/{id} 변경(EDITOR) — patch·move·delete --------------------
+# --- 게이트: /documents/{id} 변경(MEMBER) — patch·move·delete --------------------
 
 
 @pytest.mark.parametrize("method,path,json_body", [
@@ -472,10 +495,10 @@ def test_get_document_non_member_forbidden_403():
     ("post", "/documents/100/move", {}),
     ("delete", "/documents/100", None),
 ])
-def test_document_mutation_editor_passes(method, path, json_body):
+def test_document_mutation_member_passes(method, path, json_body):
     app, _, _, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role="editor")
+    _set_db(app, workspace_id=42, role="member")
     client = TestClient(app)
     kwargs = {"json": json_body} if json_body is not None else {}
 
@@ -489,11 +512,11 @@ def test_document_mutation_editor_passes(method, path, json_body):
     ("post", "/documents/100/move", {}),
     ("delete", "/documents/100", None),
 ])
-@pytest.mark.parametrize("role", ["viewer", None])
-def test_document_mutation_below_editor_forbidden_403(method, path, json_body, role):
+def test_document_mutation_non_member_forbidden_403(method, path, json_body):
+    """비멤버는 MEMBER 편집 게이트에서 403 (Req 4.6)."""
     app, _, _, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role=role)
+    _set_db(app, workspace_id=42, role=None)
     client = TestClient(app)
     kwargs = {"json": json_body} if json_body is not None else {}
 

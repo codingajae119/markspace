@@ -87,7 +87,7 @@
   - _Depends: 4.1_
 
 - [ ] 5. 회귀 스위트·불변식·문서 정합
-- [ ] 5.1 (P) 백엔드 단위 권한 테스트 갱신
+- [x] 5.1 (P) 백엔드 단위 권한 테스트 갱신
   - 권한·멤버십·admin 우회 단위 테스트를 새 2단계 모델로 갱신(owner>member 위계, editor/viewer 심볼 부재, editor/viewer role 요청 422, admin bypass 유지)
   - 관측 완료: 갱신된 백엔드 단위 권한 테스트 스위트가 전부 통과
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 5.5, 7.1, 7.5_
@@ -133,3 +133,4 @@
 
 ## Implementation Notes
 - 4.2 boundary 확장(설계 근거): design.md "Modified Files — Frontend"가 편집성 UI 게이팅 소비처의 `minimum: Role.EDITOR → Role.MEMBER` 스왑을 명시하나, 이 소비처는 features/document·features/sharing·features/editor 및 s24 복원 경로(app/workspace-context)에 걸쳐 있어 어느 task의 `_Boundary:_`에도 명시되지 않았다(4.1=shared/auth, 4.2=features/workspace). no-alias 리네임으로 Role.EDITOR/VIEWER 심볼이 삭제되어 이 소비처들이 컴파일·게이팅 불능이 되므로, 4.2가 승인된 설계의 FE 미러 파일 목록 전체(features 전 도메인 소스 소비처 + s24 복원 경로)를 소유하도록 확장한다. 교차-feature 게이팅 TEST 갱신은 5.4로 이연(중간 phased-red).
+- 소스 갭 발견·보정(5.1 중): design "Modified Files — Backend"와 task 1.2/2.1 boundary가 `app/models/workspace.py`의 SQLAlchemy `Enum("owner","editor","viewer")` 선언을 누락했다. 마이그레이션 0004가 DB 컬럼을 `ENUM('owner','member')`로 바꾼 뒤 ORM이 `member` 행을 읽으면 SQLAlchemy Enum result processor가 `LookupError: 'member' is not among the defined enum values`를 던져 resolver.resolve·멤버십 조회·WS 상세 role 주입이 프로덕션에서 깨진다(create_all 기반 단위 테스트도 동일 실패). 이는 role 근간 재정의(task 1.2)의 일부이므로 `Enum("owner","member",...)`로 보정했다(무-alias 2단계 모델 완성). 단위 테스트 786건 통과 검증. 잔존 45 errors는 `tests/integration_L2/helpers.py`의 editor/viewer 시드에서 파생(5.3 소관), 3 deselected는 head-guard(5.2).

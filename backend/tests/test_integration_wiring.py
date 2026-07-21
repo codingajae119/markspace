@@ -79,11 +79,11 @@ def _make_user(session, *, login_id, is_admin=False):
 class _Wiring:
     """시나리오에서 참조할 앱 인스턴스와 시드된 식별자 묶음."""
 
-    def __init__(self, app, workspace_id, editor_id, viewer_id, non_member_id, admin_id):
+    def __init__(self, app, workspace_id, member_id, owner_id, non_member_id, admin_id):
         self.app = app
         self.workspace_id = workspace_id
-        self.editor_id = editor_id
-        self.viewer_id = viewer_id
+        self.member_id = member_id
+        self.owner_id = owner_id
         self.non_member_id = non_member_id
         self.admin_id = admin_id
 
@@ -120,18 +120,18 @@ def wiring():
         seed.add(ws)
         seed.flush()
 
-        editor = _make_user(seed, login_id="wiring-editor")
-        viewer = _make_user(seed, login_id="wiring-viewer")
+        member = _make_user(seed, login_id="wiring-member")
+        owner = _make_user(seed, login_id="wiring-owner")
         non_member = _make_user(seed, login_id="wiring-nonmember")
         admin = _make_user(seed, login_id="wiring-admin", is_admin=True)
 
         seed.add_all(
             [
                 WorkspaceMember(
-                    workspace_id=ws.id, user_id=editor.id, role="editor"
+                    workspace_id=ws.id, user_id=member.id, role="member"
                 ),
                 WorkspaceMember(
-                    workspace_id=ws.id, user_id=viewer.id, role="viewer"
+                    workspace_id=ws.id, user_id=owner.id, role="owner"
                 ),
             ]
         )
@@ -140,8 +140,8 @@ def wiring():
         ids = _Wiring(
             app=None,
             workspace_id=ws.id,
-            editor_id=editor.id,
-            viewer_id=viewer.id,
+            member_id=member.id,
+            owner_id=owner.id,
             non_member_id=non_member.id,
             admin_id=admin.id,
         )
@@ -171,7 +171,13 @@ def wiring():
 
     def _probe(
         workspace_id: int,
-        ctx: AuthContext = Depends(require_ws_role(Role.EDITOR)),
+        ctx: AuthContext = Depends(require_ws_role(Role.MEMBER)),
+    ):
+        return {"workspace_id": workspace_id, "user_id": ctx.user_id}
+
+    def _probe_owner(
+        workspace_id: int,
+        ctx: AuthContext = Depends(require_ws_role(Role.OWNER)),
     ):
         return {"workspace_id": workspace_id, "user_id": ctx.user_id}
 
@@ -179,6 +185,9 @@ def wiring():
     app.add_api_route("/_test/logout", _logout, methods=["POST"])
     app.add_api_route(
         "/workspaces/{workspace_id}/_probe", _probe, methods=["GET"]
+    )
+    app.add_api_route(
+        "/workspaces/{workspace_id}/_probe_owner", _probe_owner, methods=["GET"]
     )
 
     ids.app = app
@@ -200,6 +209,10 @@ def wiring():
 
 def _probe_url(wiring: _Wiring) -> str:
     return f"/workspaces/{wiring.workspace_id}/_probe"
+
+
+def _probe_owner_url(wiring: _Wiring) -> str:
+    return f"/workspaces/{wiring.workspace_id}/_probe_owner"
 
 
 def test_health_ok_against_migrated_db(wiring):
@@ -231,28 +244,41 @@ def test_non_member_probe_returns_403(wiring):
     assert resp.json()["code"] == "forbidden"
 
 
-def test_editor_member_probe_returns_200(wiring):
-    """editor 멤버는 EDITOR 요구를 충족하여 통과 → 200, user_id 반영 (Req 4.1, 5.3)."""
+def test_member_probe_returns_200(wiring):
+    """member 는 MEMBER 요구를 충족하여 통과 → 200, user_id 반영 (Req 4.1, 5.3)."""
     with TestClient(wiring.app) as client:
-        login = client.post(f"/_test/login/{wiring.editor_id}")
+        login = client.post(f"/_test/login/{wiring.member_id}")
         assert login.status_code == 200
         resp = client.get(_probe_url(wiring))
 
     assert resp.status_code == 200
     body = resp.json()
     assert body["workspace_id"] == wiring.workspace_id
-    assert body["user_id"] == wiring.editor_id
+    assert body["user_id"] == wiring.member_id
 
 
-def test_viewer_member_probe_returns_403(wiring):
-    """viewer 멤버는 EDITOR 요구에 미달 → 403 forbidden (Req 5.3, INV-2)."""
+def test_member_denied_for_owner_probe_returns_403(wiring):
+    """member 는 OWNER 요구 관리 라우트에 미달 → 403 forbidden (Req 5.4, INV-2)."""
     with TestClient(wiring.app) as client:
-        login = client.post(f"/_test/login/{wiring.viewer_id}")
+        login = client.post(f"/_test/login/{wiring.member_id}")
         assert login.status_code == 200
-        resp = client.get(_probe_url(wiring))
+        resp = client.get(_probe_owner_url(wiring))
 
     assert resp.status_code == 403
     assert resp.json()["code"] == "forbidden"
+
+
+def test_owner_probe_returns_200(wiring):
+    """owner 는 OWNER 요구를 충족하여 통과 → 200 (Req 5.1, 5.2)."""
+    with TestClient(wiring.app) as client:
+        login = client.post(f"/_test/login/{wiring.owner_id}")
+        assert login.status_code == 200
+        resp = client.get(_probe_owner_url(wiring))
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["workspace_id"] == wiring.workspace_id
+    assert body["user_id"] == wiring.owner_id
 
 
 def test_admin_non_member_probe_bypasses_to_200(wiring):

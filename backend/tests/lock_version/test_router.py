@@ -14,7 +14,8 @@ design.md §Components → LockVersionRouter API Contract 표(카탈로그 행 2
 핵심 불변식:
 - 정확히 5개 엔드포인트가 등록된다(POST /documents/{id}/lock·/save·/cancel·/force-unlock,
   GET /documents/{id}/versions).
-- lock/save/cancel 은 EDITOR, force-unlock 은 OWNER, versions 는 VIEWER 게이트를 부착한다.
+- lock/save/cancel 은 MEMBER, force-unlock 은 OWNER, versions 는 s26 읽기 전역 개방
+  (active_user_for_document 활성 사용자 게이트, 비멤버 200)을 부착한다.
 - 성공 계약: lock 200 DocumentLockRead, save 200 DocumentVersionRead, cancel 204(no body),
   force-unlock 204(no body), versions 200 Page[DocumentVersionRead].
 - 위임: 각 핸들러가 올바른 인자로 대응 서비스 메서드를 호출한다.
@@ -275,7 +276,7 @@ def test_versions_forwards_query_params():
     assert service_fake.calls[-1] == ("list_versions", 100, 10, 20)
 
 
-# --- 게이트: lock/save/cancel (EDITOR) -------------------------------------------
+# --- 게이트: lock/save/cancel (MEMBER) -------------------------------------------
 
 
 @pytest.mark.parametrize("method,path,json_body", [
@@ -283,10 +284,10 @@ def test_versions_forwards_query_params():
     ("post", "/documents/100/save", {"content": "x"}),
     ("post", "/documents/100/cancel", None),
 ])
-def test_editor_gate_editor_passes(method, path, json_body):
+def test_member_gate_member_passes(method, path, json_body):
     app, service_fake = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role="editor")
+    _set_db(app, workspace_id=42, role="member")
     client = TestClient(app)
     kwargs = {"json": json_body} if json_body is not None else {}
 
@@ -300,11 +301,11 @@ def test_editor_gate_editor_passes(method, path, json_body):
     ("post", "/documents/100/save", {"content": "x"}),
     ("post", "/documents/100/cancel", None),
 ])
-@pytest.mark.parametrize("role", ["viewer", None])
-def test_editor_gate_below_editor_forbidden_403(method, path, json_body, role):
+def test_member_gate_non_member_forbidden_403(method, path, json_body):
+    """비멤버는 MEMBER 편집 게이트에서 403 (Req 4.6)."""
     app, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role=role)
+    _set_db(app, workspace_id=42, role=None)
     client = TestClient(app)
     kwargs = {"json": json_body} if json_body is not None else {}
 
@@ -329,7 +330,7 @@ def test_force_unlock_owner_passes():
     assert service_fake.calls[-1][0] == "force_unlock"
 
 
-@pytest.mark.parametrize("role", ["editor", "viewer", None])
+@pytest.mark.parametrize("role", ["member", None])
 def test_force_unlock_below_owner_forbidden_403(role):
     app, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
@@ -354,13 +355,13 @@ def test_force_unlock_admin_bypasses():
     assert service_fake.calls[-1][0] == "force_unlock"
 
 
-# --- 게이트: versions (VIEWER) ---------------------------------------------------
+# --- 게이트: versions (읽기 전역 개방, s26) --------------------------------------
 
 
-def test_versions_viewer_passes():
+def test_versions_member_passes():
     app, service_fake = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role="viewer")
+    _set_db(app, workspace_id=42, role="member")
     client = TestClient(app)
 
     resp = client.get("/documents/100/versions")
@@ -369,26 +370,27 @@ def test_versions_viewer_passes():
     assert service_fake.calls[-1][0] == "list_versions"
 
 
-def test_versions_non_member_forbidden_403():
-    app, _ = _build_app()
+def test_versions_non_member_open_read_200():
+    """비멤버 활성 사용자도 버전 이력을 읽는다 → 200 (Req 3.3·3.8, 읽기 개방, 403 제거)."""
+    app, service_fake = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role=None)
+    _set_db(app, workspace_id=42, role=None)  # 비멤버.
     client = TestClient(app)
 
     resp = client.get("/documents/100/versions")
 
-    assert resp.status_code == 403
-    assert resp.json()["code"] == "forbidden"
+    assert resp.status_code == 200
+    assert service_fake.calls[-1][0] == "list_versions"
 
 
-# --- 대조: viewer 는 versions 만 통과, editor 는 mutation 만 통과 -----------------
+# --- 대조: 비멤버는 versions(개방)만, member 는 mutation 만 통과 -----------------
 
 
-def test_viewer_versions_pass_but_mutations_forbidden():
-    """viewer 멤버십 → versions 200 이지만 lock/save/cancel/force-unlock 403."""
+def test_non_member_versions_open_but_mutations_forbidden():
+    """비멤버 → versions 200(읽기 개방)이지만 lock/save/cancel/force-unlock 403."""
     app, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role="viewer")
+    _set_db(app, workspace_id=42, role=None)
     client = TestClient(app)
 
     assert client.get("/documents/100/versions").status_code == 200
@@ -398,11 +400,11 @@ def test_viewer_versions_pass_but_mutations_forbidden():
     assert client.post("/documents/100/force-unlock").status_code == 403
 
 
-def test_editor_mutations_pass_but_force_unlock_forbidden():
-    """editor 멤버십 → lock/save/cancel 200/204 이지만 force-unlock 403(OWNER)."""
+def test_member_mutations_pass_but_force_unlock_forbidden():
+    """member 멤버십 → lock/save/cancel 200/204 이지만 force-unlock 403(OWNER)."""
     app, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role="editor")
+    _set_db(app, workspace_id=42, role="member")
     client = TestClient(app)
 
     assert client.post("/documents/100/lock").status_code == 200

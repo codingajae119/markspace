@@ -11,9 +11,10 @@ design.md §Components and Interfaces #BundleWsAdapter 검증:
 
 이 테스트의 핵심 주장(이 task 고유): 라우트 경로 파라미터가 묶음 `{bundleId}` 로 선언될 때
 어댑터가 `get_workspace_id` 로 묶음 루트 문서 → workspace_id 를 실제로 매핑해 s01 semantics
-를 그대로 재현한다(owner·editor→200 / viewer·비멤버→403 / admin→200 / 미존재→404 / 미인증→401).
-또한 내부 의존성의 경로 파라미터가 문자 그대로 `bundleId` 로 선언되어 `/trash/{bundleId}`
-라우트와 이름으로 바인딩됨을 검증한다.
+를 그대로 재현한다(owner·member→200 / 비멤버→403 / admin→200 / 미존재→404 / 미인증→401).
+휴지통은 전역 읽기 개방에서 제외되어 최소 요구 role 이 member 이다(R7.4). 또한 내부 의존성의
+경로 파라미터가 문자 그대로 `bundleId` 로 선언되어 `/trash/{bundleId}` 라우트와 이름으로
+바인딩됨을 검증한다.
 
 격리: s07 `tests/document/test_dependencies.py` 와 동일한 확립된 패턴을 재사용한다. `DB_NAME`
 을 전용 테스트 DB(`notion_lite_test`)로 바꾸고 `get_settings` 캐시를 비운 뒤 그 시점 URL 로
@@ -86,8 +87,7 @@ class _Wiring:
         bundle_id,
         missing_bundle_id,
         owner_id,
-        editor_id,
-        viewer_id,
+        member_id,
         non_member_id,
         admin_id,
     ):
@@ -96,8 +96,7 @@ class _Wiring:
         self.bundle_id = bundle_id
         self.missing_bundle_id = missing_bundle_id
         self.owner_id = owner_id
-        self.editor_id = editor_id
-        self.viewer_id = viewer_id
+        self.member_id = member_id
         self.non_member_id = non_member_id
         self.admin_id = admin_id
 
@@ -107,7 +106,7 @@ def wiring():
     """테스트 DB 를 마이그레이션·시드하고, get_db 를 override 한 실제 앱을 제공한다.
 
     핵심: 보호 라우트를 경로 파라미터 묶음 `{bundleId}` 로 선언하고 s10 어댑터
-    `ws_role_for_bundle(Role.EDITOR)` 를 부착한다(묶음 루트 문서 id → workspace_id 매핑 검증).
+    `ws_role_for_bundle(Role.MEMBER)` 를 부착한다(묶음 루트 문서 id → workspace_id 매핑 검증).
     """
     from app.config import get_settings
 
@@ -139,16 +138,14 @@ def wiring():
         seed.flush()
 
         owner = _make_user(seed, login_id="bundle-adapter-owner")
-        editor = _make_user(seed, login_id="bundle-adapter-editor")
-        viewer = _make_user(seed, login_id="bundle-adapter-viewer")
+        member = _make_user(seed, login_id="bundle-adapter-member")
         non_member = _make_user(seed, login_id="bundle-adapter-nonmember")
         admin = _make_user(seed, login_id="bundle-adapter-admin", is_admin=True)
 
         seed.add_all(
             [
                 WorkspaceMember(workspace_id=ws.id, user_id=owner.id, role="owner"),
-                WorkspaceMember(workspace_id=ws.id, user_id=editor.id, role="editor"),
-                WorkspaceMember(workspace_id=ws.id, user_id=viewer.id, role="viewer"),
+                WorkspaceMember(workspace_id=ws.id, user_id=member.id, role="member"),
             ]
         )
 
@@ -176,8 +173,7 @@ def wiring():
             bundle_id=bundle_id,
             missing_bundle_id=bundle_id + 100_000,  # 존재하지 않는 묶음(문서) id.
             owner_id=owner.id,
-            editor_id=editor.id,
-            viewer_id=viewer.id,
+            member_id=member.id,
             non_member_id=non_member.id,
             admin_id=admin.id,
         )
@@ -208,7 +204,7 @@ def wiring():
     # 핵심: 경로 파라미터를 묶음 {bundleId} 로 선언하고 s10 어댑터를 부착한다(묶음→WS 매핑 검증).
     def _bundle_probe(
         bundleId: int,
-        ctx: AuthContext = Depends(ws_role_for_bundle(Role.EDITOR)),
+        ctx: AuthContext = Depends(ws_role_for_bundle(Role.MEMBER)),
     ):
         return {"bundleId": bundleId, "user_id": ctx.user_id}
 
@@ -240,8 +236,8 @@ def _probe_url(wiring: _Wiring) -> str:
 # --- 묶음 id → workspace_id 브리징 후 s01 위임 (Req 5.1, 5.4) ---
 
 
-def test_owner_via_bundle_id_passes_editor_gate_200(wiring):
-    """owner 멤버는 묶음 {bundleId} 경로로 구성한 ws_role_for_bundle(EDITOR) 통과 → 200.
+def test_owner_via_bundle_id_passes_member_gate_200(wiring):
+    """owner 멤버는 묶음 {bundleId} 경로로 구성한 ws_role_for_bundle(MEMBER) 통과 → 200.
 
     경로가 묶음 `{bundleId}` 인데도 통과한다는 것은 어댑터가 묶음 루트 문서→workspace_id 를
     실제로 매핑해 s01 resolver 가 role 을 판정했음을 의미한다(매핑이 없었다면 찾지 못한다).
@@ -256,28 +252,18 @@ def test_owner_via_bundle_id_passes_editor_gate_200(wiring):
     assert body["user_id"] == wiring.owner_id
 
 
-def test_editor_via_bundle_id_passes_editor_gate_200(wiring):
-    """editor 멤버는 EDITOR 요구 라우트를 위계 충족으로 통과 → 200 (Req 5.1)."""
+def test_member_via_bundle_id_passes_member_gate_200(wiring):
+    """member 는 MEMBER 요구 휴지통 라우트를 위계 충족으로 통과 → 200 (Req 4.5, 7.4)."""
     with TestClient(wiring.app) as client:
-        assert client.post(f"/_test/login/{wiring.editor_id}").status_code == 200
+        assert client.post(f"/_test/login/{wiring.member_id}").status_code == 200
         resp = client.get(_probe_url(wiring))
 
     assert resp.status_code == 200, resp.text
-    assert resp.json()["user_id"] == wiring.editor_id
-
-
-def test_viewer_denied_for_editor_gate_403(wiring):
-    """viewer 는 EDITOR 요구 라우트에서 위계 미달 → 403 (Req 5.4, s01 소유 판정)."""
-    with TestClient(wiring.app) as client:
-        assert client.post(f"/_test/login/{wiring.viewer_id}").status_code == 200
-        resp = client.get(_probe_url(wiring))
-
-    assert resp.status_code == 403
-    assert resp.json()["code"] == "forbidden"
+    assert resp.json()["user_id"] == wiring.member_id
 
 
 def test_non_member_denied_403(wiring):
-    """비멤버는 어떤 role 도 없어 거부 → 403 (Req 5.4)."""
+    """비멤버는 어떤 role 도 없어 휴지통 게이트에서 거부 → 403 (Req 4.6, 7.4)."""
     with TestClient(wiring.app) as client:
         assert client.post(f"/_test/login/{wiring.non_member_id}").status_code == 200
         resp = client.get(_probe_url(wiring))
@@ -360,7 +346,7 @@ def test_inner_dependency_path_param_is_bundleId():
     FastAPI 는 경로 파라미터를 이름으로 바인딩하므로, 내부 의존성 시그니처가 `bundleId` 가
     아니면 `/trash/{bundleId}` 라우트에서 workspace_id 매핑이 이뤄지지 않는다.
     """
-    dependency = ws_role_for_bundle(Role.EDITOR)
+    dependency = ws_role_for_bundle(Role.MEMBER)
     params = inspect.signature(dependency).parameters
     assert "bundleId" in params, f"기대: bundleId 경로 파라미터, 실제: {list(params)}"
     assert "id" not in params, "문서 어댑터의 `id` 를 그대로 쓰면 안 된다(경로 이름 불일치)"

@@ -9,7 +9,8 @@ design.md §Components and Interfaces #DocumentWsAdapter 검증:
 
 이 테스트의 핵심 주장(이 task 고유): 라우트 경로 파라미터가 문서 `{id}` 로 선언될 때
 어댑터가 `get_workspace_id` 로 문서 → workspace_id 를 실제로 매핑해 s01 semantics 를 그대로
-재현한다(owner·editor→200 / viewer·비멤버→403 / admin→200 / 미존재 문서→404 / 미인증→401).
+재현한다(owner·member→200 / 비멤버→403 / admin→200 / 미존재 문서→404 / 미인증→401).
+편집 어댑터의 최소 요구 role 은 2단계 모델에서 member 이다(Req 4.1, 4.6).
 
 격리: s05 `tests/workspace/test_dependencies.py` 와 동일한 확립된 패턴을 재사용한다. `DB_NAME`
 을 전용 테스트 DB(`notion_lite_test`)로 바꾸고 `get_settings` 캐시를 비운 뒤 그 시점 URL 로
@@ -81,8 +82,7 @@ class _Wiring:
         document_id,
         missing_document_id,
         owner_id,
-        editor_id,
-        viewer_id,
+        member_id,
         non_member_id,
         admin_id,
     ):
@@ -91,8 +91,7 @@ class _Wiring:
         self.document_id = document_id
         self.missing_document_id = missing_document_id
         self.owner_id = owner_id
-        self.editor_id = editor_id
-        self.viewer_id = viewer_id
+        self.member_id = member_id
         self.non_member_id = non_member_id
         self.admin_id = admin_id
 
@@ -102,7 +101,7 @@ def wiring():
     """테스트 DB 를 마이그레이션·시드하고, get_db 를 override 한 실제 앱을 제공한다.
 
     핵심: 보호 라우트를 경로 파라미터 문서 `{id}` 로 선언하고 s07 어댑터
-    `ws_role_for_document(Role.EDITOR)` 를 부착한다(문서 id → workspace_id 매핑 검증).
+    `ws_role_for_document(Role.MEMBER)` 를 부착한다(문서 id → workspace_id 매핑 검증).
     """
     from app.config import get_settings
 
@@ -134,16 +133,14 @@ def wiring():
         seed.flush()
 
         owner = _make_user(seed, login_id="doc-adapter-owner")
-        editor = _make_user(seed, login_id="doc-adapter-editor")
-        viewer = _make_user(seed, login_id="doc-adapter-viewer")
+        member = _make_user(seed, login_id="doc-adapter-member")
         non_member = _make_user(seed, login_id="doc-adapter-nonmember")
         admin = _make_user(seed, login_id="doc-adapter-admin", is_admin=True)
 
         seed.add_all(
             [
                 WorkspaceMember(workspace_id=ws.id, user_id=owner.id, role="owner"),
-                WorkspaceMember(workspace_id=ws.id, user_id=editor.id, role="editor"),
-                WorkspaceMember(workspace_id=ws.id, user_id=viewer.id, role="viewer"),
+                WorkspaceMember(workspace_id=ws.id, user_id=member.id, role="member"),
             ]
         )
 
@@ -168,8 +165,7 @@ def wiring():
             document_id=document_id,
             missing_document_id=document_id + 100_000,  # 존재하지 않는 문서 id.
             owner_id=owner.id,
-            editor_id=editor.id,
-            viewer_id=viewer.id,
+            member_id=member.id,
             non_member_id=non_member.id,
             admin_id=admin.id,
         )
@@ -200,7 +196,7 @@ def wiring():
     # 핵심: 경로 파라미터를 문서 {id} 로 선언하고 s07 어댑터를 부착한다(문서→WS 매핑 검증).
     def _doc_probe(
         id: int,
-        ctx: AuthContext = Depends(ws_role_for_document(Role.EDITOR)),
+        ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
     ):
         return {"id": id, "user_id": ctx.user_id}
 
@@ -232,8 +228,8 @@ def _probe_url(wiring: _Wiring) -> str:
 # --- 문서 id → workspace_id 브리징 후 s01 위임 (Req 10.3, 10.4) ---
 
 
-def test_owner_via_document_id_passes_editor_gate_200(wiring):
-    """owner 멤버는 문서 {id} 경로로 구성한 ws_role_for_document(EDITOR) 통과 → 200.
+def test_owner_via_document_id_passes_member_gate_200(wiring):
+    """owner 멤버는 문서 {id} 경로로 구성한 ws_role_for_document(MEMBER) 통과 → 200.
 
     경로가 문서 `{id}` 인데도 통과한다는 것은 어댑터가 문서→workspace_id 를 실제로 매핑해
     s01 resolver 가 role 을 판정했음을 의미한다(매핑이 없었다면 workspace_id 를 찾지 못한다).
@@ -248,28 +244,18 @@ def test_owner_via_document_id_passes_editor_gate_200(wiring):
     assert body["user_id"] == wiring.owner_id
 
 
-def test_editor_via_document_id_passes_editor_gate_200(wiring):
-    """editor 멤버는 EDITOR 요구 라우트를 위계 충족으로 통과 → 200 (Req 10.3)."""
+def test_member_via_document_id_passes_member_gate_200(wiring):
+    """member 는 MEMBER 요구 편집 라우트를 위계 충족으로 통과 → 200 (Req 4.1, 10.3)."""
     with TestClient(wiring.app) as client:
-        assert client.post(f"/_test/login/{wiring.editor_id}").status_code == 200
+        assert client.post(f"/_test/login/{wiring.member_id}").status_code == 200
         resp = client.get(_probe_url(wiring))
 
     assert resp.status_code == 200, resp.text
-    assert resp.json()["user_id"] == wiring.editor_id
-
-
-def test_viewer_denied_for_editor_gate_403(wiring):
-    """viewer 는 EDITOR 요구 라우트에서 위계 미달 → 403 (Req 10.3, s01 소유 판정)."""
-    with TestClient(wiring.app) as client:
-        assert client.post(f"/_test/login/{wiring.viewer_id}").status_code == 200
-        resp = client.get(_probe_url(wiring))
-
-    assert resp.status_code == 403
-    assert resp.json()["code"] == "forbidden"
+    assert resp.json()["user_id"] == wiring.member_id
 
 
 def test_non_member_denied_403(wiring):
-    """비멤버는 어떤 role 도 없어 거부 → 403 (Req 10.3)."""
+    """비멤버는 어떤 role 도 없어 편집 게이트에서 거부 → 403 (Req 4.6, 10.3)."""
     with TestClient(wiring.app) as client:
         assert client.post(f"/_test/login/{wiring.non_member_id}").status_code == 200
         resp = client.get(_probe_url(wiring))

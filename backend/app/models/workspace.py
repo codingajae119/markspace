@@ -2,7 +2,7 @@
 (design.md §Physical Data Model, Req 1.3·1.4).
 
 Workspace 는 권한·공유·보관 정책 경계 집계 루트이며, WorkspaceMember 는
-(workspace, user) 쌍마다 role(owner/editor/viewer)을 부여한다(INV-2).
+(workspace, user) 쌍마다 role(owner/member)을 부여한다(INV-2, s26 2단계 모델).
 """
 
 from datetime import datetime
@@ -49,5 +49,5 @@ class WorkspaceMember(Base):
     )
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("user.id"), nullable=False)
     role: Mapped[str] = mapped_column(
-        Enum("owner", "editor", "viewer", name="workspace_member_role"), nullable=False
+        Enum("owner", "member", name="workspace_member_role"), nullable=False
     )

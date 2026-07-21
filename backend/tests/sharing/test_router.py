@@ -4,9 +4,9 @@
 design.md §Components → SharingRouter API Contract 표(카탈로그 행 34~37)와 게이트 결선을
 검증한다. DB 없이 라우터 결선만 확인한다:
 
-- 발급/토글(editor 게이트): `get_share_link_service` 를 가짜로 override 하고 `get_current_user`·
-  `get_db` 를 시나리오로 주입해 s07 `ws_role_for_document(EDITOR)` 게이트(문서 미존재→404,
-  viewer/비멤버→403, 비인증→401, admin bypass)와 서비스 위임(issue_link·toggle_link)·응답
+- 발급/토글(member 게이트): `get_share_link_service` 를 가짜로 override 하고 `get_current_user`·
+  `get_db` 를 시나리오로 주입해 s07 `ws_role_for_document(MEMBER)` 게이트(문서 미존재→404,
+  비멤버→403, 비인증→401, admin bypass)와 서비스 위임(issue_link·toggle_link)·응답
   (ShareLinkRead, share_url 포함)·게이트 off/비active 409 패스스루를 단위 검증한다.
 - 공개 렌더/첨부 서빙(공개, 게이트 없음): `get_public_share_service` 를 가짜로 override 하고
   **세션 없이** 요청해도 서비스에 도달함을 확인해 공개 경로에 인증 의존성이 없음을 증명한다.
@@ -16,9 +16,9 @@ design.md §Components → SharingRouter API Contract 표(카탈로그 행 34~37
 핵심 불변식:
 - 정확히 4개 엔드포인트가 등록된다(POST/PATCH /documents/{id}/share, GET /public/{token},
   GET /public/{token}/attachments/{aid}).
-- 발급/토글은 EDITOR 게이트를 부착하고 공개 두 경로는 **인증 게이트가 없다**.
+- 발급/토글은 MEMBER 게이트를 부착하고 공개 두 경로는 **인증 게이트가 없다**.
 - 성공 계약: 발급/토글 200 + ShareLinkRead(share_url), 공개 렌더 200 + 트리, 파일 200 + 스트림.
-- 발급/토글 거부: viewer 403, 비인증 401, 문서 미존재 404, 게이트 off/비active 409(서비스 패스스루).
+- 발급/토글 거부: 비멤버 403, 비인증 401, 문서 미존재 404, 게이트 off/비active 409(서비스 패스스루).
 - 공개 경로의 모든 무효/부재는 서비스가 404 로 통일(존재 추정 차단).
 - 오류 본문은 s01 ErrorResponse(code/message) 형태.
 """
@@ -230,10 +230,10 @@ def test_exactly_four_routes_registered():
 # --- 발급(POST) 성공 계약(admin 인증으로 게이트 bypass) --------------------------
 
 
-def test_issue_editor_returns_200_share_link():
+def test_issue_member_returns_200_share_link():
     app, share_fake, _ = _build_app()
     _login(app, user_id=7, is_admin=False)
-    _set_db(app, workspace_id=42, role="editor")
+    _set_db(app, workspace_id=42, role="member")
     client = TestClient(app)
 
     resp = client.post("/documents/100/share")
@@ -260,11 +260,11 @@ def test_issue_admin_bypasses():
     assert share_fake.calls[-1][0] == "issue_link"
 
 
-@pytest.mark.parametrize("role", ["viewer", None])
-def test_issue_below_editor_forbidden_403(role):
+def test_issue_non_member_forbidden_403():
+    """비멤버는 MEMBER 발급 게이트에서 403 (Req 4.6)."""
     app, _, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role=role)
+    _set_db(app, workspace_id=42, role=None)
     client = TestClient(app)
 
     resp = client.post("/documents/100/share")
@@ -306,10 +306,10 @@ def test_issue_gate_off_service_409_passthrough():
 # --- 토글(PATCH) 성공 계약 + 게이트 ---------------------------------------------
 
 
-def test_toggle_editor_returns_200_share_link():
+def test_toggle_member_returns_200_share_link():
     app, share_fake, _ = _build_app()
     _login(app, user_id=7, is_admin=False)
-    _set_db(app, workspace_id=42, role="editor")
+    _set_db(app, workspace_id=42, role="member")
     client = TestClient(app)
 
     resp = _toggle(client, is_enabled=False)
@@ -334,11 +334,11 @@ def test_toggle_admin_bypasses():
     assert share_fake.calls[-1] == ("toggle_link", 100, True)
 
 
-@pytest.mark.parametrize("role", ["viewer", None])
-def test_toggle_below_editor_forbidden_403(role):
+def test_toggle_non_member_forbidden_403():
+    """비멤버는 MEMBER 토글 게이트에서 403 (Req 4.6)."""
     app, _, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role=role)
+    _set_db(app, workspace_id=42, role=None)
     client = TestClient(app)
 
     resp = _toggle(client)
@@ -488,10 +488,10 @@ def test_public_attachment_out_of_scope_404_unified():
 def test_error_body_is_s01_error_response_shape():
     app, _, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role="viewer")
+    _set_db(app, workspace_id=42, role=None)
     client = TestClient(app)
 
-    # viewer 는 발급(EDITOR) 게이트에서 403.
+    # 비멤버는 발급(MEMBER) 게이트에서 403.
     resp = client.post("/documents/100/share")
 
     assert resp.status_code == 403

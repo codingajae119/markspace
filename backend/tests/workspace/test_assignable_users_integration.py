@@ -5,12 +5,12 @@
 검증한다(design.md §Testing Strategy → Integration Tests, §Security Considerations).
 
 이 엔드포인트는 task 1.4 에서 이미 커밋되어 통과하므로 본 파일은 **이미 배포된 동작을
-검증하는 커버리지 task** 다(RED→GREEN 아님). 대신 게이팅이 실질적으로 판정되는지(예: viewer 가
+검증하는 커버리지 task** 다(RED→GREEN 아님). 대신 게이팅이 실질적으로 판정되는지(예: member 가
 trivially 통과가 아니라 진짜 403), 페이지네이션 items/total 일관성, narrow 봉투 누출 부재를
 HTTP 경계에서 단언한다.
 
 검증 대상(tasks.md 2.2 + design.md):
-- 게이팅 매트릭스: owner→200, editor→403, viewer→403, 비멤버→403, admin(비-owner)→200,
+- 게이팅 매트릭스: owner→200, member→403, 비멤버→403, admin(비-owner)→200,
   미인증(세션 없음·무효)→401 (Req 2.1·2.2·2.3·2.4).
 - 존재하지 않는 워크스페이스→403(404 로 존재 노출 안 함, anti-enumeration) (Req 2.4).
 - 페이지네이션: 페이지 크기보다 배정 가능 총수가 클 때 limit/offset 경계에서 items·total 일관,
@@ -96,39 +96,33 @@ def _get_assignable(client, ws_id: int, *, limit=None, offset=None):
 
 
 def test_gating_matrix_owner_admin_pass_others_rejected(ws_harness):
-    """owner·admin→200, editor·viewer·비멤버→403, 미인증→401 (Req 2.1·2.2·2.3·2.4).
+    """owner·admin→200, member·비멤버→403, 미인증→401 (Req 2.1·2.2·2.3·2.4).
 
-    게이팅이 trivially 통과가 아니라 실질 판정임을 증명한다: editor·viewer 는 실제 role 로
+    게이팅이 trivially 통과가 아니라 실질 판정임을 증명한다: member 는 실제 role 로
     등록되었음에도 OWNER 미달로 진짜 403 을 받고, owner·admin(비-멤버)만 200 을 받는다.
     """
     admin = ws_harness.login_admin()
     owner_id = ws_harness.create_user(admin, "au-owner", name="오너")
-    editor_id = ws_harness.create_user(admin, "au-editor", name="에디터")
-    viewer_id = ws_harness.create_user(admin, "au-viewer", name="뷰어")
+    member_id = ws_harness.create_user(admin, "au-member", name="멤버")
     ws_harness.create_user(admin, "au-nonmember", name="비멤버")
 
     owner = ws_harness.login("au-owner", "ws-member-pass-123")
-    editor = ws_harness.login("au-editor", "ws-member-pass-123")
-    viewer = ws_harness.login("au-viewer", "ws-member-pass-123")
+    member = ws_harness.login("au-member", "ws-member-pass-123")
     nonmember = ws_harness.login("au-nonmember", "ws-member-pass-123")
 
     ws_id = _create_workspace(owner, "게이팅 공간")
-    # editor·viewer 를 실제 role 로 등록 → 게이트가 실제 role 로 판정하게 만든다.
-    assert _add_member(owner, ws_id, editor_id, "editor").status_code == 201
-    assert _add_member(owner, ws_id, viewer_id, "viewer").status_code == 201
+    # member 를 실제 role 로 등록 → 게이트가 실제 role 로 판정하게 만든다.
+    assert _add_member(owner, ws_id, member_id, "member").status_code == 201
 
     # owner ≥ OWNER → 200.
     r_owner = _get_assignable(owner, ws_id)
     assert r_owner.status_code == 200, f"owner 는 200: {r_owner.text}"
     assert set(r_owner.json().keys()) == {"items", "total"}
 
-    # editor·viewer 는 OWNER 미달 → 진짜 403 (trivial 통과 아님).
-    r_editor = _get_assignable(editor, ws_id)
-    assert r_editor.status_code == 403, f"editor 는 403: {r_editor.text}"
-    assert r_editor.json()["code"] == "forbidden"
-    r_viewer = _get_assignable(viewer, ws_id)
-    assert r_viewer.status_code == 403, f"viewer 는 403: {r_viewer.text}"
-    assert r_viewer.json()["code"] == "forbidden"
+    # member 는 OWNER 미달 → 진짜 403 (trivial 통과 아님, Req 5.4).
+    r_member = _get_assignable(member, ws_id)
+    assert r_member.status_code == 403, f"member 는 403: {r_member.text}"
+    assert r_member.json()["code"] == "forbidden"
 
     # 비멤버(로그인했으나 멤버 아님) → 403 (Req 2.1).
     r_non = _get_assignable(nonmember, ws_id)
@@ -282,7 +276,7 @@ def test_boundary_users_excluded_from_assignable(ws_harness):
     ws_harness.create_user(admin, "au-bnd-owner", name="오너")
     owner = ws_harness.login("au-bnd-owner", "ws-member-pass-123")
     ws_id = _create_workspace(owner, "경계 공간")
-    assert _add_member(owner, ws_id, member_id, "editor").status_code == 201
+    assert _add_member(owner, ws_id, member_id, "member").status_code == 201
 
     # 경계 사용자들(각각 제외 대상) + 배정 가능 1명.
     _seed_assignable_user(

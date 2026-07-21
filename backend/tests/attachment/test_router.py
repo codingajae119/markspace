@@ -10,14 +10,14 @@ Flows(첨부 생성 / 첨부 조회 서빙)의 게이트 결선을 검증한다.
   단위 검증한다.
 - 실제 게이트 동작(401/403/404/admin-bypass): `get_current_user` 로 인증 컨텍스트를 주입하고
   `get_db` 를 가짜 세션으로 교체해 두 게이트 계열을 재현한다:
-    * `POST /documents/{id}/attachments` → s07 `ws_role_for_document`(문서 id → workspace_id
-      매핑; `db.scalar`) 후 s01 위임(`db.query`).
-    * `GET /attachments/{id}` → s12 `ws_role_for_attachment`(첨부 id → workspace_id 매핑;
-      `db.get`) 후 s01 위임(`db.query`).
+    * `POST /documents/{id}/attachments` → s07 `ws_role_for_document(MEMBER)`(문서 id →
+      workspace_id 매핑; `db.scalar`) 후 s01 위임(`db.query`).
+    * `GET /attachments/{id}` → s26 `active_user_for_attachment`(첨부 id → 존재검사;
+      `db.get`) 활성 사용자 게이트 — role 판정 없음(비멤버도 200, 부재 404).
 
 핵심 불변식:
 - 정확히 2개 엔드포인트가 등록된다(POST /documents/{id}/attachments, GET /attachments/{id}).
-- 업로드는 EDITOR, 조회는 VIEWER 게이트를 부착한다.
+- 업로드는 MEMBER 게이트, 조회는 s26 읽기 전역 개방(활성 사용자 게이트, 비멤버 200)을 부착한다.
 - 성공 계약: 업로드 201 + AttachmentRead(url=/attachments/{id}), 조회 200 + 바이너리 스트림.
 - kind 추론: image/* content-type → image, 그 외 → file; 명시 Form kind 가 추론을 이긴다.
 - 보관 첨부 조회 → 서비스가 role 무관 404(admin 포함), 크기 초과 → 서비스 422 패스스루.
@@ -270,13 +270,13 @@ def test_upload_returns_attachment_read_shape():
     assert body["kind"] == "image"
 
 
-# --- 업로드 게이트: EDITOR ------------------------------------------------------
+# --- 업로드 게이트: MEMBER ------------------------------------------------------
 
 
-def test_upload_editor_passes():
+def test_upload_member_passes():
     app, service_fake = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role="editor")
+    _set_db(app, workspace_id=42, role="member")
     client = TestClient(app)
 
     resp = _upload(client)
@@ -285,11 +285,11 @@ def test_upload_editor_passes():
     assert service_fake.calls[-1][0] == "upload_attachment"
 
 
-@pytest.mark.parametrize("role", ["viewer", None])
-def test_upload_below_editor_forbidden_403(role):
+def test_upload_non_member_forbidden_403():
+    """비멤버는 MEMBER 업로드 게이트에서 403 (Req 4.6)."""
     app, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role=role)
+    _set_db(app, workspace_id=42, role=None)
     client = TestClient(app)
 
     resp = _upload(client)
@@ -370,13 +370,13 @@ def test_serve_forwards_path_attachment_id():
     assert service_fake.calls[-1] == ("serve_attachment", 777)
 
 
-# --- 조회 게이트: VIEWER --------------------------------------------------------
+# --- 조회 게이트: 읽기 전역 개방(s26) -------------------------------------------
 
 
-def test_serve_viewer_passes():
+def test_serve_member_passes():
     app, service_fake = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role="viewer", attachment_ws=42)
+    _set_db(app, workspace_id=42, role="member", attachment_ws=42)
     client = TestClient(app)
 
     resp = client.get("/attachments/500")
@@ -385,16 +385,17 @@ def test_serve_viewer_passes():
     assert service_fake.calls[-1][0] == "serve_attachment"
 
 
-def test_serve_non_member_forbidden_403():
-    app, _ = _build_app()
+def test_serve_non_member_open_read_200():
+    """비멤버 활성 사용자도 첨부를 조회한다 → 200 (Req 3.4·3.8, 읽기 개방, 403 제거)."""
+    app, service_fake = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role=None, attachment_ws=42)
+    _set_db(app, workspace_id=42, role=None, attachment_ws=42)  # 비멤버.
     client = TestClient(app)
 
     resp = client.get("/attachments/500")
 
-    assert resp.status_code == 403
-    assert resp.json()["code"] == "forbidden"
+    assert resp.status_code == 200
+    assert service_fake.calls[-1][0] == "serve_attachment"
 
 
 def test_serve_missing_attachment_returns_404():
@@ -451,10 +452,10 @@ def test_unauthenticated_401(method, path):
 def test_error_body_is_s01_error_response_shape():
     app, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db(app, workspace_id=42, role="viewer", attachment_ws=42)
+    _set_db(app, workspace_id=42, role=None, attachment_ws=42)
     client = TestClient(app)
 
-    # viewer 는 업로드(EDITOR) 게이트에서 403.
+    # 비멤버는 업로드(MEMBER) 게이트에서 403.
     resp = _upload(client)
 
     assert resp.status_code == 403

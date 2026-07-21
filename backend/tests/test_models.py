@@ -113,10 +113,11 @@ def test_workspace_defaults():
 
 
 def test_workspace_member_unique_and_role_enum():
-    """workspace_member: UNIQUE(workspace_id,user_id), role ENUM (Req 1.4)."""
+    """workspace_member: UNIQUE(workspace_id,user_id), role ENUM 2단계 (Req 1.1, 1.4)."""
     t = METADATA.tables["workspace_member"]
     assert frozenset({"workspace_id", "user_id"}) in _unique_column_sets(t)
-    assert _enum_values(t.columns["role"]) == {"owner", "editor", "viewer"}
+    # 2단계 역할 모델: ENUM 은 owner/member 만 허용(editor/viewer 삭제, Req 1.1).
+    assert _enum_values(t.columns["role"]) == {"owner", "member"}
     assert t.columns["role"].nullable is False
 
 

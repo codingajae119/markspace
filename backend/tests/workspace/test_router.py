@@ -9,15 +9,16 @@ DB 없이 라우터 결선만 확인한다:
 - 실제 게이트 동작(401/403/admin-bypass): `get_current_user` 로 인증 컨텍스트를 주입하고
   `get_db` 를 가짜 세션으로 교체해 `WorkspaceRoleResolver.resolve` 가 참조하는
   `db.query(WorkspaceMember).filter(...).one_or_none()` 이 선택된 role 멤버(또는 None)를
-  돌려주게 한다. 그 결과 owner→통과 / viewer·editor·비멤버→403 / admin→bypass / 미인증→401
-  을 재현한다.
+  돌려주게 한다. 그 결과 OWNER 관리 게이트는 owner→통과 / member·비멤버→403 / admin→bypass /
+  미인증→401 을 재현한다. 상세 읽기(GET /workspaces/{id})는 s26 에서 전역 개방되어 활성
+  사용자면 멤버십 무관 200 이다(get_current_user 게이트).
 
 핵심 불변식:
 - 워크스페이스·멤버십 8개 + s23 assignable-users 1개 + s25 멤버 로스터 GET 1개 = 10개 엔드포인트가 등록된다
   (POST/GET /workspaces, GET/PATCH/DELETE /workspaces/{id},
   GET /workspaces/{id}/assignable-users,
   POST /workspaces/{id}/members, PATCH/DELETE /workspaces/{id}/members/{uid}).
-- 생성·목록은 인증만(get_current_user), 상세는 require_ws_role(VIEWER), 수정·삭제·멤버 관리는
+- 생성·목록·상세는 인증만(get_current_user; 상세는 s26 읽기 개방), 수정·삭제·멤버 관리는
   require_ws_role(OWNER) 게이트를 부착한다.
 - 성공 계약: POST 201, GET 200, PATCH 200, DELETE 204(no body), 멤버 POST 201.
 - 스키마 검증 실패(필수 누락)→422 s01 ErrorResponse(code "validation_error").
@@ -56,10 +57,10 @@ _WS_READ = WorkspaceRead(
     updated_at=None,
 )
 _WS_PAGE = Page[WorkspaceRead](items=[_WS_READ], total=1)
-_MEMBER_READ = MemberRead(id=5, workspace_id=42, user_id=9, role="editor")
+_MEMBER_READ = MemberRead(id=5, workspace_id=42, user_id=9, role="member")
 _ASSIGNABLE_READ = AssignableUserRead(id=11, name="배정 가능 사용자", email="a@example.com")
 _ASSIGNABLE_PAGE = Page[AssignableUserRead](items=[_ASSIGNABLE_READ], total=1)
-_ROSTER_READ = MemberRosterRead(user_id=9, name="멤버 사용자", email="m@example.com", role="editor")
+_ROSTER_READ = MemberRosterRead(user_id=9, name="멤버 사용자", email="m@example.com", role="member")
 _ROSTER_PAGE = Page[MemberRosterRead](items=[_ROSTER_READ], total=1)
 
 
@@ -80,7 +81,8 @@ class _FakeWorkspaceService:
         self.calls.append(("list_workspaces", ctx.user_id, limit, offset))
         return _WS_PAGE
 
-    def get_workspace(self, db, workspace_id) -> WorkspaceRead:
+    def get_workspace(self, db, workspace_id, ctx) -> WorkspaceRead:
+        # s26: 상세 읽기 전역 개방 — 서비스가 ctx 로 호출자 role 을 주입한다.
         self.calls.append(("get_workspace", workspace_id))
         return _WS_READ
 
@@ -192,7 +194,7 @@ _ROUTES = [
     ("get", "/workspaces/42", None),
     ("patch", "/workspaces/42", {"name": "갱신"}),
     ("delete", "/workspaces/42", None),
-    ("post", "/workspaces/42/members", {"user_id": 9, "role": "editor"}),
+    ("post", "/workspaces/42/members", {"user_id": 9, "role": "member"}),
     ("patch", "/workspaces/42/members/9", {"role": "owner"}),
     ("delete", "/workspaces/42/members/9", None),
 ]
@@ -306,13 +308,13 @@ def test_add_member_returns_201_and_delegates():
     _login(app, is_admin=True)
     client = TestClient(app)
 
-    resp = client.post("/workspaces/42/members", json={"user_id": 9, "role": "editor"})
+    resp = client.post("/workspaces/42/members", json={"user_id": 9, "role": "member"})
 
     assert resp.status_code == 201
     body = resp.json()
     assert body["user_id"] == 9
-    assert body["role"] == "editor"
-    assert member_fake.calls[-1] == ("add_member", 42, 9, "editor")
+    assert body["role"] == "member"
+    assert member_fake.calls[-1] == ("add_member", 42, 9, "member")
 
 
 def test_change_role_returns_200_and_delegates():
@@ -339,13 +341,13 @@ def test_remove_member_returns_204_no_body_and_delegates():
     assert member_fake.calls[-1] == ("remove_member", 42, 9)
 
 
-# --- 게이트: 상세(VIEWER) --------------------------------------------------------
+# --- 게이트: 상세(전역 읽기 개방, s26) -------------------------------------------
 
 
-def test_get_workspace_viewer_passes():
+def test_get_workspace_member_passes():
     app, ws_fake, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db_member(app, role="viewer")
+    _set_db_member(app, role="member")
     client = TestClient(app)
 
     resp = client.get("/workspaces/42")
@@ -354,16 +356,17 @@ def test_get_workspace_viewer_passes():
     assert ws_fake.calls[-1] == ("get_workspace", 42)
 
 
-def test_get_workspace_non_member_forbidden_403():
-    app, _, _ = _build_app()
+def test_get_workspace_non_member_open_read_200():
+    """비멤버 활성 사용자도 상세를 읽는다 → 200 (Req 3.5·3.8, 읽기 전역 개방, 403 제거)."""
+    app, ws_fake, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
-    _set_db_member(app, role=None)
+    _set_db_member(app, role=None)  # 비멤버.
     client = TestClient(app)
 
     resp = client.get("/workspaces/42")
 
-    assert resp.status_code == 403
-    assert resp.json()["code"] == "forbidden"
+    assert resp.status_code == 200
+    assert ws_fake.calls[-1] == ("get_workspace", 42)
 
 
 # --- 게이트: 수정·삭제·멤버 관리(OWNER) -----------------------------------------
@@ -372,7 +375,7 @@ def test_get_workspace_non_member_forbidden_403():
 @pytest.mark.parametrize("method,path,json_body", [
     ("patch", "/workspaces/42", {"name": "x"}),
     ("delete", "/workspaces/42", None),
-    ("post", "/workspaces/42/members", {"user_id": 9, "role": "editor"}),
+    ("post", "/workspaces/42/members", {"user_id": 9, "role": "member"}),
     ("patch", "/workspaces/42/members/9", {"role": "owner"}),
     ("delete", "/workspaces/42/members/9", None),
 ])
@@ -391,11 +394,11 @@ def test_owner_route_owner_passes(method, path, json_body):
 @pytest.mark.parametrize("method,path,json_body", [
     ("patch", "/workspaces/42", {"name": "x"}),
     ("delete", "/workspaces/42", None),
-    ("post", "/workspaces/42/members", {"user_id": 9, "role": "editor"}),
+    ("post", "/workspaces/42/members", {"user_id": 9, "role": "member"}),
     ("patch", "/workspaces/42/members/9", {"role": "owner"}),
     ("delete", "/workspaces/42/members/9", None),
 ])
-@pytest.mark.parametrize("role", ["viewer", "editor", None])
+@pytest.mark.parametrize("role", ["member", None])
 def test_owner_route_lower_role_or_non_member_forbidden_403(method, path, json_body, role):
     app, _, _ = _build_app()
     _login(app, user_id=3, is_admin=False)
@@ -465,7 +468,7 @@ def test_add_member_missing_role_returns_422():
 
 
 # --- assignable-users(OWNER 게이트, 배정 가능 조회) 결선 -------------------------
-# NOTE: 전체 게이팅 매트릭스(editor/viewer/비멤버→403, admin→200, 미인증→401,
+# NOTE: 전체 게이팅 매트릭스(member/비멤버→403, admin→200, 미인증→401,
 # 존재하지 않는 ws→403)와 페이지네이션·빈 봉투 경계는 task 2.2 의 경계다. 여기서는
 # 라우트 결선 + owner happy path + Page 봉투 형태만 최소로 검증한다.
 
@@ -487,7 +490,7 @@ def test_list_assignable_users_owner_returns_200_and_delegates():
 
 
 # --- s25 멤버 로스터(OWNER 게이트, GET /workspaces/{id}/members) 결선 -------------
-# NOTE: 전체 게이팅 매트릭스(editor/viewer/비멤버·미존재 WS→403, admin→200, 미인증→401,
+# NOTE: 전체 게이팅 매트릭스(member/비멤버·미존재 WS→403, admin→200, 미인증→401,
 # anti-enumeration)와 결정적 순서·전체 count 경계는 통합 테스트(task 3.x)의 경계다.
 # 여기서는 라우트 결선 + owner happy path + Page[MemberRosterRead] 봉투 + 쿼리 수용/범위
 # 위반 422 만 DB 없이 단위 검증한다.
@@ -507,7 +510,7 @@ def test_list_members_owner_returns_200_and_delegates():
     assert body["items"][0]["user_id"] == 9
     assert body["items"][0]["name"] == "멤버 사용자"
     assert body["items"][0]["email"] == "m@example.com"
-    assert body["items"][0]["role"] == "editor"
+    assert body["items"][0]["role"] == "member"
     assert member_fake.calls[-1] == ("list_members", 42, 50, 0)
 
 

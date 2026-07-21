@@ -204,12 +204,10 @@ def test_list_for_user_returns_actual_membership_role(sessionmaker_factory):
         me = _make_user(seed, login_id="me-roles")
 
         ws_owner = repo.create(seed, name="ws-owner", trash_retention_days=30)
-        ws_editor = repo.create(seed, name="ws-editor", trash_retention_days=30)
-        ws_viewer = repo.create(seed, name="ws-viewer", trash_retention_days=30)
+        ws_member = repo.create(seed, name="ws-member", trash_retention_days=30)
 
         _make_member(seed, workspace_id=ws_owner.id, user_id=me.id, role="owner")
-        _make_member(seed, workspace_id=ws_editor.id, user_id=me.id, role="editor")
-        _make_member(seed, workspace_id=ws_viewer.id, user_id=me.id, role="viewer")
+        _make_member(seed, workspace_id=ws_member.id, user_id=me.id, role="member")
         seed.commit()
 
         me_id = me.id
@@ -220,13 +218,12 @@ def test_list_for_user_returns_actual_membership_role(sessionmaker_factory):
     try:
         repo = WorkspaceRepository()
         items, total = repo.list_for_user(session, me_id, limit=100, offset=0)
-        assert total == 3
+        assert total == 2
         role_by_name = {ws.name: role for ws, role in items}
         assert role_by_name == {
             "ws-owner": "owner",
-            "ws-editor": "editor",
-            "ws-viewer": "viewer",
-        }, "각 항목은 호출자의 실제 멤버십 role 을 반환해야 한다"
+            "ws-member": "member",
+        }, "각 항목은 호출자의 실제 멤버십 role 을 반환해야 한다(2단계 owner/member)"
     finally:
         session.close()
 
@@ -293,15 +290,15 @@ def test_list_all_returns_role_for_member_and_none_for_non_member(sessionmaker_f
     seed = sessionmaker_factory()
     try:
         repo = WorkspaceRepository()
-        # 호출자는 admin 이지만 한 WS 에서만 viewer 멤버다.
-        caller = _make_user(seed, login_id="admin-viewer")
+        # 호출자는 admin 이지만 한 WS 에서만 member 다.
+        caller = _make_user(seed, login_id="admin-member")
         other = _make_user(seed, login_id="other-owner")
 
         ws_member = repo.create(seed, name="ws-member", trash_retention_days=30)
         ws_non_member = repo.create(seed, name="ws-nonmember", trash_retention_days=30)
 
-        # 호출자는 ws_member 에서 viewer 이며, ws_non_member 에는 멤버십이 없다.
-        _make_member(seed, workspace_id=ws_member.id, user_id=caller.id, role="viewer")
+        # 호출자는 ws_member 에서 member 이며, ws_non_member 에는 멤버십이 없다.
+        _make_member(seed, workspace_id=ws_member.id, user_id=caller.id, role="member")
         # 다른 사용자가 ws_non_member 의 owner (호출자 role 로 새어들면 안 됨).
         _make_member(seed, workspace_id=ws_non_member.id, user_id=other.id, role="owner")
         seed.commit()
@@ -316,7 +313,7 @@ def test_list_all_returns_role_for_member_and_none_for_non_member(sessionmaker_f
         items, total = repo.list_all(session, caller_id, limit=100, offset=0)
         assert total == 2, "total 은 전체 워크스페이스 개수여야 한다(멤버 여부 무관)"
         role_by_name = {ws.name: role for ws, role in items}
-        assert role_by_name["ws-member"] == "viewer", (
+        assert role_by_name["ws-member"] == "member", (
             "호출자가 멤버인 WS 는 실제 멤버십 role 을 반환해야 한다(admin 상승 없음)"
         )
         assert role_by_name["ws-nonmember"] is None, (

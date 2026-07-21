@@ -182,6 +182,14 @@ class _FakeMembershipRepo:
         self._db = db
         self.add_calls: list[dict] = []
         self.remove_all_calls: list[int] = []
+        # get_workspace 가 호출자 role 주입에 쓰는 조회(비멤버 None). 테스트가 설정한다.
+        self.get_role_result: str | None = None
+        self.get_role_calls: list[tuple[int, int]] = []
+
+    def get_role(self, db, workspace_id: int, user_id: int) -> str | None:
+        assert isinstance(db, _FakeDb)
+        self.get_role_calls.append((workspace_id, user_id))
+        return self.get_role_result
 
     def add(self, db, *, workspace_id: int, user_id: int, role: str):
         assert isinstance(db, _FakeDb)
@@ -268,7 +276,7 @@ def test_list_workspaces_admin_uses_list_all():
 def test_list_workspaces_non_admin_uses_list_for_user():
     db = _FakeDb()
     ws_repo = _FakeWorkspaceRepo()
-    ws_repo.list_for_user_result = ([(_make_ws(ws_id=3), "editor")], 1)
+    ws_repo.list_for_user_result = ([(_make_ws(ws_id=3), "member")], 1)
     service = WorkspaceService(ws_repo, _FakeMembershipRepo(db))
 
     page = service.list_workspaces(db, USER_CTX, limit=20, offset=5)
@@ -278,7 +286,7 @@ def test_list_workspaces_non_admin_uses_list_for_user():
     assert page.total == 1
     assert [i.id for i in page.items] == [3]
     # 비-admin 목록의 각 항목 role 은 호출자 멤버십 role 을 반영한다(Req 1.1).
-    assert page.items[0].role == MemberRole.EDITOR
+    assert page.items[0].role == MemberRole.MEMBER
 
 
 def test_list_workspaces_non_admin_injects_each_membership_role():
@@ -288,10 +296,9 @@ def test_list_workspaces_non_admin_injects_each_membership_role():
     ws_repo.list_for_user_result = (
         [
             (_make_ws(ws_id=1), "owner"),
-            (_make_ws(ws_id=2), "editor"),
-            (_make_ws(ws_id=3), "viewer"),
+            (_make_ws(ws_id=2), "member"),
         ],
-        3,
+        2,
     )
     service = WorkspaceService(ws_repo, _FakeMembershipRepo(db))
 
@@ -299,26 +306,25 @@ def test_list_workspaces_non_admin_injects_each_membership_role():
 
     assert [(i.id, i.role) for i in page.items] == [
         (1, MemberRole.OWNER),
-        (2, MemberRole.EDITOR),
-        (3, MemberRole.VIEWER),
+        (2, MemberRole.MEMBER),
     ]
 
 
 def test_list_workspaces_admin_no_role_elevation():
-    """admin 이 어떤 WS 의 viewer 여도 role 은 'viewer' 로 노출되고 owner 로 상승되지 않는다(INV-3)."""
+    """admin 이 어떤 WS 의 member 여도 role 은 'member' 로 노출되고 owner 로 상승되지 않는다(INV-3)."""
     db = _FakeDb()
     ws_repo = _FakeWorkspaceRepo()
-    # admin(user_id=7)이 WS1 의 viewer 멤버, WS2 의 비멤버(None)인 상황을 모사한다.
+    # admin(user_id=7)이 WS1 의 member, WS2 의 비멤버(None)인 상황을 모사한다.
     ws_repo.list_all_result = (
-        [(_make_ws(ws_id=1), "viewer"), (_make_ws(ws_id=2), None)],
+        [(_make_ws(ws_id=1), "member"), (_make_ws(ws_id=2), None)],
         2,
     )
     service = WorkspaceService(ws_repo, _FakeMembershipRepo(db))
 
     page = service.list_workspaces(db, ADMIN_CTX, limit=10, offset=0)
 
-    # 멤버십 role 그대로: viewer 는 owner 로 상승하지 않고, 비멤버는 None 이다.
-    assert page.items[0].role == MemberRole.VIEWER
+    # 멤버십 role 그대로: member 는 owner 로 상승하지 않고, 비멤버는 None 이다.
+    assert page.items[0].role == MemberRole.MEMBER
     assert page.items[0].role != MemberRole.OWNER
     assert page.items[1].role is None
 
@@ -355,26 +361,74 @@ def test_get_workspace_missing_raises_404():
     service = WorkspaceService(ws_repo, _FakeMembershipRepo(db))
 
     with pytest.raises(DomainError) as ei:
-        service.get_workspace(db, 999)
+        service.get_workspace(db, 999, USER_CTX)
 
     assert ei.value.code == ErrorCode.NOT_FOUND
     assert ei.value.http_status == 404
     assert ws_repo.get_by_id_calls == [999]
 
 
-def test_get_workspace_present_returns_read():
+def test_get_workspace_present_returns_read_with_caller_role():
+    """WS 상세는 이름·설정을 반환하고 호출자 멤버십 role(owner/member)을 주입한다 (Req 3.5)."""
     db = _FakeDb()
     ws = _make_ws(ws_id=8, name="Found", is_shareable=True, trash_retention_days=15)
     ws_repo = _FakeWorkspaceRepo(by_id=ws)
-    service = WorkspaceService(ws_repo, _FakeMembershipRepo(db))
+    member_repo = _FakeMembershipRepo(db)
+    member_repo.get_role_result = "member"
+    service = WorkspaceService(ws_repo, member_repo)
 
-    result = service.get_workspace(db, 8)
+    result = service.get_workspace(db, 8, USER_CTX)
 
     assert isinstance(result, WorkspaceRead)
     assert result.id == 8
     assert result.name == "Found"
     assert result.is_shareable is True
     assert result.trash_retention_days == 15
+    # 호출자 관점 role 주입: member 멤버 → MemberRole.MEMBER.
+    assert result.role == MemberRole.MEMBER
+    assert member_repo.get_role_calls == [(8, USER_CTX.user_id)]
+
+
+def test_get_workspace_injects_owner_role():
+    """owner 호출자의 WS 상세 role 은 owner 다 (Req 3.5·5.5)."""
+    db = _FakeDb()
+    ws = _make_ws(ws_id=8)
+    member_repo = _FakeMembershipRepo(db)
+    member_repo.get_role_result = "owner"
+    service = WorkspaceService(_FakeWorkspaceRepo(by_id=ws), member_repo)
+
+    result = service.get_workspace(db, 8, USER_CTX)
+
+    assert result.role == MemberRole.OWNER
+
+
+def test_get_workspace_non_member_gets_none_role_still_reads():
+    """비멤버 활성 사용자도 WS 상세를 받으며 role 은 None 이다 (Req 3.5·3.8, 읽기 개방)."""
+    db = _FakeDb()
+    ws = _make_ws(ws_id=8, name="Open", is_shareable=True)
+    member_repo = _FakeMembershipRepo(db)
+    member_repo.get_role_result = None  # 비멤버.
+    service = WorkspaceService(_FakeWorkspaceRepo(by_id=ws), member_repo)
+
+    result = service.get_workspace(db, 8, USER_CTX)
+
+    assert result.id == 8
+    assert result.name == "Open"
+    assert result.role is None
+
+
+def test_get_workspace_admin_no_role_elevation():
+    """admin 이어도 실제 멤버십 role 만 노출되고 상승되지 않는다 (Req 3.5, INV-3)."""
+    db = _FakeDb()
+    ws = _make_ws(ws_id=8)
+    member_repo = _FakeMembershipRepo(db)
+    member_repo.get_role_result = None  # admin 이지만 비멤버.
+    service = WorkspaceService(_FakeWorkspaceRepo(by_id=ws), member_repo)
+
+    result = service.get_workspace(db, 8, ADMIN_CTX)
+
+    # admin 비멤버는 role=None(owner 로 상승 없음).
+    assert result.role is None
 
 
 # --- update_workspace ---------------------------------------------------------
@@ -503,7 +557,7 @@ def test_delete_workspace_empty_removes_members_and_workspace():
     # 워크스페이스 5 에 멤버 둘 + 다른 워크스페이스 멤버 하나.
     db.members = [
         {"workspace_id": 5, "user_id": 1, "role": "owner"},
-        {"workspace_id": 5, "user_id": 2, "role": "editor"},
+        {"workspace_id": 5, "user_id": 2, "role": "member"},
         {"workspace_id": 9, "user_id": 3, "role": "owner"},
     ]
     ws_repo = _FakeWorkspaceRepo(by_id=ws)
@@ -525,7 +579,7 @@ def test_delete_workspace_non_empty_fk_restrict_converts_to_409_nothing_removed(
     ws = _make_ws(ws_id=5)
     db.members = [
         {"workspace_id": 5, "user_id": 1, "role": "owner"},
-        {"workspace_id": 5, "user_id": 2, "role": "editor"},
+        {"workspace_id": 5, "user_id": 2, "role": "member"},
     ]
     # 물리 DELETE 가 FK RESTRICT 위반(비-empty)으로 IntegrityError 를 던지도록 설정.
     ws_repo = _FakeWorkspaceRepo(by_id=ws, raise_on_delete=True)
