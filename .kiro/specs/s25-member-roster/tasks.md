@@ -19,7 +19,7 @@
 
 ## 2. 백엔드: 서비스·라우트 조립
 
-- [ ] 2.1 MembershipService.list_members 로 narrow Page 직렬화
+- [x] 2.1 MembershipService.list_members 로 narrow Page 직렬화
   - 리포지토리 `(User, role)` 행을 각각 `MemberRosterRead(user_id=user.id, name=user.name, email=user.email, role=MemberRole(role))` 로 **명시 생성**하고(join 프로젝션이므로 `model_validate` 의 id→user_id 리네임 모호 회피), 리포지토리가 계산한 total 을 그대로 `Page[MemberRosterRead]` 로 반환한다(items 길이 아님).
   - role 문자열→`MemberRole` 정규화·email null 보존이 정확하고, 멤버 0명이라도 `Page(items=[], total=…)` 로 방어적으로 매핑됨을 단위 테스트로 확인한다(게이팅은 서비스 책임 아님).
   - 관찰 가능: 서비스가 `Page[MemberRosterRead]` 를 반환하고 각 item 이 `user_id`·name·email·role 을 담으며 순서·total 은 리포지토리 계약을 승계한다.

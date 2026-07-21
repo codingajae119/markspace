@@ -26,6 +26,7 @@ from app.workspace.schemas import (
     AssignableUserRead,
     MemberCreate,
     MemberRead,
+    MemberRosterRead,
     MemberRole,
     MemberUpdate,
     OwnerChangeRequest,
@@ -93,16 +94,19 @@ class _FakeMemberRepo:
         member: WorkspaceMember | None = None,
         user_exists: bool = True,
         assignable: tuple[list[User], int] | None = None,
+        members: tuple[list[tuple[User, str]], int] | None = None,
     ) -> None:
         self._member = member
         self._user_exists = user_exists
         self._assignable = assignable if assignable is not None else ([], 0)
+        self._members = members if members is not None else ([], 0)
         self.user_exists_calls: list[int] = []
         self.get_calls: list[tuple[int, int]] = []
         self.add_calls: list[dict] = []
         self.set_role_calls: list[tuple[WorkspaceMember, str]] = []
         self.remove_calls: list[WorkspaceMember] = []
         self.list_assignable_calls: list[tuple[int, int, int]] = []
+        self.list_members_calls: list[tuple[int, int, int]] = []
         self._next_id = 100
 
     def list_assignable_users(
@@ -111,6 +115,13 @@ class _FakeMemberRepo:
         assert db is DB
         self.list_assignable_calls.append((workspace_id, limit, offset))
         return self._assignable
+
+    def list_members(
+        self, db, workspace_id: int, limit: int, offset: int
+    ) -> tuple[list[tuple[User, str]], int]:
+        assert db is DB
+        self.list_members_calls.append((workspace_id, limit, offset))
+        return self._members
 
     def user_exists(self, db, user_id: int) -> bool:
         assert db is DB
@@ -444,6 +455,94 @@ def test_list_assignable_users_empty_result_returns_empty_page(): # Req 1.4
     result = service.list_assignable_users(DB, 3, 10, 20)
 
     assert member_repo.list_assignable_calls == [(3, 10, 20)]
+    assert isinstance(result, Page)
+    assert result.items == []
+    assert result.total == 0
+
+
+# --- list_members -------------------------------------------------------------
+
+
+def test_list_members_maps_rows_and_passes_through_total():  # Req 1.1·1.2·1.4
+    # repo 의 (User, role) 행을 명시 생성으로 MemberRosterRead 로 매핑하고 total 은 그대로 전달한다.
+    rows = [
+        (_make_user(user_id=2, name="Alice", email="alice@example.com"), "owner"),
+        (_make_user(user_id=5, name="Bob", email="bob@example.com"), "editor"),
+    ]
+    # total 을 items 길이(2)와 다른 값(7)으로 두어 len(items) 가 아니라 repo total 을 전달함을 관찰.
+    member_repo = _FakeMemberRepo(members=(rows, 7))
+    service = MembershipService(member_repo, _FakeWsRepo())
+
+    result = service.list_members(DB, 1, 50, 0)
+
+    # 저장소에 workspace_id·limit·offset 을 그대로 위임했다.
+    assert member_repo.list_members_calls == [(1, 50, 0)]
+    assert isinstance(result, Page)
+    # total 은 items 페이지 길이가 아니라 repo 총수를 그대로 전달한다.
+    assert result.total == 7
+    assert len(result.items) == 2
+    assert all(isinstance(item, MemberRosterRead) for item in result.items)
+    # 명시 필드 매핑: user.id→user_id, user.name→name, user.email→email, role 문자열→MemberRole.
+    first = result.items[0]
+    assert (first.user_id, first.name, first.email, first.role) == (
+        2,
+        "Alice",
+        "alice@example.com",
+        MemberRole.OWNER,
+    )
+    second = result.items[1]
+    assert (second.user_id, second.name, second.email, second.role) == (
+        5,
+        "Bob",
+        "bob@example.com",
+        MemberRole.EDITOR,
+    )
+    # narrow 스키마: 선언 필드만 노출되고 계정 필드는 원천 제외된다.
+    assert not hasattr(first, "login_id")
+    assert not hasattr(first, "password_hash")
+    assert not hasattr(first, "is_admin")
+
+
+def test_list_members_normalizes_all_role_strings():  # Req 1.2
+    # owner/editor/viewer 세 문자열이 각각 대응 MemberRole 로 정규화된다.
+    rows = [
+        (_make_user(user_id=1, name="O"), "owner"),
+        (_make_user(user_id=2, name="E"), "editor"),
+        (_make_user(user_id=3, name="V"), "viewer"),
+    ]
+    member_repo = _FakeMemberRepo(members=(rows, 3))
+    service = MembershipService(member_repo, _FakeWsRepo())
+
+    result = service.list_members(DB, 1, 50, 0)
+
+    assert [item.role for item in result.items] == [
+        MemberRole.OWNER,
+        MemberRole.EDITOR,
+        MemberRole.VIEWER,
+    ]
+
+
+def test_list_members_preserves_null_email():  # Req 1.2·1.5
+    # 이메일이 없는(또는 비활성/삭제) 멤버도 email: None 으로 로스터에 포함된다.
+    rows = [(_make_user(user_id=9, name="NoMail", email=None), "viewer")]
+    member_repo = _FakeMemberRepo(members=(rows, 1))
+    service = MembershipService(member_repo, _FakeWsRepo())
+
+    result = service.list_members(DB, 1, 50, 0)
+
+    assert len(result.items) == 1
+    assert result.items[0].email is None
+    assert result.items[0].role == MemberRole.VIEWER
+
+
+def test_list_members_empty_result_returns_empty_page():  # Req 1.4
+    # 멤버 0명(방어적)이라도 오류가 아니라 Page(items=[], total=…) 로 매핑된다.
+    member_repo = _FakeMemberRepo(members=([], 0))
+    service = MembershipService(member_repo, _FakeWsRepo())
+
+    result = service.list_members(DB, 3, 10, 20)
+
+    assert member_repo.list_members_calls == [(3, 10, 20)]
     assert isinstance(result, Page)
     assert result.items == []
     assert result.total == 0

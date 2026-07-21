@@ -24,6 +24,7 @@ from app.workspace.schemas import (
     AssignableUserRead,
     MemberCreate,
     MemberRead,
+    MemberRosterRead,
     MemberRole,
     MemberUpdate,
     OwnerChangeRequest,
@@ -293,6 +294,35 @@ class MembershipService:
         )
         return Page[AssignableUserRead](
             items=[AssignableUserRead.model_validate(user) for user in items],
+            total=total,
+        )
+
+    def list_members(
+        self, db: Session, workspace_id: int, limit: int, offset: int
+    ) -> Page[MemberRosterRead]:
+        """대상 워크스페이스의 멤버 로스터를 공통 `Page` 엔벨로프로 반환한다 (Req 1.1·1.2·1.4).
+
+        저장소의 join 조회(`list_members`)에 `workspace_id`·`limit`·`offset` 을 그대로 위임해
+        `(items, total)` 을 받고, 각 `(User, role)` 행을 narrow `MemberRosterRead` 로 매핑한다.
+        join 프로젝션이므로 `model_validate(user)`(id→user_id 리네임 모호)를 쓰지 않고 각 필드를
+        **명시 생성**한다(design.md §MembershipService.list_members, research §6.3): role 원시
+        문자열(owner/editor/viewer)은 `MemberRole` 로 정규화하고, `email` 은 null 값도 그대로
+        보존한다(비활성·삭제 멤버 포함, Req 1.5). `total` 은 items 페이지 길이가 아니라 저장소가
+        동일 `workspace_id` 필터로 계산한 소속 멤버 전체 개수를 그대로 전달한다(Req 1.4). 멤버가
+        한 명도 없어도(방어적) 오류가 아니라 `Page(items=[], total=…)` 을 반환하며, owner 게이트는
+        라우터의 `require_ws_role(OWNER)` 가 담당하고 서비스의 책임이 아니다(기존 관례).
+        """
+        items, total = self._member_repo.list_members(db, workspace_id, limit, offset)
+        return Page[MemberRosterRead](
+            items=[
+                MemberRosterRead(
+                    user_id=user.id,
+                    name=user.name,
+                    email=user.email,
+                    role=MemberRole(role),
+                )
+                for user, role in items
+            ],
             total=total,
         )
 
