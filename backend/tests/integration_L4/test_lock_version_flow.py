@@ -360,10 +360,10 @@ def test_role_gating_over_real_membership(lock_scenario):
     assert h.attempt_force_unlock(viewer, doc_id).status_code == 403, "viewer force-unlock 403(3.7)"
     assert h.attempt_force_unlock(nonmember, doc_id).status_code == 403, "비멤버 force-unlock 403(3.7)"
 
-    # (versions = VIEWER) viewer 통과·비멤버 403.
-    assert h.attempt_list_versions(viewer, doc_id).status_code == 200, "viewer versions 200(3.7)"
-    assert h.attempt_list_versions(nonmember, doc_id).status_code == 403, (
-        "비멤버 versions 403(3.7, INV-1)"
+    # (versions = 읽기 전역 개방) viewer·비멤버 모두 200(s26 Req 3.3·3.8 — 더 이상 403 아님).
+    assert h.attempt_list_versions(viewer, doc_id).status_code == 200, "viewer versions 200(3.8)"
+    assert h.attempt_list_versions(nonmember, doc_id).status_code == 200, (
+        "비멤버 versions 읽기 개방으로 200(3.8, 403 아님)"
     )
 
     # (admin bypass, INV-3) 비멤버 admin 이 모든 라우트를 bypass 한다.

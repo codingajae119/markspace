@@ -127,7 +127,8 @@ def attempt_add_member(
     """``POST /workspaces/{id}/members`` 를 태우고 **응답을 그대로 반환**한다(상태 미단언).
 
     ATTEMPT 헬퍼 — OWNER 는 201, 미존재 사용자 404, 이미 멤버 409, 비-owner 거부를
-    스위트가 각각 단언한다. ``role`` 은 ``"owner"``/``"editor"``/``"viewer"``.
+    스위트가 각각 단언한다. ``role`` 은 s26 2단계 모델에서 ``"owner"``/``"member"``
+    (구 ``"editor"``/``"viewer"`` 는 제거 — 전달 시 422).
     """
     return client.post(
         f"/workspaces/{workspace_id}/members",

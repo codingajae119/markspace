@@ -139,10 +139,10 @@ def test_role_boundaries_and_admin_override_on_real_lower_stack(
     2.2 게이팅과 관측 표면은 겹치나, 여기서는 그 경계가 s02 세션 인증 + s05 멤버십 **결합 위에서**
     재사용 role 세션 쿠키로 성립함을 강조한다:
 
-    - **업로드**: owner 201·editor 201·viewer 403(INV-2)·비멤버 403(INV-1)·미인증 401·admin
+    - **업로드(편집)**: owner 201·member 201·비멤버 활성 사용자 403(Req 4.6)·미인증 401·admin
       (비멤버) 201(INV-3)·미존재 문서 404(문서→WS 어댑터 매핑 실패, 판정 이전).
-    - **서빙**: editor 가 만든 첨부를 viewer 200(멤버)·비멤버 403(INV-1)·미인증 401·admin(비멤버)
-      200(INV-3)·미존재 첨부 404(첨부→WS 어댑터 매핑 실패).
+    - **서빙(읽기 전역 개방)**: member 가 만든 첨부를 member·비멤버 활성 사용자 모두 200(s26
+      Req 3.4·3.8, 더 이상 403 아님)·미인증 401·admin 200(INV-3)·미존재 첨부 404(어댑터 매핑 실패).
     """
     scenario = doc_tree_scenario.scenario
     ws_id = doc_tree_scenario.workspace_id
@@ -161,7 +161,7 @@ def test_role_boundaries_and_admin_override_on_real_lower_stack(
     assert _upload(scenario.owner_client).status_code == 201, "owner 업로드 201(7.1)"
     assert _upload(scenario.editor_client).status_code == 201, "editor 업로드 201(7.1)"
     assert _upload(scenario.viewer_client).status_code == 403, (
-        "viewer(멤버, 읽기전용) 업로드 403(INV-2, editor 미만)"
+        "viewer(비멤버) 업로드 403(편집 멤버십 요구, Req 4.6)"
     )
     assert _upload(scenario.nonmember_client).status_code == 403, (
         "비멤버 업로드 403(INV-1, anti-enumeration)"
@@ -183,11 +183,11 @@ def test_role_boundaries_and_admin_override_on_real_lower_stack(
     assert att["workspace_id"] == ws_id, "첨부 소속 WS 는 대상 문서의 WS 로 확정된다(7.1 결합)"
 
     assert h.attempt_get_attachment(scenario.viewer_client, att_id).status_code == 200, (
-        "viewer(멤버, VIEWER) 서빙 200(7.1)"
+        "viewer(비멤버) 서빙 200(읽기 전역 개방, 3.8)"
     )
     assert (
-        h.attempt_get_attachment(scenario.nonmember_client, att_id).status_code == 403
-    ), "비멤버 서빙 403(INV-1)"
+        h.attempt_get_attachment(scenario.nonmember_client, att_id).status_code == 200
+    ), "비멤버 서빙 200(읽기 전역 개방, 3.8 — 403 아님)"
     assert h.attempt_get_attachment(harness.new_client(), att_id).status_code == 401, (
         "미인증 서빙 401(s02 세션 게이트)"
     )
@@ -204,22 +204,21 @@ def test_role_boundaries_and_admin_override_on_real_lower_stack(
 # =============================================================================
 
 
-def test_cross_workspace_attachment_not_exposed(
+def test_cross_workspace_attachment_read_open_but_edit_isolated(
     doc_tree_scenario, harness, tmp_attachment_roots
 ):
-    """워크스페이스 A 의 첨부를 B **에만** 소속된(A 비멤버) 사용자가 조회하면 403(7.2, INV-6).
+    """워크스페이스 A 의 첨부를 B **에만** 소속된(A 비멤버) 사용자가 **조회하면 200**(읽기 전역
+    개방, s26 Req 3.4·7.2)이되, A 문서로의 **업로드(편집)**는 403 으로 격리된다(편집 멤버십 요구).
 
     두 워크스페이스와 B 전용 사용자를 실제 라우트로 구성한다:
 
-    1. 워크스페이스 A(`doc_tree_scenario`)의 editor 가 문서에 첨부를 업로드한다.
+    1. 워크스페이스 A(`doc_tree_scenario`)의 member 가 문서에 첨부를 업로드한다.
     2. admin 이 신규 사용자 U 를 만들고, U 가 자신의 워크스페이스 B 를 생성한다(`create_workspace`
        계약상 U 는 B 의 owner 멤버로 자동 등록 — 즉 U 는 B 의 멤버이지만 A 의 멤버는 아니다).
-    3. U 가 `GET /attachments/{A 첨부 id}` 를 요청하면 첨부→WS 어댑터가 A 의 멤버십을 판정해 403
-       (다른 WS 의 첨부는 노출되지 않는다). U 는 **인증된 다른 WS 멤버**이므로 이 403 은 단순
-       미인증/무소속이 아니라 WS 경계 격리(INV-6)를 관측한다.
-
-    대조로, A 의 viewer(멤버)는 같은 첨부를 200 으로 조회할 수 있어 격리가 A 내부 접근을 막지
-    않음을 확인한다.
+    3. U 가 `GET /attachments/{A 첨부 id}` 를 요청하면 s26 읽기 전역 개방으로 **200**(다른 WS
+       첨부도 활성 사용자면 읽을 수 있다 — 읽기에 한해 WS 격리 완화, Req 3.4·7.2).
+    4. 반면 U 가 A 의 문서에 첨부를 **업로드**(편집)하려 하면 403 — 편집은 여전히 멤버십 단위로
+       격리된다(A 비멤버, Req 4.6). 읽기 개방과 편집 격리를 한 테스트에서 대조한다.
     """
     scenario = doc_tree_scenario.scenario
     ws_a_id = doc_tree_scenario.workspace_id
@@ -228,7 +227,7 @@ def test_cross_workspace_attachment_not_exposed(
     # (1) 워크스페이스 A 에 첨부 업로드.
     att = h.upload_image(scenario.editor_client, doc_id, content=_IMAGE_BYTES)
     att_id = att["id"]
-    assert att["workspace_id"] == ws_a_id, "첨부는 워크스페이스 A 에 격리된다(7.2 전제)"
+    assert att["workspace_id"] == ws_a_id, "첨부는 워크스페이스 A 에 격리된다(업로드 전제)"
 
     # (2) B 전용 사용자 U + 워크스페이스 B(U 는 B 의 owner 멤버, A 의 멤버 아님).
     login_id = h.l1_helpers.unique_login_id("ws-b-only")
@@ -237,16 +236,26 @@ def test_cross_workspace_attachment_not_exposed(
     )
     b_client = harness.login(login_id, h.l1_helpers.DEFAULT_PASSWORD)
     ws_b_id = h.l2_helpers.create_workspace(b_client, _title("WS-B"))
-    assert ws_b_id != ws_a_id, "워크스페이스 B 는 A 와 다른 워크스페이스여야 한다(WS 격리 전제)"
+    assert ws_b_id != ws_a_id, "워크스페이스 B 는 A 와 다른 워크스페이스여야 한다(WS 경계 전제)"
 
-    # (3) B 전용 사용자가 A 의 첨부를 조회 → 403(다른 WS 첨부 비노출, INV-6).
-    assert h.attempt_get_attachment(b_client, att_id).status_code == 403, (
-        "B 에만 소속된(A 비멤버) 사용자의 A 첨부 조회는 403 이어야 한다(WS 격리, 7.2, INV-6)"
+    # (3) B 전용 사용자가 A 의 첨부를 조회 → 200(읽기 전역 개방, 403 아님, Req 3.4·7.2).
+    assert h.attempt_get_attachment(b_client, att_id).status_code == 200, (
+        "B 에만 소속된(A 비멤버) 사용자도 A 첨부를 읽기 개방으로 200 조회해야 한다"
+        "(읽기 격리 완화, Req 3.4·7.2)"
     )
 
-    # (대조) A 의 viewer(멤버)는 같은 첨부를 200 으로 조회 — 격리는 A 내부 접근을 막지 않는다.
-    assert h.attempt_get_attachment(scenario.viewer_client, att_id).status_code == 200, (
-        "A 의 멤버(viewer)는 A 첨부를 조회할 수 있어야 한다(격리는 소속 WS 접근을 막지 않음)"
+    # (4) 대조: B 전용 사용자의 A 문서로의 업로드(편집)는 403 — 편집은 멤버십 단위 격리(Req 4.6).
+    upload_denied = h.attempt_upload_attachment(
+        b_client, doc_id, filename="pic.png", content=_IMAGE_BYTES, content_type="image/png"
+    )
+    assert upload_denied.status_code == 403, (
+        "A 비멤버의 A 문서 첨부 업로드(편집)는 403 이어야 한다(편집 격리, Req 4.6): "
+        f"{upload_denied.status_code} {upload_denied.text}"
+    )
+
+    # (대조) A 의 member 는 같은 첨부를 200 으로 조회 — 소속 WS 접근도 정상.
+    assert h.attempt_get_attachment(scenario.editor_client, att_id).status_code == 200, (
+        "A 의 member 는 A 첨부를 조회할 수 있어야 한다(소속 WS 접근 정상)"
     )
     _ = b_user_id  # 사용자 생성이 실제 계정 라우트를 태웠음을 명시(재사용 계약).
 
@@ -283,7 +292,7 @@ def test_deleted_uploader_records_preserved_and_login_gated(
     uploader_uid = h.l1_helpers.create_user(
         admin, login_id, h.l1_helpers.DEFAULT_PASSWORD, name="업로더"
     )
-    h.l2_helpers.add_member(owner, ws_id, uploader_uid, "editor")
+    h.l2_helpers.add_member(owner, ws_id, uploader_uid, "member")
     uploader_client = harness.login(login_id, h.l1_helpers.DEFAULT_PASSWORD)
 
     # U 세션으로 문서 생성 + 첨부 업로드(작성자=U).

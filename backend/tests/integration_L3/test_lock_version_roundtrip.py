@@ -74,7 +74,7 @@ def test_lock_save_roundtrip_and_inv9_lock_transfer(doc_tree_scenario, harness):
 
     # editor B 를 실제로 provision(admin 생성 + owner 가 editor 멤버 추가 + 로그인).
     editor_b_id, editor_b = _provision_member(
-        scenario, harness, role="editor", prefix="editorB"
+        scenario, harness, role="member", prefix="editorB"
     )
     assert editor_b_id != editor_a_id, "두 editor 는 서로 다른 사용자여야 한다(INV-9 충돌 관측)"
 
@@ -215,11 +215,12 @@ def test_force_unlock_gate_owner_admin_pass_editor_viewer_denied(ws_scenario):
     ).status_code == 204, "admin force-unlock bypass·멱등(4.3, INV-3)"
 
 
-def test_versions_gate_viewer_pass_nonmember_403_unauthenticated_401(ws_scenario, harness):
-    """versions(VIEWER 게이트): viewer·admin 통과·비멤버 403(INV-1)·미인증 401(5.5).
+def test_versions_read_open_to_all_active_users_unauthenticated_401(ws_scenario, harness):
+    """versions(읽기 전역 개방): 비멤버·admin 모두 200·미인증 401(s26 Req 3.3·3.8·7.2, 5.5).
 
-    버전 목록은 VIEWER 이상이면 통과(빈 이력도 200 Page). 비멤버는 존재 문서 + 권한 미충족
-    403(어댑터가 resolver 에 위임), 미인증(세션 없는 신규 client)은 s01 get_current_user 가 401.
+    버전 이력 읽기는 s26 개방으로 활성 사용자면 멤버십과 무관하게 200 이다(빈 이력도 200 Page).
+    비멤버 활성 사용자(viewer·nonmember)도 200 이며(더 이상 403 아님), 미인증(세션 없는 신규
+    client)만 s01 get_current_user 가 401 로 거부한다.
     """
     ws_id = ws_scenario.workspace_id
     doc = ws_scenario.editor_client.post(
@@ -227,18 +228,16 @@ def test_versions_gate_viewer_pass_nonmember_403_unauthenticated_401(ws_scenario
     ).json()
     doc_id = doc["id"]
 
-    # (통과) viewer·admin 은 버전 목록 200(빈 이력도 Page).
-    assert ws_scenario.viewer_client.get(
-        f"/documents/{doc_id}/versions"
-    ).status_code == 200, "viewer 는 VIEWER 게이트 통과(5.1)"
-    assert ws_scenario.admin_client.get(
-        f"/documents/{doc_id}/versions"
-    ).status_code == 200, "admin bypass 로 버전 목록 통과(INV-3)"
-
-    # (거부) 비멤버는 존재 문서 + VIEWER 미충족 → 403(어댑터 위임, INV-1).
-    assert ws_scenario.nonmember_client.get(
-        f"/documents/{doc_id}/versions"
-    ).status_code == 403, "비멤버 버전 목록 403(INV-1, 5.5)"
+    # (개방) member·비멤버·admin 모두 버전 이력 200(빈 이력도 Page) — 읽기 전역 개방.
+    for label, client in (
+        ("member", ws_scenario.editor_client),
+        ("viewer(비멤버)", ws_scenario.viewer_client),
+        ("nonmember", ws_scenario.nonmember_client),
+        ("admin", ws_scenario.admin_client),
+    ):
+        assert client.get(
+            f"/documents/{doc_id}/versions"
+        ).status_code == 200, f"{label} 버전 이력 읽기 200(전역 개방, 3.8)"
 
     # (미인증) 세션 없는 신규 client → 401(s01 get_current_user).
     anon = harness.new_client()

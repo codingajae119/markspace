@@ -228,42 +228,39 @@ def test_upload_gate_editor_over_real_membership(
 def test_serve_gate_viewer_and_admin_bypass(
     doc_tree_scenario, harness, tmp_attachment_roots
 ):
-    """서빙 게이트(VIEWER): viewer 200·비멤버 403·미인증 401·admin bypass 200·미존재 첨부 404.
+    """서빙 읽기 전역 개방: member 200·비멤버 200·미인증 401·admin 200·미존재 첨부 404
+    (s26 Req 3.4·3.8·7.2).
 
-    판정은 s05 실제 멤버십 위에서 s01 `require_ws_role(VIEWER)`(첨부→WS 어댑터)가 수행한다.
-    viewer(멤버)는 200, 비멤버는 403(INV-1), 미인증은 401, admin(비멤버지만 bypass)은 200(INV-3),
-    미존재 첨부는 첨부→WS 어댑터가 판정 이전 404.
+    첨부 서빙(`GET /attachments/{id}`)은 s26 읽기 개방으로 활성 사용자면 멤버십과 무관하게
+    200 이다. member·비멤버 활성 사용자(viewer·nonmember) 모두 200(더 이상 403 아님), 미인증은
+    401(인증 게이트 유지), admin 도 200, 미존재 첨부는 첨부→WS 어댑터가 매핑 실패로 404.
     """
     scenario = doc_tree_scenario.scenario
     doc_id = doc_tree_scenario.root_id
 
-    # editor 가 서빙 대상 첨부를 하나 만든다.
+    # member 가 서빙 대상 첨부를 하나 만든다.
     att = h.upload_image(
         scenario.editor_client, doc_id, content=_IMAGE_BYTES, filename="target.png"
     )
     att_id = att["id"]
 
-    # viewer(멤버, VIEWER)는 조회 200.
-    assert h.attempt_get_attachment(scenario.viewer_client, att_id).status_code == 200, (
-        "viewer 조회 200"
-    )
+    # member·비멤버 활성 사용자 모두 조회 200(읽기 전역 개방, 403 아님).
+    for label, client in (
+        ("member", scenario.editor_client),
+        ("viewer(비멤버)", scenario.viewer_client),
+        ("nonmember", scenario.nonmember_client),
+        ("admin", scenario.admin_client),
+    ):
+        assert h.attempt_get_attachment(client, att_id).status_code == 200, (
+            f"{label} 첨부 서빙 200(읽기 전역 개방, 3.8): 403 아님"
+        )
 
-    # 비멤버는 403(INV-1).
-    assert (
-        h.attempt_get_attachment(scenario.nonmember_client, att_id).status_code == 403
-    ), "비멤버 조회 403(INV-1)"
-
-    # 미인증(쿠키 없는 신규 클라이언트)은 401.
+    # 미인증(쿠키 없는 신규 클라이언트)은 401(인증 게이트 유지).
     assert h.attempt_get_attachment(harness.new_client(), att_id).status_code == 401, (
         "미인증 조회 401"
     )
 
-    # admin(비멤버지만 bypass)은 200(INV-3).
-    assert h.attempt_get_attachment(scenario.admin_client, att_id).status_code == 200, (
-        "admin bypass 조회 200(INV-3)"
-    )
-
-    # 미존재 첨부는 첨부→WS 어댑터가 role 판정 이전 404(멤버 viewer 에게도).
+    # 미존재 첨부는 첨부→WS 어댑터가 매핑 실패로 404(활성 사용자에게도).
     assert h.attempt_get_attachment(scenario.viewer_client, MISSING_ID).status_code == 404, (
         "미존재 첨부 조회 404(어댑터 매핑 실패)"
     )

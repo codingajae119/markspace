@@ -367,16 +367,21 @@ def test_workspace_detail_without_session_returns_401(harness):
     )
 
 
-def test_nonmember_workspace_detail_returns_403(ws_scenario):
-    """비멤버가 워크스페이스 상세를 호출하면 403(role 게이트 실제 강제, Req 2.3, INV-1).
+def test_nonmember_workspace_detail_read_is_open(ws_scenario):
+    """비멤버가 워크스페이스 상세를 호출하면 200(읽기 전역 개방, s26 Req 3.8·7.2).
 
-    resolver 가 멤버십이 없는 요청자의 role 을 None 으로 판정해 서비스 실행 전에 거부한다.
+    s26 읽기 개방으로 활성 사용자면 멤버십과 무관하게 상세를 200 으로 읽는다(더 이상 403 아님).
+    role 필드는 호출자 관점으로 채워지며 비멤버는 null 이다(Req 3.5).
     """
     resp = ws_scenario.nonmember_client.get(
         f"/workspaces/{ws_scenario.workspace_id}"
     )
-    assert resp.status_code == 403, (
-        f"비멤버 GET /workspaces/{{id}} 는 403 이어야 한다: {resp.status_code} {resp.text}"
+    assert resp.status_code == 200, (
+        f"비멤버 GET /workspaces/{{id}} 는 읽기 개방으로 200 이어야 한다(403 아님): "
+        f"{resp.status_code} {resp.text}"
+    )
+    assert resp.json().get("role") is None, (
+        f"비멤버 호출자 관점 role 은 null 이어야 한다(Req 3.5): {resp.text}"
     )
 
 
@@ -407,9 +412,13 @@ def test_error_401_unauthenticated(harness):
 
 
 def test_error_403_forbidden(ws_scenario):
-    """비멤버의 워크스페이스 상세 요청 → 403 + code=forbidden + ErrorResponse 형태."""
-    resp = ws_scenario.nonmember_client.get(
-        f"/workspaces/{ws_scenario.workspace_id}"
+    """비멤버의 워크스페이스 관리(설정 변경) 요청 → 403 + code=forbidden + ErrorResponse 형태.
+
+    s26 읽기 개방으로 상세 읽기는 200 이 되었으므로, 403 은 owner 전용 관리 게이트
+    (`PATCH /workspaces/{id}`)에서 관측한다(비멤버·비-admin → 403, Req 5.4).
+    """
+    resp = ws_scenario.nonmember_client.patch(
+        f"/workspaces/{ws_scenario.workspace_id}", json={"is_shareable": True}
     )
     assert resp.status_code == 403, f"{resp.status_code} {resp.text}"
     body = resp.json()
@@ -445,7 +454,7 @@ def test_error_409_conflict(ws_scenario):
     """
     resp = ws_scenario.owner_client.post(
         f"/workspaces/{ws_scenario.workspace_id}/members",
-        json={"user_id": ws_scenario.editor_user_id, "role": "viewer"},
+        json={"user_id": ws_scenario.editor_user_id, "role": "member"},
     )
     assert resp.status_code == 409, f"{resp.status_code} {resp.text}"
     body = resp.json()

@@ -31,33 +31,62 @@
 from tests.integration_L2 import helpers
 
 
-# --- viewer 게이트 bypass (Req 4.1, INV-3) -----------------------------------------
+# --- 관리(owner) 게이트 bypass 대조 (s26 Req 4.1/5.4, INV-3) ------------------------
 
 
-def test_admin_bypasses_viewer_gate_on_nonmember_workspace(ws_scenario):
-    """viewer 게이트 bypass: 비멤버 admin 은 `GET /workspaces/{id}` 200, 비-admin 비멤버는 403.
+def test_admin_bypasses_management_gate_on_nonmember_workspace(ws_scenario):
+    """관리 게이트 bypass: 비멤버 admin 은 `PATCH /workspaces/{id}` 200, 비-admin 비멤버는 403.
 
-    admin 은 이 워크스페이스의 멤버가 아니지만(owner 가 생성) `require_ws_role(VIEWER)` 를
-    admin bypass 로 통과해 200 을 받아야 한다(4.1). 같은 호출에서 비-admin 비멤버는 403 으로
-    차단됨을 대조 단언하여, admin 의 200 이 열린 접근이 아니라 오직 admin bypass 때문임을
-    증명한다(INV-1 비멤버 차단 vs INV-3 admin bypass).
+    s26 읽기 전역 개방으로 `GET /workspaces/{id}`(읽기)는 비멤버도 200 이므로 더 이상 admin
+    bypass 를 대조로 증명하지 못한다. 따라서 관리(owner 전용) 게이트인 `PATCH /workspaces/{id}`
+    로 대조한다: 비멤버 admin 은 owner 게이트를 admin bypass 로 통과해 200 이고(INV-3), 같은
+    호출에서 비-admin 비멤버는 403 으로 차단된다(관리 owner 전용, Req 5.4). admin 의 200 이
+    열린 접근이 아니라 오직 admin bypass 때문임을 증명한다.
     """
     ws_id = ws_scenario.workspace_id
 
-    admin_resp = helpers.attempt_get_workspace(ws_scenario.admin_client, ws_id)
+    admin_resp = helpers.attempt_update_settings(
+        ws_scenario.admin_client, ws_id, is_shareable=True
+    )
     assert admin_resp.status_code == 200, (
-        f"비멤버 admin 은 viewer 게이트를 bypass 로 통과해 200 이어야 한다(4.1, INV-3): "
+        f"비멤버 admin 은 관리(owner) 게이트를 bypass 로 통과해 200 이어야 한다(4.1, INV-3): "
         f"{admin_resp.status_code} {admin_resp.text}"
     )
 
-    # 대조: 비-admin 비멤버는 같은 게이트에서 403 → 200 은 열린 접근이 아니라 admin bypass.
-    nonmember_resp = helpers.attempt_get_workspace(
-        ws_scenario.nonmember_client, ws_id
+    # 대조: 비-admin 비멤버는 같은 관리 게이트에서 403 → 200 은 열린 접근이 아니라 admin bypass.
+    nonmember_resp = helpers.attempt_update_settings(
+        ws_scenario.nonmember_client, ws_id, is_shareable=True
     )
     assert nonmember_resp.status_code == 403, (
-        f"비-admin 비멤버는 viewer 게이트에서 403 으로 차단되어야 한다"
-        f"(INV-1, admin 200 이 열린 접근이 아님을 증명): "
+        f"비-admin 비멤버는 관리(owner) 게이트에서 403 으로 차단되어야 한다"
+        f"(Req 5.4, admin 200 이 열린 접근이 아님을 증명): "
         f"{nonmember_resp.status_code} {nonmember_resp.text}"
+    )
+
+
+def test_workspace_detail_read_open_to_nonmember(ws_scenario):
+    """읽기 전역 개방 대조(s26 Req 3.8): 비멤버 admin·비-admin 비멤버 모두 `GET` 200.
+
+    읽기 경로는 admin bypass 여부와 무관하게 활성 사용자면 200 이다(멤버십 요구 없음). 비멤버
+    admin 과 비-admin 비멤버(`nonmember_client`) 모두 `GET /workspaces/{id}` 200 임을 관찰해,
+    읽기 게이트가 열려 있음을 관리 게이트 bypass 대조와 분리해 확정한다(Req 3.8·7.2).
+    """
+    ws_id = ws_scenario.workspace_id
+
+    admin_read = helpers.attempt_get_workspace(ws_scenario.admin_client, ws_id)
+    assert admin_read.status_code == 200, (
+        f"admin 읽기는 200 이어야 한다: {admin_read.status_code} {admin_read.text}"
+    )
+
+    nonmember_read = helpers.attempt_get_workspace(
+        ws_scenario.nonmember_client, ws_id
+    )
+    assert nonmember_read.status_code == 200, (
+        f"비-admin 비멤버도 읽기 전역 개방으로 200 이어야 한다(403 아님, Req 3.8): "
+        f"{nonmember_read.status_code} {nonmember_read.text}"
+    )
+    assert nonmember_read.json().get("role") is None, (
+        f"비멤버 호출자 관점 role 은 null 이어야 한다(Req 3.5): {nonmember_read.text}"
     )
 
 
@@ -90,7 +119,7 @@ def test_admin_bypasses_owner_gate_on_nonmember_workspace(ws_scenario):
         name="대상",
     )
     add_resp = helpers.attempt_add_member(
-        ws_scenario.admin_client, ws_id, fresh_user_id, "viewer"
+        ws_scenario.admin_client, ws_id, fresh_user_id, "member"
     )
     assert add_resp.status_code == 201, (
         f"비멤버 admin 은 멤버 추가 owner 게이트를 bypass 로 통과하고 서비스가 멤버를 "

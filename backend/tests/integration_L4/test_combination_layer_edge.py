@@ -167,10 +167,10 @@ def test_role_access_boundaries_on_lock_version_routes(lock_scenario):
             f"{label} force-unlock 403(7.1)"
         )
 
-    # versions 는 VIEWER+ 경계 — viewer 200·비멤버 403(읽기 경계 INV-1).
-    assert h.attempt_list_versions(viewer, doc_id).status_code == 200, "viewer versions 200(7.1)"
-    assert h.attempt_list_versions(nonmember, doc_id).status_code == 403, (
-        "비멤버 versions 403(7.1, INV-1)"
+    # versions 는 읽기 전역 개방 — viewer·비멤버 모두 200(s26 Req 3.3·3.8, 더 이상 403 아님).
+    assert h.attempt_list_versions(viewer, doc_id).status_code == 200, "viewer versions 200(3.8)"
+    assert h.attempt_list_versions(nonmember, doc_id).status_code == 200, (
+        "비멤버 versions 읽기 개방으로 200(3.8, 403 아님)"
     )
 
     # admin(비멤버) 은 모든 라우트를 bypass 한다(INV-3).
@@ -254,7 +254,7 @@ def test_deleted_author_document_and_version_preserved_and_login_gated(
     ws_scenario 의 기존 세션을 훼손하지 않도록 **신규** 사용자를 만들어 삭제한다.
     """
     author_uid, author_name, author_client = _provision_member(
-        ws_scenario, harness, role="editor", prefix="author", name=f"작성자-{uuid4().hex[:8]}"
+        ws_scenario, harness, role="member", prefix="author", name=f"작성자-{uuid4().hex[:8]}"
     )
     ws_id = ws_scenario.workspace_id
 

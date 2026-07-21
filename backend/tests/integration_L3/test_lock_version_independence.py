@@ -72,10 +72,10 @@ def _provision_editor(scenario, harness, *, prefix: str):
     )
     resp = scenario.owner_client.post(
         f"/workspaces/{scenario.workspace_id}/members",
-        json={"user_id": user_id, "role": "editor"},
+        json={"user_id": user_id, "role": "member"},
     )
     assert resp.status_code == 201, (
-        f"editor 멤버 추가 201 이어야 한다: {resp.status_code} {resp.text}"
+        f"member 멤버 추가 201 이어야 한다: {resp.status_code} {resp.text}"
     )
     client = harness.login(login_id, l1_helpers.DEFAULT_PASSWORD)
     return user_id, client
@@ -473,11 +473,17 @@ def test_s09_added_no_new_migration():
     migration_files = sorted(
         p.name for p in versions_dir.glob("*.py") if p.name != "__init__.py"
     )
-    # s01 baseline(0001) + additive user_setting(0002). s09 는 자기 마이그레이션을
-    # 추가하지 않았음을 검증하는 것이 목적이므로 additive user_setting 은 허용한다.
-    assert migration_files == ["0001_initial_schema.py", "0002_user_setting.py", "0003_user_setting_last_selected_workspace.py"], (
-        f"s09 는 새 마이그레이션을 추가하지 않아야 한다 — 0001 + additive user_setting 뿐이어야 한다(7.2): "
-        f"{migration_files}"
+    # s01 baseline(0001) + additive user_setting(0002·0003) + s26 open-access-roles(0004).
+    # s09 는 자기 마이그레이션을 추가하지 않았음을 검증하는 것이 목적이므로 이후 spec 의
+    # 정당한 마이그레이션(user_setting additive·s26 role 2단계화)은 허용한다.
+    assert migration_files == [
+        "0001_initial_schema.py",
+        "0002_user_setting.py",
+        "0003_user_setting_last_selected_workspace.py",
+        "0004_open_access_roles.py",
+    ], (
+        f"s09 는 새 마이그레이션을 추가하지 않아야 한다 — s01 + additive user_setting + "
+        f"s26 open-access-roles 뿐이어야 한다(7.2): {migration_files}"
     )
     # lock/version 특화 마이그레이션 부재(추가 안전망).
     assert not any(

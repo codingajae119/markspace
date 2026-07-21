@@ -338,29 +338,42 @@ def test_read_gate_allows_viewer(ws_scenario):
     )
 
 
-def test_nonmember_denied_on_every_document_operation(ws_scenario):
-    """비멤버는 생성·목록·상세·수정·이동·삭제 모두 403(인증되어 있으나 role 미판정, INV-1).
+def test_nonmember_reads_open_but_edits_denied(ws_scenario):
+    """비멤버 활성 사용자: 읽기(목록·상세)는 200(전역 개방), 편집(생성·수정·이동·삭제)은 403.
 
-    비멤버는 인증된 사용자이므로 401 이 아니라 403 으로 거부되어야 한다(resolver 가 role 을
-    None 으로 판정). `/documents/{id}` 계열은 문서가 존재하므로 404 가 아니라 403 이다.
+    s26 읽기 전역 개방(Req 3.8·7.2)으로 비멤버도 목록·상세 조회는 200 이다(더 이상 403 아님 —
+    헤드라인 전환). 반면 편집 계열은 멤버십을 요구하므로 비멤버(admin 제외)는 403 으로 거부된다
+    (Req 4.6). 비멤버는 인증된 사용자이므로 401 이 아니라 403 이고, `/documents/{id}` 계열은
+    문서가 존재하므로 404 가 아니라 403 이다.
     """
     ws_id = ws_scenario.workspace_id
     nonmember = ws_scenario.nonmember_client
     doc = _make_doc(ws_scenario.editor_client, ws_id, _title("비멤버대상"))
 
-    cases = [
-        ("생성", nonmember.post(
-            f"/workspaces/{ws_id}/documents", json={"title": _title("비멤버생성")})),
+    # 읽기 전역 개방: 비멤버 목록·상세 조회 → 200(403 아님).
+    read_cases = [
         ("목록", nonmember.get(f"/workspaces/{ws_id}/documents")),
         ("상세", nonmember.get(f"/documents/{doc['id']}")),
+    ]
+    for label, resp in read_cases:
+        assert resp.status_code == 200, (
+            f"비멤버 {label} 읽기는 전역 개방으로 200 이어야 한다(403 아님, Req 3.8): "
+            f"{resp.status_code} {resp.text}"
+        )
+
+    # 편집 계열: 비멤버(admin 제외) 생성·수정·이동·삭제 → 403(멤버십 요구, Req 4.6).
+    edit_cases = [
+        ("생성", nonmember.post(
+            f"/workspaces/{ws_id}/documents", json={"title": _title("비멤버생성")})),
         ("수정", nonmember.patch(
             f"/documents/{doc['id']}", json={"title": _title("비멤버수정")})),
         ("이동", nonmember.post(f"/documents/{doc['id']}/move", json={})),
         ("삭제", nonmember.delete(f"/documents/{doc['id']}")),
     ]
-    for label, resp in cases:
+    for label, resp in edit_cases:
         assert resp.status_code == 403, (
-            f"비멤버 {label} 은 403 이어야 한다(INV-1): {resp.status_code} {resp.text}"
+            f"비멤버 {label} 편집은 403 이어야 한다(멤버십 요구, Req 4.6): "
+            f"{resp.status_code} {resp.text}"
         )
 
 
@@ -498,9 +511,15 @@ def test_documents_served_on_s01_initial_schema_no_new_migration():
     revision_files = sorted(
         p.name for p in versions_dir.glob("*.py") if p.name != "__init__.py"
     )
-    # s01 baseline(0001) + additive user_setting(0002). s07 이 자기 마이그레이션을
-    # 추가하지 않았음을 검증하는 것이 목적이므로 additive user_setting 은 허용한다.
-    assert revision_files == ["0001_initial_schema.py", "0002_user_setting.py", "0003_user_setting_last_selected_workspace.py"], (
-        "s07 은 새 마이그레이션을 추가하지 않고 s01 단일 리비전(0001) + additive user_setting 위에서 문서를 "
-        f"제공해야 한다(10.6): 관측 리비전 파일={revision_files}"
+    # s01 baseline(0001) + additive user_setting(0002·0003) + s26 open-access-roles(0004).
+    # s07 이 자기 마이그레이션을 추가하지 않았음을 검증하는 것이 목적이므로 이후 spec 의
+    # 정당한 마이그레이션(user_setting additive·s26 role 2단계화)은 허용한다.
+    assert revision_files == [
+        "0001_initial_schema.py",
+        "0002_user_setting.py",
+        "0003_user_setting_last_selected_workspace.py",
+        "0004_open_access_roles.py",
+    ], (
+        "s07 은 새 마이그레이션을 추가하지 않고 s01 baseline(0001) + additive user_setting + "
+        f"s26 open-access-roles 위에서 문서를 제공해야 한다(10.6): 관측 리비전 파일={revision_files}"
     )

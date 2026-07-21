@@ -136,29 +136,37 @@ def _pin_attachment_created_at(harness, attachment_id: int, ts: datetime) -> Non
 # =============================================================================
 
 
-def test_inv1_permission_is_workspace_scoped_not_per_document(share_scenario):
-    """INV-1: 권한은 WS 단위로만 판정되고 문서별 개별 권한이 없다 — 같은 role 은 모든 문서에 균일 (6.1).
+def test_inv1_edit_is_workspace_scoped_not_per_document_reads_open(share_scenario):
+    """INV-1(편집): 편집 권한은 WS 단위로만 판정되고 문서별 개별 권한이 없다 — 균일 (6.1).
+    아울러 s26 읽기 전역 개방으로 읽기는 멤버십과 무관하게 모든 문서에 균일 200 (Req 3.1·3.8).
 
-    viewer 는 워크스페이스의 **모든** 문서(root·child)를 읽을 수 있으나 어느 문서도 편집할 수
-    없고(문서마다 다른 권한이 붙지 않음), 비멤버는 **모든** 문서에서 차단된다. 권한이 문서가
-    아니라 워크스페이스 멤버십·role 에만 근거함을 확인한다(문서별 개별 권한 부여 경로 부재).
+    비멤버 활성 사용자(viewer·nonmember)는 워크스페이스의 **모든** 문서(root·child)를 균일하게
+    읽을 수 있으나(읽기 개방 — 문서별 예외 없음), 어느 문서도 편집할 수 없다(편집은 멤버십
+    요구 — 문서별 승격 없음). 편집 권한이 문서가 아니라 워크스페이스 멤버십에만 근거함을 확인한다
+    (문서별 개별 권한 부여 경로 부재).
     """
     viewer = share_scenario.viewer_client
     nonmember = share_scenario.nonmember_client
     root_id = share_scenario.root_id
     child_id = share_scenario.child_id
 
-    # viewer 는 WS 의 모든 문서를 균일하게 읽는다(문서별 예외 없음).
-    assert helpers.l3_helpers.attempt_get_document(viewer, root_id).status_code == 200
-    assert helpers.l3_helpers.attempt_get_document(viewer, child_id).status_code == 200
+    # 읽기 전역 개방: 두 비멤버 활성 사용자 모두 WS 의 모든 문서를 균일하게 읽는다(200, 예외 없음).
+    for label, client in (("viewer(비멤버)", viewer), ("nonmember", nonmember)):
+        assert helpers.l3_helpers.attempt_get_document(client, root_id).status_code == 200, (
+            f"{label} root 읽기 개방 200(3.8)"
+        )
+        assert helpers.l3_helpers.attempt_get_document(client, child_id).status_code == 200, (
+            f"{label} child 읽기 개방 200(3.8)"
+        )
 
-    # viewer 는 WS 의 어느 문서도 편집할 수 없다(문서별 승격 없음 — WS role=viewer 로 균일 판정).
-    assert helpers.l3_helpers.attempt_patch_title(viewer, root_id, "x").status_code == 403
-    assert helpers.l3_helpers.attempt_patch_title(viewer, child_id, "x").status_code == 403
-
-    # 비멤버는 문서별 예외 없이 WS 의 모든 문서에서 차단된다(멤버십 부재 = 접근 부재).
-    assert helpers.l3_helpers.attempt_get_document(nonmember, root_id).status_code == 403
-    assert helpers.l3_helpers.attempt_get_document(nonmember, child_id).status_code == 403
+    # 편집은 WS 멤버십 요구: 두 비멤버 모두 어느 문서도 편집할 수 없다(균일 403, 문서별 승격 없음).
+    for label, client in (("viewer(비멤버)", viewer), ("nonmember", nonmember)):
+        assert helpers.l3_helpers.attempt_patch_title(client, root_id, "x").status_code == 403, (
+            f"{label} root 편집 403(멤버십 요구, Req 4.6)"
+        )
+        assert helpers.l3_helpers.attempt_patch_title(client, child_id, "x").status_code == 403, (
+            f"{label} child 편집 403(멤버십 요구, Req 4.6)"
+        )
 
 
 def test_inv2_viewer_is_read_only_including_share_links(share_scenario):

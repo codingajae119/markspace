@@ -214,12 +214,12 @@ def test_upload_permission_gating(doc_tree_scenario, harness, tmp_attachment_roo
 
 
 def test_serve_permission_gating(doc_tree_scenario, harness, tmp_attachment_roots):
-    """조회 게이트: viewer(멤버) 200·비멤버 403·비인증 401·admin bypass 200·미존재 첨부 404
-    (Req 3.3·3.4·3.6, INV-1·2·3). 첨부→WS 어댑터가 WS 단위로만 판정한다."""
+    """서빙 읽기 전역 개방: member·비멤버 활성 사용자 모두 200·비인증 401·admin 200·미존재 첨부 404
+    (s26 Req 3.4·3.8·7.2). 읽기는 멤버십과 무관하게 열려 있고, 미인증만 401 로 거부된다."""
     doc_id = doc_tree_scenario.root_id
     scenario = doc_tree_scenario.scenario
 
-    # editor 가 서빙 대상 첨부를 하나 만든다.
+    # member 가 서빙 대상 첨부를 하나 만든다.
     created = _upload(
         scenario.editor_client, doc_id, filename="served.png", data=_IMAGE_BYTES,
         content_type="image/png",
@@ -227,19 +227,19 @@ def test_serve_permission_gating(doc_tree_scenario, harness, tmp_attachment_root
     assert created.status_code == 201
     url = created.json()["url"]
 
-    # viewer(멤버, VIEWER)는 조회 200(Req 3.3).
-    assert scenario.viewer_client.get(url).status_code == 200, "viewer 조회 200"
+    # member·비멤버 활성 사용자·admin 모두 조회 200(읽기 전역 개방, 403 아님).
+    for label, client in (
+        ("member", scenario.editor_client),
+        ("viewer(비멤버)", scenario.viewer_client),
+        ("nonmember", scenario.nonmember_client),
+        ("admin", scenario.admin_client),
+    ):
+        assert client.get(url).status_code == 200, f"{label} 첨부 서빙 200(읽기 개방, 3.8)"
 
-    # 비멤버는 403(Req 3.4).
-    assert scenario.nonmember_client.get(url).status_code == 403, "비멤버 조회 403"
-
-    # 비인증은 401.
+    # 비인증은 401(인증 게이트 유지).
     assert harness.new_client().get(url).status_code == 401, "비인증 조회 401"
 
-    # admin(비멤버지만 bypass)은 200(INV-3).
-    assert scenario.admin_client.get(url).status_code == 200, "admin bypass 조회 200"
-
-    # 미존재 첨부는 첨부→WS 어댑터가 판정 이전 404(Req 3.6).
+    # 미존재 첨부는 첨부→WS 어댑터가 판정 이전 404(Req 3.7).
     r_missing = scenario.viewer_client.get(f"/attachments/{_MISSING_ID}")
     assert r_missing.status_code == 404, f"미존재 첨부 조회 404: {r_missing.status_code}"
 

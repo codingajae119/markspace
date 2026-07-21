@@ -141,7 +141,7 @@ def test_second_editor_can_list_restore_purge_others_bundles(ws_scenario, harnes
     """
     ws_id = ws_scenario.workspace_id
     editor_b_id, editor_b = _provision_member(
-        ws_scenario, harness, role="editor", prefix="editorB"
+        ws_scenario, harness, role="member", prefix="editorB"
     )
     assert editor_b_id != ws_scenario.editor_user_id, "두 editor 는 서로 다른 사용자여야 한다"
 

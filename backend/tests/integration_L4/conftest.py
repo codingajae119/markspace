@@ -195,7 +195,7 @@ def lock_scenario(ws_scenario, harness) -> LockScenario:
         ws_scenario.owner_client,
         ws_scenario.workspace_id,
         editor_b_user_id,
-        "editor",
+        "member",
     )
 
     return LockScenario(

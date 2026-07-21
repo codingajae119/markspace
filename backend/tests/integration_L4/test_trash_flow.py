@@ -125,7 +125,7 @@ def _provision_editor(scenario, harness, *, prefix: str):
     user_id = l1_helpers.create_user(
         scenario.admin_client, login_id, l1_helpers.DEFAULT_PASSWORD, name=prefix
     )
-    l2_helpers.add_member(scenario.owner_client, scenario.workspace_id, user_id, "editor")
+    l2_helpers.add_member(scenario.owner_client, scenario.workspace_id, user_id, "member")
     client = harness.login(login_id, l1_helpers.DEFAULT_PASSWORD)
     return user_id, client
 

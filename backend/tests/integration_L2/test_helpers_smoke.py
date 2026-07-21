@@ -42,14 +42,15 @@ def test_helpers_compose_workspace_reachable_by_each_role(harness):
     ws_id = l2_helpers.create_workspace(owner_client, "L2 헬퍼 스모크 워크스페이스")
     assert isinstance(ws_id, int) and ws_id > 0
 
-    # 3. owner 가 L2 헬퍼로 editor·viewer 를 지정 role 로 추가(201 내부 단언, MemberRead 반환).
-    editor_member = l2_helpers.add_member(owner_client, ws_id, editor_user_id, "editor")
-    assert editor_member["role"] == "editor"
+    # 3. owner 가 L2 헬퍼로 두 사용자를 member 로 추가(201 내부 단언, MemberRead 반환).
+    #    s26 2단계 모델: 비-owner 멤버 role 은 member 하나뿐(구 editor/viewer 통합).
+    editor_member = l2_helpers.add_member(owner_client, ws_id, editor_user_id, "member")
+    assert editor_member["role"] == "member"
     assert editor_member["workspace_id"] == ws_id
     assert editor_member["user_id"] == editor_user_id
 
-    viewer_member = l2_helpers.add_member(owner_client, ws_id, viewer_user_id, "viewer")
-    assert viewer_member["role"] == "viewer"
+    viewer_member = l2_helpers.add_member(owner_client, ws_id, viewer_user_id, "member")
+    assert viewer_member["role"] == "member"
 
     # 4. 세 role 클라이언트가 각자 세션으로 GET /workspaces/{id} 200.
     for role, client in (

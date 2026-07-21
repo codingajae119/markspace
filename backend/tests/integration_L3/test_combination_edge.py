@@ -324,8 +324,8 @@ def test_deleted_user_authorship_preserved(ws_scenario, harness):
     author_uid = l1_helpers.create_user(
         admin, login_id, l1_helpers.DEFAULT_PASSWORD, name=author_name
     )
-    # owner 가 신규 사용자를 EDITOR 멤버로 추가(문서 생성 게이트 충족).
-    l2_helpers.add_member(ws_scenario.owner_client, ws_id, author_uid, "editor")
+    # owner 가 신규 사용자를 member 멤버로 추가(문서 생성 게이트 충족).
+    l2_helpers.add_member(ws_scenario.owner_client, ws_id, author_uid, "member")
     author_client = harness.login(login_id, l1_helpers.DEFAULT_PASSWORD)
 
     doc = helpers.create_document(author_client, ws_id, _title("작성자문서"))
