@@ -46,7 +46,7 @@
   - _Boundary: MembershipRepository, AssignableUserRead_
   - _Depends: 1.1, 1.2_
 
-- [ ] 2.2 게이팅·페이지네이션 통합 테스트
+- [x] 2.2 게이팅·페이지네이션 통합 테스트
   - 게이팅 매트릭스: owner→200, editor/viewer/비멤버→403, admin(비-owner)→200, 미인증→401.
   - 존재하지 않는 workspace→403(404 로 존재 노출 안 함, anti-enumeration). limit/offset 경계에서 items/total 일관, 배정 가능 0명→`{items:[],total:0}`.
   - 관찰 가능한 완료: FastAPI 통합 스위트가 전체 게이팅 매트릭스와 페이지네이션 경계에서 기대 상태코드·응답 봉투로 통과.
