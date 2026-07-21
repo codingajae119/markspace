@@ -57,8 +57,12 @@ EXPECTED_INDEXES = {
 }
 
 # 기대 ENUM: (테이블, 컬럼) → 값 집합.
+# workspace_member.role 은 s26(0004) open-access-roles 이 head 에서 owner/member 2단계로
+# 재편한다. 이 검증은 upgrade head 직후의 구조를 보므로 head=0004 기준 {owner, member} 다.
+# (downgrade 시 ENUM 구조는 owner/editor/viewer 로 되돌아가지만 데이터는 비대칭 — member→
+# editor, viewer 미복구, R2.5. 구조 roundtrip 은 구조만 보므로 이 상수와 무관하게 통과한다.)
 EXPECTED_ENUMS = {
-    ("workspace_member", "role"): {"owner", "editor", "viewer"},
+    ("workspace_member", "role"): {"owner", "member"},
     ("document", "status"): {"active", "trashed", "deleted"},
     ("attachment", "kind"): {"image", "file"},
 }

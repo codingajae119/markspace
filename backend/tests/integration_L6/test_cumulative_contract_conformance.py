@@ -403,10 +403,16 @@ def test_s14_adds_no_new_migration_over_s01_initial_schema():
     revision_files = sorted(
         p.name for p in versions_dir.glob("*.py") if p.name != "__init__.py"
     )
-    # s01 baseline(0001) + additive user_setting(0002). s14 가 자기 마이그레이션을
-    # 추가하지 않았음을 검증하는 것이 목적이므로 additive user_setting 은 허용한다.
-    assert revision_files == ["0001_initial_schema.py", "0002_user_setting.py", "0003_user_setting_last_selected_workspace.py"], (
-        "s14 는 새 마이그레이션을 추가하지 않고 s01 단일 리비전(0001) + additive user_setting 위에서 동작해야 "
+    # s01 baseline(0001) + additive user_setting(0002·0003) + s26 role 2단계화(0004).
+    # s14 가 자기 마이그레이션을 추가하지 않았음을 검증하는 것이 목적이므로 이후 spec 의
+    # 정당한 마이그레이션(user_setting additive·s26 open-access-roles)은 허용한다.
+    assert revision_files == [
+        "0001_initial_schema.py",
+        "0002_user_setting.py",
+        "0003_user_setting_last_selected_workspace.py",
+        "0004_open_access_roles.py",
+    ], (
+        "s14 는 새 마이그레이션을 추가하지 않고 s01 baseline + additive user_setting + s26 role 이관 위에서 동작해야 "
         f"한다(2.1): 관측 리비전 파일={revision_files}"
     )
 
@@ -414,9 +420,9 @@ def test_s14_adds_no_new_migration_over_s01_initial_schema():
     cfg.set_main_option("script_location", str(backend_dir / "migrations"))
     script = ScriptDirectory.from_config(cfg)
 
-    # head 는 additive user_setting(0003)로 전진했으나 여전히 단일 선형 체인이다.
+    # head 는 s26 role 이관(0004)까지 전진했으나 여전히 단일 선형 체인이다.
     heads = list(script.get_heads())
-    assert heads == ["0003"], f"alembic head 는 단일 선형 체인의 0003 여야 한다: {heads}"
+    assert heads == ["0004"], f"alembic head 는 단일 선형 체인의 0004 여야 한다: {heads}"
 
     # baseline 0001 은 여전히 최초 리비전(down_revision None)이다.
     rev = script.get_revision("0001")

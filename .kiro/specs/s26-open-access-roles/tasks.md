@@ -94,7 +94,7 @@
   - _Boundary: tests(unit permissions)_
   - _Depends: 1.2_
 
-- [ ] 5.2 (P) 마이그레이션 roundtrip·head-guard 정합
+- [x] 5.2 (P) 마이그레이션 roundtrip·head-guard 정합
   - 마이그레이션 구조 roundtrip 테스트를 ENUM 구조 복귀 반영으로 갱신하고, L2·L4·L5·L6 및 workspace·attachment 스위트의 head/리비전-체인 가드를 head=0004·4-리비전 선형 체인으로 갱신
   - 관측 완료: head-guard·roundtrip 스위트가 전부 통과하고 마이그레이션 개수/head 단언이 0004 기준으로 정합
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 7.5_

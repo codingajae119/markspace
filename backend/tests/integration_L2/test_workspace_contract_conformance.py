@@ -11,7 +11,7 @@ design 이 아니라 항상 s01(`design.md` §Physical Data Model · §API Endpo
 
 - **Group 1 — workspace·workspace_member 스키마 vs s01 물리 모델(Req 2.1, 2.2)**:
   마이그레이션된 DB 의 `information_schema` 를 조회해 컬럼 집합·nullability·타입 계열, role
-  ENUM(owner/editor/viewer), UNIQUE(workspace_id, user_id), INDEX(user_id), FK(workspace_id→
+  ENUM(owner/member — s26 open-access-roles(0004) 재편), UNIQUE(workspace_id, user_id), INDEX(user_id), FK(workspace_id→
   workspace.id · user_id→user.id) 를 s01 물리 모델과 대조한다.
 - **Group 2 — 엔드포인트 카탈로그 9~17 노출(Req 2.3, 2.4)**: 부팅 앱의 OpenAPI 가 s01 카탈로그
   행 10~17(워크스페이스·멤버십)과 행 9(admin 소유권 변경)을 정확한 경로·메서드로 노출하고,
@@ -71,8 +71,9 @@ S01_WORKSPACE_MEMBER_TYPE_FAMILY = {
     "role": "enum",
 }
 
-# s01 workspace_member.role ENUM 의 정확한 값 집합.
-S01_MEMBER_ROLE_ENUM_VALUES = {"owner", "editor", "viewer"}
+# workspace_member.role ENUM 의 정확한 값 집합. s26(0004) open-access-roles 이 s01 의 3단계
+# (owner/editor/viewer)를 owner/member 2단계로 재편했으므로 head 기준 값 집합은 owner/member 다.
+MEMBER_ROLE_ENUM_VALUES = {"owner", "member"}
 
 # s01 §API Endpoint Catalog rows 9~17 — (경로, 메서드) 계약.
 # 실제 라우트가 쓰는 경로 파라미터 명명은 `{id}` / `{uid}` (s01 카탈로그 반영).
@@ -214,10 +215,11 @@ def test_workspace_member_table_columns_match_s01_physical_model(harness):
 
 
 def test_workspace_member_role_enum_values_match_s01(harness):
-    """workspace_member.role 이 정확히 ENUM('owner','editor','viewer')임을 확인(s01).
+    """workspace_member.role 이 정확히 ENUM('owner','member')임을 확인(s26 open-access-roles).
 
-    `information_schema.columns.column_type`(예: ``enum('owner','editor','viewer')``)을
-    조회해 열거된 값 집합이 s01 계약과 정확히 일치함을 대조한다(이름이 아니라 값 집합으로).
+    `information_schema.columns.column_type`(예: ``enum('owner','member')``)을 조회해 열거된
+    값 집합이 head=0004 계약과 정확히 일치함을 대조한다(이름이 아니라 값 집합으로). s26 이 s01
+    3단계 위계(owner/editor/viewer)를 owner/member 2단계로 재편했으므로 기준 값은 owner/member 다.
     """
     with harness.session_local() as db:
         row = db.execute(
@@ -233,11 +235,11 @@ def test_workspace_member_role_enum_values_match_s01(harness):
     assert column_type.startswith("enum("), (
         f"workspace_member.role 은 ENUM 타입이어야 한다: 관측 column_type={column_type!r}"
     )
-    # enum('owner','editor','viewer') → 따옴표 안 값만 추출.
+    # enum('owner','member') → 따옴표 안 값만 추출.
     observed_values = {piece.strip().strip("'") for piece in
                        column_type[len("enum("):-1].split(",")}
-    assert observed_values == S01_MEMBER_ROLE_ENUM_VALUES, (
-        f"workspace_member.role ENUM 값 드리프트: s01={sorted(S01_MEMBER_ROLE_ENUM_VALUES)} "
+    assert observed_values == MEMBER_ROLE_ENUM_VALUES, (
+        f"workspace_member.role ENUM 값 드리프트: 기대={sorted(MEMBER_ROLE_ENUM_VALUES)} "
         f"관측={sorted(observed_values)}"
     )
 
@@ -529,11 +531,12 @@ def test_workspace_list_is_page_shape(ws_scenario):
 
 
 def test_no_additional_s05_migration():
-    """s05 가 새 마이그레이션을 추가하지 않고 s01 단일 리비전(0001)만 사용함을 확인(Req 2.6).
+    """s05 가 새 마이그레이션을 추가하지 않고 s01 baseline 위에서만 동작함을 확인(Req 2.6).
 
-    (1) `migrations/versions/` 에 리비전 파일이 정확히 하나(`0001_initial_schema.py`)이고,
-    (2) alembic head 가 단일 `0001` 리비전이며 그 down_revision 이 None(base)임을 확인한다.
-    이 리비전이 workspace/workspace_member 테이블의 유일한 출처다.
+    (1) `migrations/versions/` 리비전 파일이 s01 baseline(0001) + additive user_setting
+        (0002·0003) + s26 open-access-roles(0004) 의 4개 선형 체인이고,
+    (2) alembic head 가 단일 `0004` 리비전이며 baseline `0001` 의 down_revision 이 None(base)임을
+        확인한다. 이 리비전들이 workspace/workspace_member 테이블의 유일한 출처다.
     """
     backend_dir = Path(__file__).resolve().parents[2]  # integration_L2 -> tests -> backend
     versions_dir = backend_dir / "migrations" / "versions"
@@ -541,10 +544,16 @@ def test_no_additional_s05_migration():
     revision_files = sorted(
         p.name for p in versions_dir.glob("*.py") if p.name != "__init__.py"
     )
-    # s01 baseline(0001) + additive user_setting(0002). s05 가 자기 마이그레이션을
-    # 추가하지 않았음을 검증하는 것이 목적이므로 additive user_setting 은 허용한다.
-    assert revision_files == ["0001_initial_schema.py", "0002_user_setting.py", "0003_user_setting_last_selected_workspace.py"], (
-        "s05 는 새 마이그레이션을 추가하지 않고 s01 baseline + additive user_setting 만 사용해야 한다: "
+    # s01 baseline(0001) + additive user_setting(0002·0003) + s26 role 2단계화(0004).
+    # s05 가 자기 마이그레이션을 추가하지 않았음을 검증하는 것이 목적이므로 이후 spec 의
+    # 정당한 마이그레이션(user_setting additive·s26 open-access-roles)은 허용한다.
+    assert revision_files == [
+        "0001_initial_schema.py",
+        "0002_user_setting.py",
+        "0003_user_setting_last_selected_workspace.py",
+        "0004_open_access_roles.py",
+    ], (
+        "s05 는 새 마이그레이션을 추가하지 않고 s01 baseline + additive user_setting + s26 role 이관만 사용해야 한다: "
         f"관측 리비전 파일={revision_files}"
     )
 
@@ -552,9 +561,9 @@ def test_no_additional_s05_migration():
     cfg.set_main_option("script_location", str(backend_dir / "migrations"))
     script = ScriptDirectory.from_config(cfg)
 
-    # head 는 additive user_setting(0003)로 전진했으나 여전히 단일 선형 체인이다.
+    # head 는 s26 role 이관(0004)까지 전진했으나 여전히 단일 선형 체인이다.
     heads = list(script.get_heads())
-    assert heads == ["0003"], f"alembic head 는 단일 선형 체인의 0003 여야 한다: {heads}"
+    assert heads == ["0004"], f"alembic head 는 단일 선형 체인의 0004 여야 한다: {heads}"
 
     # baseline 0001 은 여전히 최초 리비전(down_revision None)이다.
     rev = script.get_revision("0001")

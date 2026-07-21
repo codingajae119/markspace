@@ -377,10 +377,11 @@ def _versions_dir() -> Path:
 def test_s05_adds_no_new_migration(ws_harness):
     """s05 가 새 Alembic 마이그레이션을 추가하지 않았음을 확인(Req 6.5).
 
-    `migrations/versions/` 를 실제로 읽어 리비전 파일 집합이 s01 초기 마이그레이션
-    (`0001_initial_schema.py`) **하나뿐**임을 단언한다. s02~s05 어느 spec 도 새 마이그레이션을
-    추가하지 않았으므로(모두 s01 스키마 위에서 동작), 이 baseline 이 그대로 유지되어야 한다.
-    파일명에 의존하지 않고 리비전 파일 목록 자체를 읽어 비교하므로 브리틀하지 않다.
+    `migrations/versions/` 를 실제로 읽어 리비전 파일 집합이 s01 baseline(`0001_initial_schema.py`)
+    + additive user_setting(0002·0003) + s26 open-access-roles(0004) 의 정당한 리비전들뿐임을
+    단언한다. s02~s05 어느 spec 도 새 마이그레이션을 추가하지 않았으므로(모두 s01 스키마 위에서
+    동작), 이 baseline 이 그대로 유지되어야 한다. 파일명에 의존하지 않고 리비전 파일 목록 자체를
+    읽어 비교하므로 브리틀하지 않다.
     """
     versions = _versions_dir()
     assert versions.is_dir(), f"마이그레이션 versions 디렉터리가 존재해야 한다: {versions}"
@@ -390,10 +391,16 @@ def test_s05_adds_no_new_migration(ws_harness):
         for p in versions.glob("*.py")
         if p.name != "__init__.py" and not p.name.startswith("_")
     }
-    # s01 baseline(0001) + additive user_setting(0002). s05(및 s02~s04)가 자기
-    # 마이그레이션을 추가하지 않았음을 검증하는 것이 목적이므로 additive user_setting 은 허용.
-    assert revision_files == {"0001_initial_schema.py", "0002_user_setting.py", "0003_user_setting_last_selected_workspace.py"}, (
-        "s05(및 s02~s04)는 새 마이그레이션을 추가하지 않아야 한다(s01 baseline + additive user_setting 만 존재해야 함): "
+    # s01 baseline(0001) + additive user_setting(0002·0003) + s26 role 2단계화(0004).
+    # s05(및 s02~s04)가 자기 마이그레이션을 추가하지 않았음을 검증하는 것이 목적이므로 이후
+    # spec 의 정당한 마이그레이션(user_setting additive·s26 open-access-roles)은 허용한다.
+    assert revision_files == {
+        "0001_initial_schema.py",
+        "0002_user_setting.py",
+        "0003_user_setting_last_selected_workspace.py",
+        "0004_open_access_roles.py",
+    }, (
+        "s05(및 s02~s04)는 새 마이그레이션을 추가하지 않아야 한다(s01 baseline + additive user_setting + s26 role 이관만 존재해야 함): "
         f"관측={sorted(revision_files)}"
     )
 
