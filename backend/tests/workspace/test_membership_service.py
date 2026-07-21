@@ -59,7 +59,7 @@ def _make_member(
     member_id: int = 10,
     workspace_id: int = 1,
     user_id: int = 2,
-    role: str = "editor",
+    role: str = "member",
 ) -> WorkspaceMember:
     return WorkspaceMember(
         id=member_id, workspace_id=workspace_id, user_id=user_id, role=role
@@ -176,7 +176,7 @@ def test_add_member_registers_new_member_with_specified_role():
     service = MembershipService(member_repo, _FakeWsRepo())
 
     result = service.add_member(
-        DB, 1, MemberCreate(user_id=2, role=MemberRole.EDITOR)
+        DB, 1, MemberCreate(user_id=2, role=MemberRole.MEMBER)
     )
 
     # 대상 사용자 존재를 확인하고 중복 여부를 조회했다.
@@ -187,13 +187,13 @@ def test_add_member_registers_new_member_with_specified_role():
     assert member_repo.add_calls[0] == {
         "workspace_id": 1,
         "user_id": 2,
-        "role": "editor",
+        "role": "member",
     }
     # 응답은 MemberRead 이며 등록한 값을 반영한다.
     assert isinstance(result, MemberRead)
     assert result.workspace_id == 1
     assert result.user_id == 2
-    assert result.role == MemberRole.EDITOR
+    assert result.role == MemberRole.MEMBER
 
 
 def test_add_member_owner_role_passes_raw_string_value():
@@ -206,12 +206,12 @@ def test_add_member_owner_role_passes_raw_string_value():
 
 
 def test_add_member_duplicate_member_raises_409_and_does_not_add():
-    existing = _make_member(workspace_id=1, user_id=2, role="viewer")
+    existing = _make_member(workspace_id=1, user_id=2, role="member")
     member_repo = _FakeMemberRepo(member=existing, user_exists=True)
     service = MembershipService(member_repo, _FakeWsRepo())
 
     with pytest.raises(DomainError) as ei:
-        service.add_member(DB, 1, MemberCreate(user_id=2, role=MemberRole.EDITOR))
+        service.add_member(DB, 1, MemberCreate(user_id=2, role=MemberRole.MEMBER))
 
     assert ei.value.code == ErrorCode.CONFLICT
     assert ei.value.http_status == 409
@@ -223,7 +223,7 @@ def test_add_member_nonexistent_user_raises_404_and_does_not_add():
     service = MembershipService(member_repo, _FakeWsRepo())
 
     with pytest.raises(DomainError) as ei:
-        service.add_member(DB, 1, MemberCreate(user_id=999, role=MemberRole.VIEWER))
+        service.add_member(DB, 1, MemberCreate(user_id=999, role=MemberRole.MEMBER))
 
     assert ei.value.code == ErrorCode.NOT_FOUND
     assert ei.value.http_status == 404
@@ -234,19 +234,19 @@ def test_add_member_nonexistent_user_raises_404_and_does_not_add():
 
 
 def test_change_role_updates_role_of_existing_member():
-    member = _make_member(workspace_id=1, user_id=2, role="viewer")
+    member = _make_member(workspace_id=1, user_id=2, role="member")
     member_repo = _FakeMemberRepo(member=member)
     service = MembershipService(member_repo, _FakeWsRepo())
 
-    result = service.change_role(DB, 1, 2, MemberUpdate(role=MemberRole.EDITOR))
+    result = service.change_role(DB, 1, 2, MemberUpdate(role=MemberRole.MEMBER))
 
     assert member_repo.get_calls == [(1, 2)]
     assert len(member_repo.set_role_calls) == 1
     updated_member, role_str = member_repo.set_role_calls[0]
     assert updated_member is member
-    assert role_str == "editor"
+    assert role_str == "member"
     assert isinstance(result, MemberRead)
-    assert result.role == MemberRole.EDITOR
+    assert result.role == MemberRole.MEMBER
 
 
 def test_change_role_missing_membership_raises_404():
@@ -254,7 +254,7 @@ def test_change_role_missing_membership_raises_404():
     service = MembershipService(member_repo, _FakeWsRepo())
 
     with pytest.raises(DomainError) as ei:
-        service.change_role(DB, 1, 2, MemberUpdate(role=MemberRole.EDITOR))
+        service.change_role(DB, 1, 2, MemberUpdate(role=MemberRole.MEMBER))
 
     assert ei.value.code == ErrorCode.NOT_FOUND
     assert ei.value.http_status == 404
@@ -262,22 +262,22 @@ def test_change_role_missing_membership_raises_404():
 
 
 def test_change_role_demoting_last_owner_is_allowed():
-    # 유일 owner 를 viewer 로 강등해도 하한 가드 없이 허용된다(3.9).
+    # 유일 owner 를 member 로 강등해도 하한 가드 없이 허용된다(3.9).
     only_owner = _make_member(workspace_id=1, user_id=2, role="owner")
     member_repo = _FakeMemberRepo(member=only_owner)
     service = MembershipService(member_repo, _FakeWsRepo())
 
-    result = service.change_role(DB, 1, 2, MemberUpdate(role=MemberRole.VIEWER))
+    result = service.change_role(DB, 1, 2, MemberUpdate(role=MemberRole.MEMBER))
 
-    assert member_repo.set_role_calls[0][1] == "viewer"
-    assert result.role == MemberRole.VIEWER
+    assert member_repo.set_role_calls[0][1] == "member"
+    assert result.role == MemberRole.MEMBER
 
 
 # --- remove_member ------------------------------------------------------------
 
 
 def test_remove_member_removes_existing_membership_and_returns_none():
-    member = _make_member(workspace_id=1, user_id=2, role="editor")
+    member = _make_member(workspace_id=1, user_id=2, role="member")
     member_repo = _FakeMemberRepo(member=member)
     service = MembershipService(member_repo, _FakeWsRepo())
 
@@ -341,7 +341,7 @@ def test_change_owner_non_member_target_adds_new_owner_membership():
 def test_change_owner_existing_member_target_updates_role_to_owner():
     # 이미 멤버인 대상은 role=owner 로 갱신된다(5.3).
     workspace = _make_workspace(workspace_id=1)
-    existing = _make_member(workspace_id=1, user_id=5, role="editor")
+    existing = _make_member(workspace_id=1, user_id=5, role="member")
     member_repo = _FakeMemberRepo(member=existing, user_exists=True)
     ws_repo = _FakeWsRepo(workspace=workspace)
     service = MembershipService(member_repo, ws_repo)
@@ -404,7 +404,7 @@ def test_change_owner_owner_absent_workspace_still_gets_new_owner():
 def test_change_owner_does_not_demote_existing_other_owners():
     # 대상 멤버만 owner 로 upsert 하며 다른 멤버(기존 owner)는 건드리지 않는다(복수 owner 허용).
     workspace = _make_workspace(workspace_id=1)
-    target = _make_member(member_id=20, workspace_id=1, user_id=5, role="viewer")
+    target = _make_member(member_id=20, workspace_id=1, user_id=5, role="member")
     member_repo = _FakeMemberRepo(member=target, user_exists=True)
     ws_repo = _FakeWsRepo(workspace=workspace)
     service = MembershipService(member_repo, ws_repo)
@@ -467,7 +467,7 @@ def test_list_members_maps_rows_and_passes_through_total():  # Req 1.1·1.2·1.4
     # repo 의 (User, role) 행을 명시 생성으로 MemberRosterRead 로 매핑하고 total 은 그대로 전달한다.
     rows = [
         (_make_user(user_id=2, name="Alice", email="alice@example.com"), "owner"),
-        (_make_user(user_id=5, name="Bob", email="bob@example.com"), "editor"),
+        (_make_user(user_id=5, name="Bob", email="bob@example.com"), "member"),
     ]
     # total 을 items 길이(2)와 다른 값(7)으로 두어 len(items) 가 아니라 repo total 을 전달함을 관찰.
     member_repo = _FakeMemberRepo(members=(rows, 7))
@@ -495,7 +495,7 @@ def test_list_members_maps_rows_and_passes_through_total():  # Req 1.1·1.2·1.4
         5,
         "Bob",
         "bob@example.com",
-        MemberRole.EDITOR,
+        MemberRole.MEMBER,
     )
     # narrow 스키마: 선언 필드만 노출되고 계정 필드는 원천 제외된다.
     assert not hasattr(first, "login_id")
@@ -504,27 +504,25 @@ def test_list_members_maps_rows_and_passes_through_total():  # Req 1.1·1.2·1.4
 
 
 def test_list_members_normalizes_all_role_strings():  # Req 1.2
-    # owner/editor/viewer 세 문자열이 각각 대응 MemberRole 로 정규화된다.
+    # owner/member 두 문자열이 각각 대응 MemberRole 로 정규화된다(s26 2값).
     rows = [
         (_make_user(user_id=1, name="O"), "owner"),
-        (_make_user(user_id=2, name="E"), "editor"),
-        (_make_user(user_id=3, name="V"), "viewer"),
+        (_make_user(user_id=2, name="M"), "member"),
     ]
-    member_repo = _FakeMemberRepo(members=(rows, 3))
+    member_repo = _FakeMemberRepo(members=(rows, 2))
     service = MembershipService(member_repo, _FakeWsRepo())
 
     result = service.list_members(DB, 1, 50, 0)
 
     assert [item.role for item in result.items] == [
         MemberRole.OWNER,
-        MemberRole.EDITOR,
-        MemberRole.VIEWER,
+        MemberRole.MEMBER,
     ]
 
 
 def test_list_members_preserves_null_email():  # Req 1.2·1.5
     # 이메일이 없는(또는 비활성/삭제) 멤버도 email: None 으로 로스터에 포함된다.
-    rows = [(_make_user(user_id=9, name="NoMail", email=None), "viewer")]
+    rows = [(_make_user(user_id=9, name="NoMail", email=None), "member")]
     member_repo = _FakeMemberRepo(members=(rows, 1))
     service = MembershipService(member_repo, _FakeWsRepo())
 
@@ -532,7 +530,7 @@ def test_list_members_preserves_null_email():  # Req 1.2·1.5
 
     assert len(result.items) == 1
     assert result.items[0].email is None
-    assert result.items[0].role == MemberRole.VIEWER
+    assert result.items[0].role == MemberRole.MEMBER
 
 
 def test_list_members_empty_result_returns_empty_page():  # Req 1.4

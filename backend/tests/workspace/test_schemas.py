@@ -138,7 +138,7 @@ def test_workspace_update_rejects_bad_type_for_retention() -> None:
         WorkspaceUpdate(trash_retention_days="not-an-int")  # type: ignore[arg-type]
 
 
-# --- MemberRole: s01 ENUM 값 일치 (3.4·6.1) ---
+# --- MemberRole: owner/member 2값 직렬화 (s26 Req 1.3·5.5) ---
 
 
 def test_member_role_is_str_enum() -> None:
@@ -146,22 +146,31 @@ def test_member_role_is_str_enum() -> None:
     assert issubclass(MemberRole, Enum)
 
 
-def test_member_role_values_match_s01_model_enum() -> None:
-    """MemberRole 문자열 값 == s01 workspace_member.role ENUM 값(하드코딩 금지)."""
-    model_enum_values = set(WorkspaceMember.__table__.c.role.type.enums)
-    schema_role_values = {r.value for r in MemberRole}
+def test_member_role_is_exactly_owner_member_two_values() -> None:
+    """MemberRole 직렬화 enum 은 owner/member 2값으로만 정의된다(s26 Req 1.3, D6).
 
-    assert schema_role_values == model_enum_values
-    assert schema_role_values == {"owner", "editor", "viewer"}
+    editor·viewer 값은 제거된다. s01 `workspace_member.role` 모델 ENUM 과의 정합은
+    migration 0004(task 2.1)에서 owner/member 로 축소되며 함께 맞춰지므로, 이 스키마
+    task 는 직렬화 enum 의 값 집합만 owner/member 로 확정한다.
+    """
+    assert {r.value for r in MemberRole} == {"owner", "member"}
+    assert MemberRole.OWNER.value == "owner"
+    assert MemberRole.MEMBER.value == "member"
+    assert not hasattr(MemberRole, "EDITOR")
+    assert not hasattr(MemberRole, "VIEWER")
 
 
-# --- MemberCreate / MemberUpdate: 잘못된 role 거부 (3.1·3.4) ---
+# --- MemberCreate / MemberUpdate: 잘못된 role 거부 (Req 1.4·5.5) ---
 
 
 def test_member_create_accepts_valid_role() -> None:
-    payload = MemberCreate(user_id=3, role="editor")
+    payload = MemberCreate(user_id=3, role="member")
     assert payload.user_id == 3
-    assert payload.role is MemberRole.EDITOR
+    assert payload.role is MemberRole.MEMBER
+
+
+def test_member_create_accepts_owner_role() -> None:
+    assert MemberCreate(user_id=3, role="owner").role is MemberRole.OWNER
 
 
 def test_member_create_rejects_invalid_role() -> None:
@@ -169,17 +178,32 @@ def test_member_create_rejects_invalid_role() -> None:
         MemberCreate(user_id=3, role="superuser")  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize("legacy", ["editor", "viewer"])
+def test_member_create_rejects_legacy_editor_viewer_role(legacy: str) -> None:
+    """editor/viewer 는 값 집합 축소로 pydantic 이 자동 422 거부한다(Req 1.4, D6)."""
+    with pytest.raises(ValidationError):
+        MemberCreate(user_id=3, role=legacy)  # type: ignore[arg-type]
+
+
 def test_member_create_requires_user_id_and_role() -> None:
     with pytest.raises(ValidationError):
-        MemberCreate(role="editor")  # type: ignore[call-arg]
+        MemberCreate(role="member")  # type: ignore[call-arg]
     with pytest.raises(ValidationError):
         MemberCreate(user_id=3)  # type: ignore[call-arg]
 
 
 def test_member_update_rejects_invalid_role() -> None:
     assert MemberUpdate(role="owner").role is MemberRole.OWNER
+    assert MemberUpdate(role="member").role is MemberRole.MEMBER
     with pytest.raises(ValidationError):
         MemberUpdate(role="ghost")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("legacy", ["editor", "viewer"])
+def test_member_update_rejects_legacy_editor_viewer_role(legacy: str) -> None:
+    """role 변경 요청의 editor/viewer 문자열도 자동 422 거부(Req 1.4)."""
+    with pytest.raises(ValidationError):
+        MemberUpdate(role=legacy)  # type: ignore[arg-type]
 
 
 # --- MemberRead: ORM 직렬화 규약 (6.1) ---
@@ -192,14 +216,14 @@ def test_member_read_inherits_ormreadmodel() -> None:
 
 
 def test_member_read_serializes_from_orm_object() -> None:
-    member = WorkspaceMember(id=11, workspace_id=7, user_id=3, role="viewer")
+    member = WorkspaceMember(id=11, workspace_id=7, user_id=3, role="member")
 
     read = MemberRead.model_validate(member)
 
     assert read.id == 11
     assert read.workspace_id == 7
     assert read.user_id == 3
-    assert read.role is MemberRole.VIEWER
+    assert read.role is MemberRole.MEMBER
 
 
 # --- OwnerChangeRequest (5.1) ---
@@ -300,7 +324,7 @@ def test_member_roster_read_excludes_injected_user_account_fields() -> None:
         "user_id": 42,
         "name": "Alice",
         "email": "alice@example.com",
-        "role": "editor",
+        "role": "member",
         # 아래는 로스터에 노출되면 안 되는 계정/상태/타임스탬프 필드
         "login_id": "alice",
         "password_hash": "hashed-secret",
@@ -330,14 +354,14 @@ def test_member_roster_read_excludes_injected_user_account_fields() -> None:
 
 def test_member_roster_read_preserves_null_email() -> None:
     """이메일 없는(또는 비활성) 멤버도 email=null 로 보존된다(1.2·1.5)."""
-    read = MemberRosterRead(user_id=3, name="Bob", email=None, role="viewer")
+    read = MemberRosterRead(user_id=3, name="Bob", email=None, role="member")
 
     assert read.email is None
     assert read.model_dump()["email"] is None
 
 
 def test_member_roster_read_email_defaults_to_none_when_absent() -> None:
-    read = MemberRosterRead(user_id=3, name="Bob", role="viewer")
+    read = MemberRosterRead(user_id=3, name="Bob", role="member")
 
     assert read.email is None
     assert read.model_dump()["email"] is None
@@ -347,14 +371,19 @@ def test_member_roster_read_email_defaults_to_none_when_absent() -> None:
     ("raw", "expected"),
     [
         ("owner", MemberRole.OWNER),
-        ("editor", MemberRole.EDITOR),
-        ("viewer", MemberRole.VIEWER),
+        ("member", MemberRole.MEMBER),
     ],
 )
 def test_member_roster_read_normalizes_role_values(raw: str, expected: MemberRole) -> None:
     read = MemberRosterRead(user_id=1, name="X", role=raw)
 
     assert read.role is expected
+
+
+@pytest.mark.parametrize("legacy", ["editor", "viewer"])
+def test_member_roster_read_rejects_legacy_editor_viewer_role(legacy: str) -> None:
+    with pytest.raises(ValidationError):
+        MemberRosterRead(user_id=1, name="X", role=legacy)  # type: ignore[arg-type]
 
 
 def test_member_roster_read_rejects_invalid_role() -> None:
