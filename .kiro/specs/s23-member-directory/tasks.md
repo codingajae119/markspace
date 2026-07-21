@@ -79,7 +79,7 @@
   - _Depends: 3.1_
 
 - [ ] 4. 프론트 통합: 멤버 관리 폼 선택 UI 결선
-- [ ] 4.1 raw user_id 입력 → 선택 UI 교체·추가 후 reload
+- [x] 4.1 raw user_id 입력 → 선택 UI 교체·추가 후 reload
   - `components/MemberManagementPanel.tsx` 의 `MemberManagementContent` 에서 `<input id="member-add-user-id">` 제거, `AssignableUserSelect`(선택 사용자) + 기존 `RoleSelect`(역할)로 교체하고 `useAssignableUsers(workspaceId)` 결선.
   - 제출: `await add(workspaceId, { user_id, role })` → 선택 초기화 → 성공/실패 무관 `void assignable.reload()`(단일 경로). 추가 버튼 disabled 조건: `pending || status !== "ready" || users.length === 0 || selectedUserId === null`.
   - 오류 표면화: 추가 실패는 `useMemberActions.error`, 조회 실패는 `assignable.error` 둘 다 `ErrorMessage`(클라 게이팅으로 억제 금지). 상위 `RequireRole minimum={OWNER} currentRole={roleFor(id)}` 게이팅은 변경 없음. `useMemberActions` 비낙관 계약(성공 시에만 append)은 그대로 재사용.
@@ -97,4 +97,5 @@
 
 ## Implementation Notes
 
+- **4.1 select 접근 locator**: `AssignableUserSelect` 는 id/`<label htmlFor>` 없는 bare `<select>` 라, 패널 테스트는 placeholder 옵션(`getByRole("option", { name: "사용자 선택" }).closest("select")`)으로 select 를 찾는다(5.1 도 동일 패턴 사용). 패널은 out-of-boundary 인 컴포넌트에 id 를 주입할 수 없어 시각 라벨은 bare `<span>사용자</span>` 다(비차단 a11y 트레이드오프).
 - **2.1 커버리지 위치**: 저장소 단위 테스트(필터 제외·total 정확성·순서 결정성·상관 NOT EXISTS 정확성)는 task 1.2 커밋(`test_membership_repository.py`)에, narrow 직렬화 스키마 테스트(계정 필드/타임스탬프/`password_hash` 비노출·email null 통과)는 task 1.1 커밋(`test_schemas.py:176-232`)에 이미 존재한다. 2.1 은 신규 코드 없이 이 커버리지가 수용 기준을 충족함을 검증(36 passed)해 완료 처리했다.

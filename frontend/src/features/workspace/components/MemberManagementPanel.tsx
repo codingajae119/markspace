@@ -2,8 +2,9 @@
  * MemberManagementPanel — owner 전용 멤버 관리 UI
  * (design.md "MemberManagementPanel / WorkspaceSettingsPanel", Req 3.1·3.5·3.6·3.7·7.1·7.3·7.4·7.5).
  *
- * 현재 워크스페이스의 멤버를 `user_id`+role 로 추가하고, role 을 변경하고, 제거한다. 모든 뮤테이션은
- * `useMemberActions`(현재 WS id 를 대상)로 위임하며, 이 패널은 표시·입력·결선만 소유한다.
+ * 현재 워크스페이스의 멤버를 배정 가능 사용자 선택(`AssignableUserSelect`)+role 로 추가하고, role 을
+ * 변경하고, 제거한다. 배정 가능 목록·reload 는 `useAssignableUsers`(현재 WS id), 뮤테이션은
+ * `useMemberActions`(현재 WS id 를 대상)로 위임하며, 이 패널은 표시·선택·결선만 소유한다.
  *
  * ## 노출 게이팅 (D-1 role seam, 사용자 승인 2026-07-19)
  * 패널 전체를 s16 `<RequireRole minimum={Role.OWNER} currentRole={role}>` 로 감싼다. `currentRole` 은
@@ -22,8 +23,10 @@
  * UI 를 owner 로 게이팅했더라도 서버가 반환한 403 등 오류는 항상 s16 `ErrorMessage` 로 표시한다
  * (`useMemberActions().error`). 게이팅으로 숨겼다는 이유로 오류를 억제하지 않는다.
  *
- * Requirements: 3.1(추가·role변경·제거), 3.5(owner 게이팅 s16 경유), 3.6(오류 표시), 3.7(열거 한계),
- * 7.1(role 직접비교 금지), 7.3(admin override), 7.4(owner 미만 은닉), 7.5(서버 403 항상 표시).
+ * Requirements: 3.1(추가·role변경·제거), 3.2(raw user_id 입력 → 선택 교체), 3.3(선택 사용자+role 추가),
+ * 3.4(성공 시 목록 갱신·reload), 3.5(owner 게이팅 s16 경유), 3.6(오류 표시), 3.7(열거 한계),
+ * 4.2(추가 실패 표시·상태 롤백), 4.3(stale-409 표시 + 목록 갱신), 7.1(role 직접비교 금지),
+ * 7.3(admin override), 7.4(owner 미만 은닉), 7.5(서버 403 항상 표시).
  */
 
 import { useState } from "react";
@@ -35,8 +38,10 @@ import { RequireRole } from "@/shared/auth/RequireRole";
 import { useCurrentWorkspace } from "@/app/workspace-context/useCurrentWorkspace";
 
 import { RoleSelect } from "./RoleSelect";
+import { AssignableUserSelect } from "./AssignableUserSelect";
 import { useMembershipRoleSource } from "../context/membershipRoleSource";
 import { useMemberActions } from "../hooks/useMemberActions";
+import { useAssignableUsers } from "../hooks/useAssignableUsers";
 import type { MemberRole } from "../api/types";
 
 /**
@@ -64,21 +69,26 @@ export function MemberManagementPanel(): ReactElement {
  */
 function MemberManagementContent({ workspaceId }: { workspaceId: number | null }): ReactElement | null {
   const { members, add, changeRole, remove, pending, error } = useMemberActions();
-  const [userIdInput, setUserIdInput] = useState("");
+  // 배정 가능 사용자 조회(신규): raw user_id 입력을 대체하는 선택 UI 의 데이터·reload 소스(Req 3.2·3.3·4.3).
+  const assignable = useAssignableUsers(workspaceId);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [addRole, setAddRole] = useState<MemberRole>("viewer");
 
-  // user_id 는 양의 정수만 유효(빈 문자열·NaN·0 이하는 제출 불가).
-  const parsedUserId = Number.parseInt(userIdInput, 10);
-  const isUserIdValid = Number.isInteger(parsedUserId) && parsedUserId > 0;
-
-  const handleAdd = (event: FormEvent<HTMLFormElement>): void => {
+  const handleAdd = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    if (workspaceId === null || !isUserIdValid || pending) {
+    if (workspaceId === null || selectedUserId === null || pending) {
       return;
     }
-    void add(workspaceId, { user_id: parsedUserId, role: addRole });
-    setUserIdInput("");
+    // add 는 항상 void resolve(실패는 useMemberActions.error 로 삼킴) → await 후 단일 경로 reload 안전.
+    await add(workspaceId, { user_id: selectedUserId, role: addRole });
+    setSelectedUserId(null); // 선택 초기화
+    // 단일 경로: 성공(추가 사용자 제외)·stale-409(목록 교정)·기타 실패(서버 진실 재확인) 모두 reload(Req 3.4·4.3).
+    void assignable.reload();
   };
+
+  // 배정 가능 목록이 준비되지 않았거나(로딩·오류) 0명이거나, 사용자 미선택·진행 중이면 추가 비활성(Req 3.5·3.6).
+  const isAddDisabled =
+    pending || assignable.status !== "ready" || assignable.users.length === 0 || selectedUserId === null;
 
   // 빈 상태 안내는 WorkspaceManagementPage 단일 소유(중복 제거). 방어적 no-render.
   if (workspaceId === null) {
@@ -99,26 +109,23 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
       {/* 서버 403 등 오류는 게이팅 여부와 무관하게 항상 표시(Req 7.5). */}
       <ErrorMessage error={error} />
 
-      <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-3">
+      <form onSubmit={(event) => void handleAdd(event)} className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
-          <label htmlFor="member-add-user-id" className="text-sm font-medium text-slate-700">
-            사용자 ID
-          </label>
-          <input
-            id="member-add-user-id"
-            type="number"
-            min={1}
-            step={1}
-            inputMode="numeric"
-            value={userIdInput}
-            onChange={(event) => setUserIdInput(event.target.value)}
-            className="w-32 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+          <span className="text-sm font-medium text-slate-700">사용자</span>
+          {/* raw user_id 입력 대체: 배정 가능 사용자 선택. loading/empty/error 표면화는 이 컴포넌트가 소유(Req 3.1·3.5·3.6·4.1). */}
+          <AssignableUserSelect
+            users={assignable.users}
+            status={assignable.status}
+            error={assignable.error}
+            value={selectedUserId}
+            onChange={setSelectedUserId}
+            disabled={pending}
           />
         </div>
         <div className="flex items-center">
           <RoleSelect id="member-add-role" label="역할" value={addRole} onChange={setAddRole} disabled={pending} />
         </div>
-        <Button type="submit" disabled={!isUserIdValid || pending}>
+        <Button type="submit" disabled={isAddDisabled}>
           멤버 추가
         </Button>
       </form>
