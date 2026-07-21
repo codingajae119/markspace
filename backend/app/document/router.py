@@ -1,19 +1,20 @@
 """문서 라우터 — `DocumentRouter` (design.md §Components and Interfaces #DocumentRouter).
 
 문서 6개 엔드포인트(s01 카탈로그 행 18~23)를 노출한다: `POST/GET /workspaces/{id}/documents`,
-`GET/PATCH/DELETE /documents/{id}`, `POST /documents/{id}/move`. 조회·목록은
-`require_ws_role(MEMBER)`, 생성·수정·이동·삭제는 `require_ws_role(MEMBER)` 로 게이팅하고
-(admin bypass), `/workspaces/{id}/*` 는 경로 id=workspace_id, `/documents/{id}` 는 문서→WS
-어댑터로 workspace_id 를 주입한다. DELETE 는 `DocumentStateEngine.trash_document` 를 호출한다.
-라우터는 스키마 검증·게이트·서비스/엔진 위임만 담당한다.
+`GET/PATCH/DELETE /documents/{id}`, `POST /documents/{id}/move`. 읽기(트리 목록·상세)는 role
+위임 없는 활성 사용자 게이트로 **전역 개방**하고, 생성·수정·이동·삭제는 `require_ws_role(MEMBER)`
+로 게이팅한다(admin bypass). `/workspaces/{id}/*` 는 경로 id=workspace_id, `/documents/{id}` 는
+문서→WS 매핑으로 workspace_id 를 확정한다. DELETE 는 `DocumentStateEngine.trash_document` 를
+호출한다. 라우터는 스키마 검증·게이트·서비스/엔진 위임만 담당한다.
 
-게이트 결선(design.md §DocumentRouter 게이트):
+게이트 결선(s26 읽기 개방 / design.md §읽기 게이트):
 - `/workspaces/{workspace_id}/documents`(행 18·19): 경로 파라미터 이름을 `workspace_id` 로
-  두어 s01 `require_ws_role` 의 내부 의존성(경로 `workspace_id: int` 요구)이 직접 바인딩되게
-  한다("경로 id=workspace_id"). 생성은 MEMBER, 목록은 MEMBER.
-- `/documents/{id}`(행 20·21·22·23): 문서 id → workspace_id 매핑 어댑터
-  `ws_role_for_document`(task 1.3) 를 통해 s01 판정에 위임한다. 어댑터가 문서 부재 시 판정에
-  앞서 404 를 낸다. 조회는 MEMBER, 수정·이동·삭제는 MEMBER.
+  두어 게이트의 내부 의존성(경로 `workspace_id: int` 요구)이 직접 바인딩되게 한다("경로
+  id=workspace_id"). 생성은 `require_ws_role(MEMBER)`, 목록은 공통 `require_active_workspace`
+  (활성+WS 존재→404, role 없음 → 비멤버 200).
+- `/documents/{id}`(행 20·21·22·23): 문서 id → workspace_id 매핑. 조회는 신규
+  `active_user_for_document`(매핑 후 role 없이 활성 사용자만 요구, 부재 404 → 비멤버 200),
+  수정·이동·삭제는 `ws_role_for_document(MEMBER)` 어댑터로 s01 판정에 위임한다.
 
 위계 비교·admin bypass·403 판정은 전부 s01 resolver 소유이며(재구현 없음) 미인증(세션 없음·
 무효)은 `get_current_user` 가 401 을 산출한다. 스키마 형식 검증 실패는 pydantic 이 422 로 처리
@@ -34,8 +35,8 @@ from sqlalchemy.orm import Session
 from app.common.auth import AuthContext
 from app.common.db import get_db
 from app.common.errors import DomainError, ErrorCode
-from app.common.permissions import require_ws_role
-from app.document.dependencies import Role, ws_role_for_document
+from app.common.permissions import require_active_workspace, require_ws_role
+from app.document.dependencies import Role, active_user_for_document, ws_role_for_document
 from app.document.engine import DocumentStateEngine
 from app.document.renderer import MarkdownRenderer
 from app.document.repository import DocumentRepository
@@ -119,14 +120,16 @@ def list_documents(
     limit: int = Query(50, ge=1),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(require_ws_role(Role.MEMBER)),
+    _ctx: AuthContext = Depends(require_active_workspace),
     service: DocumentService = Depends(get_document_service),
 ) -> Page[DocumentRead]:
-    """워크스페이스의 active 문서를 페이지네이션하여 조회한다 (Req 2.1·10.2, member 이상).
+    """워크스페이스의 active 문서를 페이지네이션하여 조회한다 (Req 3.1·3.2·3.6·3.7·3.8·7.2, 활성 사용자 전역 개방).
 
-    `require_ws_role(MEMBER)` 로 게이트를 강제한다(403/401 판정은 s01 소유). `limit`(기본 50)·
-    `offset`(기본 0) 쿼리 파라미터와 workspace_id 를 서비스로 전달한다. 성공 시 200 +
-    ``Page[DocumentRead]``.
+    `require_active_workspace` 로 게이트를 강제한다: 활성 사용자(미인증·비활성 401)와 WS 존재
+    (부재 404)만 요구하고 role 을 판정하지 않는다 — 비멤버 활성 사용자도 존재하는 WS 트리에
+    403 없이 200 을 받는다(읽기 완화). 경로 `workspace_id` 가 게이트에 그대로 바인딩된다.
+    `limit`(기본 50)·`offset`(기본 0) 쿼리 파라미터와 workspace_id 를 서비스로 전달한다.
+    성공 시 200 + ``Page[DocumentRead]``.
     """
     return service.list_documents(db, workspace_id, limit, offset)
 
@@ -135,13 +138,14 @@ def list_documents(
 def get_document(
     id: int,
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
+    _ctx: AuthContext = Depends(active_user_for_document),
     service: DocumentService = Depends(get_document_service),
 ) -> DocumentRead:
-    """문서 상세를 조회한다 — content·content_html 포함 (Req 2.1·2.4·2.6·10.3, member 이상).
+    """문서 상세를 조회한다 — content·content_html 포함 (Req 3.1·3.6·3.7·3.8·7.2, 활성 사용자 전역 개방).
 
-    `ws_role_for_document(MEMBER)` 어댑터로 문서 id → workspace_id 를 매핑해 s01 판정에 위임
-    한다(문서 부재 시 어댑터가 판정에 앞서 404). 성공 시 200 + :class:`DocumentRead`.
+    `active_user_for_document` 게이트로 문서 id → workspace_id 를 매핑한 뒤(문서 부재 404) role
+    판정 없이 활성 사용자만 요구한다 — 비멤버 활성 사용자도 존재하는 문서에 403 없이 200 을
+    받는다(읽기 완화). 미인증·비활성은 401. 성공 시 200 + :class:`DocumentRead`.
     """
     return service.get_document(db, id)
 

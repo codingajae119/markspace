@@ -5,7 +5,7 @@
 `/workspaces/{id}/*` 경로는 경로 {id} 를 직접 workspace_id 로 사용하므로 이 어댑터 대상이
 아니다(s01/s05 `require_ws_role` 직접 사용).
 
-**판정 로직 재구현 없음**: role 위계 비교(owner ≥ editor ≥ viewer)·admin bypass(INV-3)·
+**판정 로직 재구현 없음**: role 위계 비교(owner ≥ member 2단계)·admin bypass(INV-3)·
 403 raise 는 전부 s01 `WorkspaceRoleResolver`/`require_ws_role` 이 소유한다(Req 10.4). 이
 어댑터는 문서 id → workspace_id 로 매핑한 뒤 s01 내부 의존성에 workspace_id 를 넘겨
 **위임만** 한다. 매핑이 실패(문서 미존재)하면 s01 판정에 앞서 404 로 거부한다.
@@ -28,7 +28,7 @@ from app.common.errors import DomainError, ErrorCode
 from app.common.permissions import Role, require_ws_role as _s01_require_ws_role
 from app.document.repository import DocumentRepository
 
-__all__ = ["Role", "ws_role_for_document"]
+__all__ = ["Role", "ws_role_for_document", "active_user_for_document"]
 
 # 어댑터가 문서 id → workspace_id 매핑에만 쓰는 경량 조회 지점. 세션은 요청별로
 # 주입받고 리포지토리 인스턴스 자체는 무상태이므로 모듈 단일 인스턴스를 재사용한다.
@@ -69,3 +69,30 @@ def ws_role_for_document(minimum: Role) -> Callable[..., AuthContext]:
         return _delegate(workspace_id=workspace_id, ctx=ctx, db=db)
 
     return dependency
+
+
+def active_user_for_document(
+    id: int,
+    ctx: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AuthContext:
+    """문서 id→workspace 매핑(부재 404) 후 활성 사용자면 통과. role 위임 없음 (R3.1/3.7/3.8).
+
+    읽기 전역 개방 게이트(문서 상세·버전 이력 공유): :func:`ws_role_for_document` 의 **앞
+    절반**(문서 id → workspace_id 매핑, ``None`` → 404)만 유지하고 **뒤 절반**(s01 role
+    위임)을 제거한 대칭 게이트다. 매핑 후 role 을 판정하지 않고 ``ctx`` 를 그대로 돌려주므로
+    403 발생 지점이 존재하지 않는다 — 비멤버 활성 사용자도 존재하는 문서에 200 을 받는다
+    (R3.8·R7.2). 활성 사용자(401) 강제는 ``Depends(get_current_user)`` 가 담당하며, 멤버십을
+    조회하지 않는다(멤버십 쿼리 없음, role 비교 없음, 403 분기 없음).
+
+    ``ws_role_for_document`` 팩토리와 병존하며(편집 라우트는 여전히 role 게이트 사용) 라우터가
+    읽기/편집 라우트에 올바른 게이트를 부착한다.
+    """
+    workspace_id = _repository.get_workspace_id(db, id)
+    if workspace_id is None:
+        raise DomainError(
+            code=ErrorCode.NOT_FOUND,
+            message="Document not found",
+            http_status=404,
+        )
+    return ctx
