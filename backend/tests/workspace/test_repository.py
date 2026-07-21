@@ -163,7 +163,7 @@ def test_get_by_id_returns_workspace_or_none(sessionmaker_factory):
 
 
 def test_list_for_user_returns_only_member_workspaces(sessionmaker_factory):
-    """list_for_user 는 요청자가 멤버인 워크스페이스만 반환한다 (Req 1.3)."""
+    """list_for_user 는 요청자가 멤버인 워크스페이스를 (Workspace, role) 로만 반환한다 (Req 1.3, 1.1)."""
     seed = sessionmaker_factory()
     try:
         repo = WorkspaceRepository()
@@ -188,10 +188,45 @@ def test_list_for_user_returns_only_member_workspaces(sessionmaker_factory):
     try:
         repo = WorkspaceRepository()
         items, total = repo.list_for_user(session, me_id, limit=100, offset=0)
-        names = {w.name for w in items}
+        names = {ws.name for ws, _role in items}
         assert total == 2, "total 은 요청자가 멤버인 워크스페이스 개수여야 한다"
         assert names == {"mine-a", "mine-b"}
         assert "other-ws" not in names, "다른 사용자의 워크스페이스는 제외되어야 한다"
+    finally:
+        session.close()
+
+
+def test_list_for_user_returns_actual_membership_role(sessionmaker_factory):
+    """list_for_user 의 각 항목은 호출자의 실제 멤버십 role 을 함께 반환한다 (Req 1.1)."""
+    seed = sessionmaker_factory()
+    try:
+        repo = WorkspaceRepository()
+        me = _make_user(seed, login_id="me-roles")
+
+        ws_owner = repo.create(seed, name="ws-owner", trash_retention_days=30)
+        ws_editor = repo.create(seed, name="ws-editor", trash_retention_days=30)
+        ws_viewer = repo.create(seed, name="ws-viewer", trash_retention_days=30)
+
+        _make_member(seed, workspace_id=ws_owner.id, user_id=me.id, role="owner")
+        _make_member(seed, workspace_id=ws_editor.id, user_id=me.id, role="editor")
+        _make_member(seed, workspace_id=ws_viewer.id, user_id=me.id, role="viewer")
+        seed.commit()
+
+        me_id = me.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        repo = WorkspaceRepository()
+        items, total = repo.list_for_user(session, me_id, limit=100, offset=0)
+        assert total == 3
+        role_by_name = {ws.name: role for ws, role in items}
+        assert role_by_name == {
+            "ws-owner": "owner",
+            "ws-editor": "editor",
+            "ws-viewer": "viewer",
+        }, "각 항목은 호출자의 실제 멤버십 role 을 반환해야 한다"
     finally:
         session.close()
 
@@ -216,6 +251,9 @@ def test_list_for_user_applies_limit_and_offset(sessionmaker_factory):
         items, total = repo.list_for_user(session, me_id, limit=2, offset=0)
         assert total == 5
         assert len(items) == 2
+        # items 는 (Workspace, role) 튜플이며 정렬은 Workspace.id 오름차순으로 유지한다.
+        ids = [ws.id for ws, _role in items]
+        assert ids == sorted(ids)
 
         items2, total2 = repo.list_for_user(session, me_id, limit=2, offset=4)
         assert total2 == 5
@@ -228,22 +266,62 @@ def test_list_for_user_applies_limit_and_offset(sessionmaker_factory):
 
 
 def test_list_all_returns_all_workspaces(sessionmaker_factory):
-    """list_all 은 멤버 여부와 무관하게 전체 워크스페이스를 반환한다 (Req 1.4)."""
+    """list_all 은 멤버 여부와 무관하게 전체 워크스페이스를 (Workspace, role|None) 로 반환한다 (Req 1.4)."""
     seed = sessionmaker_factory()
     try:
         repo = WorkspaceRepository()
+        admin = _make_user(seed, login_id="admin-caller")
         for i in range(3):
             repo.create(seed, name=f"all-{i}", trash_retention_days=30)
         seed.commit()
+        admin_id = admin.id
     finally:
         seed.close()
 
     session = sessionmaker_factory()
     try:
         repo = WorkspaceRepository()
-        items, total = repo.list_all(session, limit=100, offset=0)
+        items, total = repo.list_all(session, admin_id, limit=100, offset=0)
         assert total == 3, "total 은 전체 워크스페이스 개수여야 한다"
-        assert {w.name for w in items} == {"all-0", "all-1", "all-2"}
+        assert {ws.name for ws, _role in items} == {"all-0", "all-1", "all-2"}
+    finally:
+        session.close()
+
+
+def test_list_all_returns_role_for_member_and_none_for_non_member(sessionmaker_factory):
+    """list_all 은 호출자 멤버 WS 는 실제 role, 비멤버 WS 는 None 을 반환하고 admin 상승이 없다 (Req 1.2, 1.3)."""
+    seed = sessionmaker_factory()
+    try:
+        repo = WorkspaceRepository()
+        # 호출자는 admin 이지만 한 WS 에서만 viewer 멤버다.
+        caller = _make_user(seed, login_id="admin-viewer")
+        other = _make_user(seed, login_id="other-owner")
+
+        ws_member = repo.create(seed, name="ws-member", trash_retention_days=30)
+        ws_non_member = repo.create(seed, name="ws-nonmember", trash_retention_days=30)
+
+        # 호출자는 ws_member 에서 viewer 이며, ws_non_member 에는 멤버십이 없다.
+        _make_member(seed, workspace_id=ws_member.id, user_id=caller.id, role="viewer")
+        # 다른 사용자가 ws_non_member 의 owner (호출자 role 로 새어들면 안 됨).
+        _make_member(seed, workspace_id=ws_non_member.id, user_id=other.id, role="owner")
+        seed.commit()
+
+        caller_id = caller.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        repo = WorkspaceRepository()
+        items, total = repo.list_all(session, caller_id, limit=100, offset=0)
+        assert total == 2, "total 은 전체 워크스페이스 개수여야 한다(멤버 여부 무관)"
+        role_by_name = {ws.name: role for ws, role in items}
+        assert role_by_name["ws-member"] == "viewer", (
+            "호출자가 멤버인 WS 는 실제 멤버십 role 을 반환해야 한다(admin 상승 없음)"
+        )
+        assert role_by_name["ws-nonmember"] is None, (
+            "호출자가 비멤버인 WS 는 None 이어야 한다(다른 멤버의 role 이 새면 안 됨)"
+        )
     finally:
         session.close()
 
@@ -253,18 +331,23 @@ def test_list_all_applies_limit_and_offset(sessionmaker_factory):
     seed = sessionmaker_factory()
     try:
         repo = WorkspaceRepository()
+        caller = _make_user(seed, login_id="pager-admin")
         for i in range(5):
             repo.create(seed, name=f"a-{i}", trash_retention_days=30)
         seed.commit()
+        caller_id = caller.id
     finally:
         seed.close()
 
     session = sessionmaker_factory()
     try:
         repo = WorkspaceRepository()
-        items, total = repo.list_all(session, limit=2, offset=0)
+        items, total = repo.list_all(session, caller_id, limit=2, offset=0)
         assert total == 5
         assert len(items) == 2
+        # items 는 (Workspace, role|None) 튜플이며 정렬은 Workspace.id 오름차순이다.
+        ids = [ws.id for ws, _role in items]
+        assert ids == sorted(ids)
     finally:
         session.close()
 

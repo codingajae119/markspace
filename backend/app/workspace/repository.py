@@ -43,12 +43,17 @@ class WorkspaceRepository:
 
     def list_for_user(
         self, db: Session, user_id: int, limit: int, offset: int
-    ) -> tuple[list[Workspace], int]:
-        """요청자가 멤버인 워크스페이스를 (items, total) 로 반환한다(Req 1.3).
+    ) -> tuple[list[tuple[Workspace, str]], int]:
+        """요청자가 멤버인 워크스페이스를 ((Workspace, role) 목록, total) 로 반환한다(Req 1.1·1.3·1.4).
 
-        `workspace_member` 를 조인해 `user_id` 가 멤버인 워크스페이스만 스코프한다. `total`
-        은 멤버 스코프 전체 개수이며 `limit`/`offset` 은 items 에만 적용한다. items 는
-        `Workspace.id` 오름차순으로 정렬한다.
+        `workspace_member` 를 inner 조인해 `user_id` 가 멤버인 워크스페이스만 스코프하며, 조인한
+        멤버십 행에서 `role` 을 함께 SELECT 해 각 항목을 `(Workspace, role)` 튜플로 돌려준다(inner
+        조인이라 모든 항목이 멤버십 role 을 가진다). 이로써 워크스페이스별 추가 조회(N+1) 없이 단일
+        쿼리로 호출자 role 을 조달한다(Req 1.4). `total` 은 멤버 스코프 전체 개수이며 `limit`/`offset`
+        은 items 에만 적용한다. items 는 `Workspace.id` 오름차순으로 정렬한다.
+
+        role 은 `workspace_member.role` 원시 문자열(owner/editor/viewer)을 그대로 반환하며 계층
+        비교·admin bypass 판정은 하지 않는다(resolver 의 책임).
         """
         member_scope = select(WorkspaceMember.workspace_id).where(
             WorkspaceMember.user_id == user_id
@@ -61,31 +66,48 @@ class WorkspaceRepository:
             )
             or 0
         )
-        items = list(
-            db.scalars(
-                select(Workspace)
-                .where(Workspace.id.in_(member_scope))
-                .order_by(Workspace.id)
-                .limit(limit)
-                .offset(offset)
+        rows = db.execute(
+            select(Workspace, WorkspaceMember.role)
+            .join(
+                WorkspaceMember,
+                (WorkspaceMember.workspace_id == Workspace.id)
+                & (WorkspaceMember.user_id == user_id),
             )
-        )
+            .order_by(Workspace.id)
+            .limit(limit)
+            .offset(offset)
+        ).all()
+        items = [(ws, role) for ws, role in rows]
         return items, total
 
     def list_all(
-        self, db: Session, limit: int, offset: int
-    ) -> tuple[list[Workspace], int]:
-        """전체 워크스페이스를 (items, total) 로 반환한다(admin, Req 1.4).
+        self, db: Session, user_id: int, limit: int, offset: int
+    ) -> tuple[list[tuple[Workspace, str | None]], int]:
+        """전체 워크스페이스를 ((Workspace, role|None) 목록, total) 로 반환한다(admin, Req 1.2·1.3·1.4).
 
-        `total` 은 전체 개수이며 `limit`/`offset` 은 items 에만 적용한다. items 는
-        `Workspace.id` 오름차순으로 정렬한다.
+        호출자 `user_id` 로 `workspace_member` 를 LEFT OUTER JOIN 한다. 상관 조건은 `workspace_id
+        == Workspace.id` **와** `user_id == 호출자` 를 **함께** JOIN ON 절에 둔다: 호출자가 멤버인
+        WS 는 실제 멤버십 role 을, 비멤버 WS 는 NULL→`None` 을 얻는다(Req 1.3). admin 여부로 role 을
+        상승시키지 않는다(Req 1.2, INV-3) — role 은 오직 호출자 멤버십에서만 산출한다.
+
+        주의(anti-join 방지): `user_id == 호출자` 조건은 반드시 JOIN ON 절에 있어야 한다. 이를 WHERE
+        로 옮기면 outer 조인이 사실상 inner 조인이 되어 비멤버 WS 가 결과에서 탈락한다(`_assignable_filters`
+        의 상관 서브쿼리 idiom 과 동일한 상관 원칙). `total` 은 전체 WS 개수(멤버 여부 무관)이며
+        `limit`/`offset` 은 items 에만 적용한다. items 는 `Workspace.id` 오름차순으로 정렬한다.
         """
         total = db.scalar(select(func.count()).select_from(Workspace)) or 0
-        items = list(
-            db.scalars(
-                select(Workspace).order_by(Workspace.id).limit(limit).offset(offset)
+        rows = db.execute(
+            select(Workspace, WorkspaceMember.role)
+            .outerjoin(
+                WorkspaceMember,
+                (WorkspaceMember.workspace_id == Workspace.id)
+                & (WorkspaceMember.user_id == user_id),
             )
-        )
+            .order_by(Workspace.id)
+            .limit(limit)
+            .offset(offset)
+        ).all()
+        items = [(ws, role) for ws, role in rows]
         return items, total
 
     def create(

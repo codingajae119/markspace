@@ -9,7 +9,7 @@
   - _Requirements: 1.1, 1.5_
   - _Boundary: WorkspaceRead (backend schema)_
 
-- [ ] 1.2 (P) 워크스페이스 리포지토리에서 호출자 role 을 단일 조인으로 조달
+- [x] 1.2 (P) 워크스페이스 리포지토리에서 호출자 role 을 단일 조인으로 조달
   - `list_for_user` 를 member_scope inner 조인에 role 컬럼을 함께 SELECT 하도록 확장해 `(Workspace, role)` 튜플 목록 + total 을 반환한다(inner 조인이라 모든 항목이 멤버십 role 보유).
   - `list_all` 에 호출자 `user_id` 인자를 추가하고 호출자 멤버십 LEFT OUTER JOIN(상관 조건: `workspace_id` 일치 AND `user_id`=호출자)으로 `(Workspace, role|None)` 을 반환한다(비멤버 WS 는 None).
   - total·정렬(id 오름차순)·limit/offset 의미는 무변경으로 유지하고, 워크스페이스별 추가 요청 없이 단일 쿼리로 role 을 제공한다(N+1·후조회 방식 미채택).
@@ -87,3 +87,7 @@
   - _Depends: 1.3, 3.1, 3.2, 4.2_
   - _Requirements: 2.2, 4.3, 4.4, 5.4_
   - _Boundary: features/document, features/editor (regression), E2E_
+
+## Implementation Notes
+- 1.2↔1.3 은 경계 간 원자적 마이그레이션 쌍이다. 1.2 가 repository 반환 형태(`list[Workspace]`→`(Workspace, role)` 튜플)와 `list_all` 시그니처(`user_id` 추가)를 바꾸면 유일 호출자 `service.py` 가 갱신되기 전까지 service/router/integration_L2 테스트가 의도적으로 깨진다. 1.2 검증은 `tests/workspace/test_repository.py` 로 스코프하고, 1.3 이 서비스 언팩·`ctx.user_id` 전달로 파손을 닫는다(1.3 완료 후 전체 백엔드 스위트 그린 확인).
+- `list_all` LEFT OUTER JOIN 의 호출자 상관(`WorkspaceMember.user_id == user_id`)은 반드시 JOIN ON 절에 둔다(WHERE 에 두면 outer→inner 붕괴로 비멤버 행 탈락 = anti-join 버그, Req 1.3 위반). 동일 파일 `_assignable_filters` 의 상관 idiom 참고.
