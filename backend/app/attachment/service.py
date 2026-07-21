@@ -163,7 +163,7 @@ class AttachmentService:
         2. **보관 → role 무관 404**: `is_archived` 이면 요청자 role 과 **무관하게** 무조건 404 로
            차단해 보관 파일을 노출하지 않는다(Req 6.2·6.3, 8.10). "권한 판정 이전 차단"은 role 과
            무관하게 무조건 404 라는 의미이며, 이 메서드는 애초에 role 인자를 받지 않으므로 바꿔
-           넣을 여지가 없다. 라우터의 `ws_role_for_attachment(VIEWER)` 게이트가 먼저 실행되지만,
+           넣을 여지가 없다. 라우터의 `ws_role_for_attachment(MEMBER)` 게이트가 먼저 실행되지만,
            admin 이 그 게이트를 bypass 해 이 지점에 도달하더라도 보관 첨부는 여기서 404 가 된다
            (admin 포함 role-agnostic).
         3. **미보관 → 스트리밍**: `AttachmentStorage.open_stream` 으로 저장 파일을 서빙용 스트림

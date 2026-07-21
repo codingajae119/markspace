@@ -14,7 +14,7 @@
 경계(design.md §Dependency Direction): 리포지토리(`ShareLinkRepository`)·s07 문서 리포지토리
 (`DocumentRepository`)는 생성자 주입하고 DB 세션은 메서드별 인자로 전달받는다(`app/attachment/
 service.py` 주입 규약과 정합). 게이트 값은 s01 `Workspace` 모델을 세션으로 관측하며, resolver·
-권한 판정은 재구현하지 않는다(라우터의 `ws_role_for_document(EDITOR)` 게이트 소관). 라우터·다른
+권한 판정은 재구현하지 않는다(라우터의 `ws_role_for_document(MEMBER)` 게이트 소관). 라우터·다른
 feature service 를 import 하지 않는다. 링크 물리 삭제 없음(INV-4, retire 는 무효화 조정 소관).
 """
 
@@ -74,7 +74,7 @@ class ShareLinkService:
         5. **응답 구성**: `ShareLinkRead.from_share_link` 로 `share_url`(`/public/{token}`) 을
            산정한 응답을 반환한다(단일 read-model 생성 경로).
 
-        `ctx` 는 라우터의 `ws_role_for_document(EDITOR)` 게이트 이후 전달되는 인증 컨텍스트로,
+        `ctx` 는 라우터의 `ws_role_for_document(MEMBER)` 게이트 이후 전달되는 인증 컨텍스트로,
         본 서비스는 권한(role)을 재검사하지 않는다(계약 시그니처 정합용). 물리 삭제도 하지
         않는다(INV-4).
         """

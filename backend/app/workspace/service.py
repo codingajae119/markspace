@@ -212,7 +212,7 @@ class MembershipService:
     저장소는 생성자 주입하고 DB 세션은 메서드별 인자로 전달받는다. 도메인 오류는 s01
     `DomainError` 로 raise 하며 s01 전역 핸들러가 공통 `ErrorResponse` 로 변환한다. 권한
     게이팅(require_ws_role/require_admin)은 라우터 의존성이 담당하며 서비스는 데이터 규칙
-    (존재·유일·upsert)만 판정한다. role 문자열은 s01 ENUM(owner/editor/viewer)과 동일하게
+    (존재·유일·upsert)만 판정한다. role 문자열은 s01 ENUM(owner/member)과 동일하게
     `MemberRole` 값(`.value`)으로 저장소에 전달한다. owner 개수에 하한을 두지 않는다(docs 3.7).
     """
 
@@ -313,7 +313,7 @@ class MembershipService:
         `(items, total)` 을 받고, 각 `(User, role)` 행을 narrow `MemberRosterRead` 로 매핑한다.
         join 프로젝션이므로 `model_validate(user)`(id→user_id 리네임 모호)를 쓰지 않고 각 필드를
         **명시 생성**한다(design.md §MembershipService.list_members, research §6.3): role 원시
-        문자열(owner/editor/viewer)은 `MemberRole` 로 정규화하고, `email` 은 null 값도 그대로
+        문자열(owner/member)은 `MemberRole` 로 정규화하고, `email` 은 null 값도 그대로
         보존한다(비활성·삭제 멤버 포함, Req 1.5). `total` 은 items 페이지 길이가 아니라 저장소가
         동일 `workspace_id` 필터로 계산한 소속 멤버 전체 개수를 그대로 전달한다(Req 1.4). 멤버가
         한 명도 없어도(방어적) 오류가 아니라 `Page(items=[], total=…)` 을 반환하며, owner 게이트는

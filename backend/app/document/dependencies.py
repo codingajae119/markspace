@@ -38,7 +38,7 @@ _repository = DocumentRepository()
 def ws_role_for_document(minimum: Role) -> Callable[..., AuthContext]:
     """문서 `{id}` 를 workspace_id 로 잇는 문서 role 게이트 어댑터 (Req 10.3·10.4).
 
-    사용법(문서 라우터): ``Depends(ws_role_for_document(Role.EDITOR))`` 를 경로
+    사용법(문서 라우터): ``Depends(ws_role_for_document(Role.MEMBER))`` 를 경로
     ``/documents/{id}`` 라우트에 부착한다.
 
     반환되는 의존성은 경로 파라미터 ``id: int``(문서 id)를 받아 `get_workspace_id` 로

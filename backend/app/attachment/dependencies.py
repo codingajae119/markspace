@@ -4,7 +4,7 @@
 주입한다(Req 3.4·3.6·7.3). 첨부 미존재 시 404, 존재 시 workspace_id 로 판정을 위임한다.
 첨부는 `workspace_id` 를 **직접** 보유하므로(INV-6, 문서에서 확정된 값을 저장) 문서 조회
 없이 단건 조회 한 번으로 매핑한다. `/documents/{id}/attachments` 업로드 경로는 첨부가 아직
-없으므로 s07 `ws_role_for_document(EDITOR)` 를 재사용하며 이 어댑터 대상이 아니다.
+없으므로 s07 `ws_role_for_document(MEMBER)` 를 재사용하며 이 어댑터 대상이 아니다.
 
 **판정 로직 재구현 없음**: role 위계 비교(owner ≥ member 2단계)·admin bypass(INV-3)·
 403 raise 는 전부 s01 `WorkspaceRoleResolver`/`require_ws_role` 이 소유한다(Req 7.3). 이
@@ -43,7 +43,7 @@ _repository = AttachmentRepository()
 def ws_role_for_attachment(minimum: Role) -> Callable[..., AuthContext]:
     """첨부 `{id}` 를 workspace_id 로 잇는 첨부 role 게이트 어댑터 (Req 3.4·3.6·7.3).
 
-    사용법(첨부 라우터): ``Depends(ws_role_for_attachment(Role.VIEWER))`` 를 경로
+    사용법(첨부 라우터): ``Depends(ws_role_for_attachment(Role.MEMBER))`` 를 경로
     ``/attachments/{id}`` 라우트에 부착한다.
 
     반환되는 의존성은 경로 파라미터 ``id: int``(첨부 id)를 받아 `AttachmentRepository.get`

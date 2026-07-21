@@ -59,7 +59,7 @@ export function AppHeaderNav(): ReactElement {
       </nav>
 
       {/*
-       * 현재 WS·역할 배지: 모든 인증 화면에서 활성 워크스페이스와 내 역할(owner/editor/viewer)을
+       * 현재 WS·역할 배지: 모든 인증 화면에서 활성 워크스페이스와 내 역할(owner/member)을
        * 항상 노출한다. 문서 탭 등으로 전이해도 선택된 WS 를 헤더에서 확인할 수 있게 하는 단일 표시 지점.
        */}
       <div className="ml-auto flex items-center gap-3">

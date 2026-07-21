@@ -157,7 +157,7 @@ class LockVersionService:
 
         어떤 경로에서도 `document_version` 을 생성하지 않으며 문서 `status` 를 검사·변경하지
         않는다(잠금·삭제 독립, §4.3·6.1). 자동 타임아웃 없음 — 잠금은 오직 보유자 저장/취소·
-        강제 해제로만 풀린다(REQ-4.4). 권한(EDITOR) 게이트는 라우터가 소유한다.
+        강제 해제로만 풀린다(REQ-4.4). 권한(MEMBER) 게이트는 라우터가 소유한다.
         """
         doc = self._repository.get_for_update(db, document_id)
         if doc is None:
@@ -238,7 +238,7 @@ class LockVersionService:
 
         `document_version` 은 append-only 이며(무한 보관, REQ-5.2·INV-4) 이 메서드는 어떤 행도
         변이·삭제하지 않는 순수 조회다. 문서 `status` 는 검사·변경하지 않는다(§4.3). 뷰어 권한
-        게이트(VIEWER)는 라우터의 `require_ws_role(VIEWER)` 가 소유하므로 `ctx` 를 받지 않는다.
+        게이트(MEMBER)는 라우터의 `require_ws_role(MEMBER)` 가 소유하므로 `ctx` 를 받지 않는다.
         """
         doc = self._repository.get(db, document_id)
         if doc is None:

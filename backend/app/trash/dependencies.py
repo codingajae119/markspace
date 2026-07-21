@@ -43,7 +43,7 @@ _repository = DocumentRepository()
 def ws_role_for_bundle(minimum: Role) -> Callable[..., AuthContext]:
     """묶음 `{bundleId}` 를 workspace_id 로 잇는 묶음 role 게이트 어댑터 (Req 5.1·5.4).
 
-    사용법(휴지통 라우터): ``Depends(ws_role_for_bundle(Role.EDITOR))`` 를 경로
+    사용법(휴지통 라우터): ``Depends(ws_role_for_bundle(Role.MEMBER))`` 를 경로
     ``/trash/{bundleId}/restore``·``/trash/{bundleId}`` 라우트에 부착한다.
 
     반환되는 의존성은 경로 파라미터 ``bundleId: int``(= 묶음 루트 문서 id)를 받아

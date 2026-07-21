@@ -52,7 +52,7 @@ class WorkspaceRepository:
         쿼리로 호출자 role 을 조달한다(Req 1.4). `total` 은 멤버 스코프 전체 개수이며 `limit`/`offset`
         은 items 에만 적용한다. items 는 `Workspace.id` 오름차순으로 정렬한다.
 
-        role 은 `workspace_member.role` 원시 문자열(owner/editor/viewer)을 그대로 반환하며 계층
+        role 은 `workspace_member.role` 원시 문자열(owner/member)을 그대로 반환하며 계층
         비교·admin bypass 판정은 하지 않는다(resolver 의 책임).
         """
         member_scope = select(WorkspaceMember.workspace_id).where(
@@ -194,7 +194,7 @@ class MembershipRepository:
         """(workspace_id, user_id) 의 role 문자열을 반환한다. 비멤버는 None(Req 4.2).
 
         이는 s01 resolver 가 소비하는 role 데이터의 조회 지점이다. 원시 role 문자열
-        (owner/editor/viewer)을 그대로 반환하며 계층 비교·admin bypass 판정은 하지 않는다
+        (owner/member)을 그대로 반환하며 계층 비교·admin bypass 판정은 하지 않는다
         (resolver 의 책임).
         """
         return db.scalar(
@@ -319,7 +319,7 @@ class MembershipRepository:
         포함해야 하므로(Req 1.5) `_assignable_filters` 를 재사용하지 않는다. INV-4(물리삭제
         없음)로 멤버십↔user FK dangling 이 없어 무필터 inner-join 이 안전하다.
 
-        role 은 `workspace_member.role` 원시 문자열(owner/editor/viewer)을 그대로 반환하며
+        role 은 `workspace_member.role` 원시 문자열(owner/member)을 그대로 반환하며
         위계 비교·admin bypass 판정은 하지 않는다(resolver 의 책임). workspace_id 존재 여부는
         게이트가 선행 처리하므로 리포지토리는 존재검사를 하지 않는다.
         """
