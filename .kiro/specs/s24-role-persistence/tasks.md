@@ -80,7 +80,7 @@
   - _Requirements: 3.1, 3.2, 3.3, 4.1, 4.2, 4.3, 4.4, 5.1, 5.2_
   - _Boundary: features/workspace integration_
 
-- [ ] 4.3 provider-role 파급 복원 회귀 및 E2E critical paths
+- [x] 4.3 provider-role 파급 복원 회귀 및 E2E critical paths
   - provider-role 이 null→실값으로 바뀌며 `useDocumentScope`/`useEditorScope` 소비처(`DocumentToolbar`/`TrashList`/`EditLockBanner`) 게이팅이 editor/owner 에게 의도대로 노출됨을 회귀로 확인한다(소비처 게이팅 로직 무변경, 파급 복원).
   - E2E 4개 role 경로: owner 새로고침(배지=owner + 멤버 관리 접근), editor 새로고침(문서 툴바 노출 + 멤버 관리 은닉), viewer 새로고침(읽기 전용·툴바/멤버 관리 미노출·배지=viewer), admin(세션 경로로 관리/툴바 통과·role 필드는 멤버십 role 만).
   - 관찰 가능: 파급 회귀 테스트와 4개 role E2E 시나리오가 모두 통과한다.
