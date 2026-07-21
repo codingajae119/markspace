@@ -70,7 +70,7 @@
   - _Boundary: useAssignableUsers_
   - _Depends: 3.1_
 
-- [ ] 3.3 (P) 배정 가능 선택 컴포넌트 추가
+- [x] 3.3 (P) 배정 가능 선택 컴포넌트 추가
   - `features/workspace/components/AssignableUserSelect.tsx` 신규(순수 표시): props `users`·`status`·`error`·`value`·`onChange`·`disabled`.
   - 렌더 분기: `loading`→`Spinner`(선택 비활성), `ready && users.length===0`→`EmptyState`("배정 가능한 사용자가 없습니다", 비활성), `error`→`ErrorMessage`, 그 외 `select` 옵션 `이름 (email)`(email 빈값이면 이름만). 데이터·reload 는 상위 소유(역할 선택은 별도 `RoleSelect`).
   - 관찰 가능한 완료: status 별로 Spinner/EmptyState/ErrorMessage/select 중 정확히 하나를 렌더하고, 옵션 선택 시 `onChange(userId)` 호출.
