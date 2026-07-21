@@ -10,7 +10,9 @@ s01 resolver(`require_ws_role`)가 담당한다. 라우터는 스키마 검증·
   통해 문서 id → workspace_id 를 매핑하고 s01 판정에 위임한다. 경로 파라미터 이름은 `id`
   (어댑터 내부 의존성이 경로 `id: int` 를 읽음)로 s07 `/documents/{id}` 라우트와 정확히
   맞춘다. 어댑터가 문서 부재 시 판정에 앞서 404 를 낸다.
-- lock/save/cancel → MEMBER, force-unlock → OWNER, versions → MEMBER.
+- lock/save/cancel → MEMBER, force-unlock → OWNER.
+- versions → 읽기 전역 개방(`active_user_for_document`): 문서 부재 404 매핑만 유지하고 role
+  위임 없이 활성 사용자면 통과(비멤버 200). 미인증 401 은 `get_current_user` 소유.
 
 위계 비교·admin bypass·403 판정은 전부 s01 resolver 소유이며(재구현 없음) 미인증(세션 없음·
 무효)은 `get_current_user` 가 401 을 산출한다. 스키마 형식 검증 실패는 pydantic 이 422 로 처리
@@ -28,7 +30,11 @@ from sqlalchemy.orm import Session
 
 from app.common.auth import AuthContext
 from app.common.db import get_db
-from app.document.dependencies import Role, ws_role_for_document
+from app.document.dependencies import (
+    Role,
+    active_user_for_document,
+    ws_role_for_document,
+)
 from app.lock_version.repository import LockVersionRepository
 from app.lock_version.schemas import (
     DocumentLockRead,
@@ -130,14 +136,18 @@ def list_versions(
     limit: int = Query(50, ge=1),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
+    _ctx: AuthContext = Depends(active_user_for_document),
     service: LockVersionService = Depends(get_lock_version_service),
 ) -> Page[DocumentVersionRead]:
-    """문서의 저장 버전 이력을 최신 저장 순 메타데이터 페이지로 조회한다 (Req 5.1·5.5, member 이상).
+    """문서의 저장 버전 이력을 최신 저장 순 메타데이터 페이지로 조회한다 (Req 3.3·3.6·3.7·3.8·5.1·5.5).
 
-    `ws_role_for_document(MEMBER)` 어댑터로 게이트를 강제한다(문서 부재→404, 403/401 판정은
-    s01 소유). `limit`(기본 50)·`offset`(기본 0) 쿼리 파라미터와 문서 id 를 서비스로 전달한다.
-    이 조회는 요청자 컨텍스트를 쓰지 않으므로 게이트 값은 `_ctx` 로 바인딩만 한다. 성공 시
-    200 + ``Page[DocumentVersionRead]``(본문·rollback 미제공).
+    읽기 전역 개방: 멤버 게이트 대신 신규 문서 읽기 게이트 `active_user_for_document` 를
+    부착한다(문서 상세 라우트와 공유, 신규 교차 import 없이 기존 document dependencies 재사용).
+    이 게이트는 문서 id → workspace_id 매핑(부재→404)만 유지하고 role 위임을 제거하므로,
+    활성 사용자면 멤버십과 무관하게 통과한다 — 비멤버 활성 사용자도 존재하는 문서에 200 을 받고
+    (R3.8·R7.2), 미인증은 `get_current_user` 가 401 을 낸다. `limit`(기본 50)·`offset`(기본 0)
+    쿼리 파라미터와 문서 id 를 서비스로 전달한다. 이 조회는 요청자 컨텍스트를 쓰지 않으므로
+    게이트 값은 `_ctx` 로 바인딩만 한다. 성공 시 200 + ``Page[DocumentVersionRead]``(본문·
+    rollback 미제공).
     """
     return service.list_versions(db, id, limit, offset)
