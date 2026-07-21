@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from app.common.auth import AuthContext, get_current_user
 from app.common.db import get_db
 from app.common.errors import DomainError, ErrorCode
-from app.models import WorkspaceMember
+from app.models import Workspace, WorkspaceMember
 
 
 class Role(IntEnum):
@@ -114,6 +114,36 @@ def require_ws_role(minimum: Role) -> Callable[..., AuthContext]:
     return dependency
 
 
+def require_active_workspace(
+    workspace_id: int,
+    ctx: AuthContext = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AuthContext:
+    """활성 사용자 + WS 존재 게이트 (읽기 전역 개방, Req 3.2·3.6·3.7·3.8·7.2).
+
+    사용법(문서 트리 라우트): ``current = Depends(require_active_workspace)``.
+
+    - ``get_current_user`` (활성 게이트)를 재사용해 미인증·비활성 계정을 401 로
+      거부한다(Req 3.6). 인증·활성 판정을 재구현하지 않는다.
+    - ``Workspace`` 를 id 로 경량 PK 조회해 없으면 404 ``DomainError`` (Req 3.7).
+    - 존재하면 **role 판정 없이** ``ctx`` 를 그대로 돌려준다 — 멤버십을 조회하지
+      않으므로(읽기 완화 INV-1, Req 7.2) 어떤 경우에도 403 을 내지 않는다. 비멤버
+      활성 사용자는 존재하는 WS 에 대해 200 을 받는다(Req 3.8).
+
+    common 배치 근거(design D2): 이 게이트를 공통 레이어에 두어 문서 트리 라우트가
+    workspace 도메인을 교차 import 하지 않도록 한다(common 은 이미 ``WorkspaceMember``
+    를 조회하므로 동일 계층에서 ``Workspace`` 존재검사를 허용한다).
+    """
+    exists = (
+        db.query(Workspace.id)
+        .filter(Workspace.id == workspace_id)
+        .first()
+    )
+    if exists is None:
+        raise _not_found()
+    return ctx
+
+
 def require_admin(ctx: AuthContext = Depends(get_current_user)) -> AuthContext:
     """admin 전용 게이트 (권한 단일화, INV-3 admin 판정과 정합).
 
@@ -133,4 +163,12 @@ def _forbidden() -> DomainError:
         code=ErrorCode.FORBIDDEN,
         message="Insufficient permission",
         http_status=403,
+    )
+
+
+def _not_found() -> DomainError:
+    return DomainError(
+        code=ErrorCode.NOT_FOUND,
+        message="Workspace not found",
+        http_status=404,
     )
