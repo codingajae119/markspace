@@ -55,7 +55,7 @@
   - _Boundary: attachment/dependencies, attachment/router_
   - _Depends: 1.2_
 
-- [ ] 3.4 (P) 워크스페이스 상세 role 주입 및 읽기 전역 개방 전환
+- [x] 3.4 (P) 워크스페이스 상세 role 주입 및 읽기 전역 개방 전환
   - 워크스페이스 상세 서비스에 호출자 컨텍스트를 전달해 호출자 관점 role(owner/member/비멤버 null)을 주입(admin 상승 없음)하고, 상세 라우트를 멤버 게이트에서 활성 사용자 게이트로 교체
   - 관측 완료: 비멤버 활성 사용자가 워크스페이스 상세를 조회하면 이름·설정(is_shareable·보관일)을 200으로 받고 role 필드는 null, 부재 워크스페이스는 404
   - _Requirements: 3.5, 3.7, 3.8, 7.2_

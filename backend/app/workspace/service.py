@@ -100,18 +100,24 @@ class WorkspaceService:
         """ORM `Workspace` 를 `WorkspaceRead` 로 직렬화하고 호출자 role 을 주입한다(Req 1.1·1.5).
 
         기존 필드는 `model_validate` 로 무변경 직렬화하고, 가산 optional `role` 만
-        `model_copy` 로 덮어쓴다. role 원시 문자열(owner/editor/viewer)은 `MemberRole` 로
+        `model_copy` 로 덮어쓴다. role 원시 문자열(owner/member)은 `MemberRole` 로
         정규화하며, 비멤버(None)는 그대로 None 을 싣는다(admin 상승 없음, INV-3).
         """
         return WorkspaceRead.model_validate(ws).model_copy(
             update={"role": MemberRole(role) if role is not None else None}
         )
 
-    def get_workspace(self, db: Session, workspace_id: int) -> WorkspaceRead:
-        """워크스페이스 상세를 조회한다 (Req 1.5·1.6).
+    def get_workspace(
+        self, db: Session, workspace_id: int, ctx: AuthContext
+    ) -> WorkspaceRead:
+        """워크스페이스 상세를 조회하고 호출자 관점 role 을 주입한다 (Req 3.5·3.7·3.8).
 
-        대상을 로드해 없으면 404 로 거부한다. 권한 게이트(viewer 이상)는 라우터의
-        `require_ws_role(VIEWER)` 가 담당하며 서비스의 책임이 아니다.
+        대상을 로드해 없으면 404 로 거부한다. 그다음 호출자의 멤버십 role 문자열을
+        `MembershipRepository.get_role(db, workspace_id, ctx.user_id)` 로 조회해(비멤버 None)
+        `_to_read` 로 주입한다. role 은 호출자의 실제 멤버십 role(또는 None)만 노출하며 admin
+        여부로 상승시키지 않는다(INV-3). 활성 사용자 게이트(읽기 전역 개방)는 라우터의
+        `get_current_user` 가 담당하고, 존재검사(404)·role 주입은 이 서비스가 담당한다.
+        비멤버 활성 사용자도 이름·설정(is_shareable·보관일)을 받으며 role 필드는 None 이다.
         """
         workspace = self._ws_repo.get_by_id(db, workspace_id)
         if workspace is None:
@@ -120,7 +126,8 @@ class WorkspaceService:
                 message="Workspace not found",
                 http_status=404,
             )
-        return WorkspaceRead.model_validate(workspace)
+        role = self._member_repo.get_role(db, workspace_id, ctx.user_id)
+        return self._to_read(workspace, role)
 
     def update_workspace(
         self, db: Session, workspace_id: int, changes: WorkspaceUpdate

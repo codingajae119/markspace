@@ -99,16 +99,17 @@ def list_workspaces(
 def get_workspace(
     id: int,
     db: Session = Depends(get_db),
-    _ctx: AuthContext = Depends(require_ws_role(Role.MEMBER)),
+    ctx: AuthContext = Depends(get_current_user),
     service: WorkspaceService = Depends(get_workspace_service),
 ) -> WorkspaceRead:
-    """워크스페이스 상세를 조회한다 (Req 1.5·4.3, member 이상).
+    """워크스페이스 상세를 조회한다 (Req 3.5·3.7·3.8·7.2, 활성 사용자 전역 개방).
 
-    `require_ws_role(MEMBER)` 로 게이트를 강제한다(위계 미달·비멤버 403, admin bypass, 미인증
-    401 — 판정은 s01 소유). 대상 미존재는 서비스가 404 로 처리한다. 성공 시 200 +
-    :class:`WorkspaceRead`.
+    읽기를 전역 개방한다: `get_current_user`(활성 사용자, 미인증 401)만 요구하고 role 게이트를
+    부착하지 않으므로 비멤버 활성 사용자도 통과한다(403 없음). 서비스에 `ctx` 를 전달해 호출자
+    관점 role 을 주입하며(owner/member, 비멤버·admin 비멤버는 null — admin 미상승 INV-3),
+    대상 미존재는 서비스가 404 로 처리한다. 성공 시 200 + :class:`WorkspaceRead`.
     """
-    return service.get_workspace(db, id)
+    return service.get_workspace(db, id, ctx)
 
 
 @router.patch("/workspaces/{id}", response_model=WorkspaceRead)
