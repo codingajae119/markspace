@@ -15,9 +15,11 @@ from enum import Enum
 import pytest
 from pydantic import ValidationError
 
+from app.models.user import User
 from app.models.workspace import Workspace, WorkspaceMember
 from app.schemas.base import ORMReadModel, TimestampedRead
 from app.workspace.schemas import (
+    AssignableUserRead,
     MemberCreate,
     MemberRead,
     MemberRole,
@@ -169,3 +171,65 @@ def test_owner_change_request_requires_new_owner_user_id() -> None:
     assert OwnerChangeRequest(new_owner_user_id=9).new_owner_user_id == 9
     with pytest.raises(ValidationError):
         OwnerChangeRequest()  # type: ignore[call-arg]
+
+
+# --- AssignableUserRead: narrow 직렬화(id/name/email 만, 계정 필드 비노출) (1.2·1.3) ---
+
+
+def _make_orm_user(*, email: str | None = "user@example.com") -> User:
+    """DB 미접근으로 구성한 User ORM 인스턴스(계정 필드 포함, 직렬화 대상)."""
+    return User(
+        id=42,
+        login_id="alice",
+        password_hash="hashed-secret",
+        name="Alice",
+        email=email,
+        is_admin=True,
+        is_active=False,
+        is_deleted=True,
+        created_at=datetime(2026, 7, 20, 0, 0, 0),
+        updated_at=datetime(2026, 7, 21, 0, 0, 0),
+    )
+
+
+def test_assignable_user_read_inherits_ormreadmodel() -> None:
+    assert issubclass(AssignableUserRead, ORMReadModel)
+    assert set(AssignableUserRead.model_fields) == {"id", "name", "email"}
+
+
+def test_assignable_user_read_serializes_only_id_name_email() -> None:
+    user = _make_orm_user()
+
+    read = AssignableUserRead.model_validate(user)
+    dump = read.model_dump()
+
+    assert set(dump) == {"id", "name", "email"}
+    assert dump["id"] == 42
+    assert dump["name"] == "Alice"
+    assert dump["email"] == "user@example.com"
+
+
+def test_assignable_user_read_excludes_account_fields() -> None:
+    user = _make_orm_user()
+
+    dump = AssignableUserRead.model_validate(user).model_dump()
+
+    for leaked in (
+        "login_id",
+        "password_hash",
+        "is_admin",
+        "is_active",
+        "is_deleted",
+        "created_at",
+        "updated_at",
+    ):
+        assert leaked not in dump
+
+
+def test_assignable_user_read_allows_null_email() -> None:
+    user = _make_orm_user(email=None)
+
+    read = AssignableUserRead.model_validate(user)
+
+    assert read.email is None
+    assert read.model_dump()["email"] is None
