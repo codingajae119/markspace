@@ -37,7 +37,7 @@
   - _Depends: 1.3_
 
 - [ ] 2. 백엔드 검증: 필터·누출·게이팅·페이지네이션
-- [ ] 2.1 (P) 저장소·스키마 단위 테스트
+- [x] 2.1 (P) 저장소·스키마 단위 테스트
   - repo 필터 경계: admin·비활성·삭제·기존 멤버 각 1건이 제외되고 배정 가능만 반환됨을 검증.
   - `total` 정확성: 배정 가능 총수 > 페이지 크기일 때 `total` 이 총수와 일치(무필터 count 회귀 방지). 순서 `ORDER BY user.id` 결정성 검증.
   - narrow 직렬화: `AssignableUserRead` 응답에 `login_id`·상태 flag·타임스탬프·`password_hash` 부재, email null 통과.
@@ -94,3 +94,7 @@
   - 관찰 가능한 완료: Vitest + Testing Library 스위트가 성공·빈·로딩·조회오류·stale-409·추가실패 롤백 케이스에서 통과.
   - _Requirements: 3.1, 3.4, 3.5, 3.6, 4.1, 4.2, 4.3_
   - _Depends: 4.1_
+
+## Implementation Notes
+
+- **2.1 커버리지 위치**: 저장소 단위 테스트(필터 제외·total 정확성·순서 결정성·상관 NOT EXISTS 정확성)는 task 1.2 커밋(`test_membership_repository.py`)에, narrow 직렬화 스키마 테스트(계정 필드/타임스탬프/`password_hash` 비노출·email null 통과)는 task 1.1 커밋(`test_schemas.py:176-232`)에 이미 존재한다. 2.1 은 신규 코드 없이 이 커버리지가 수용 기준을 충족함을 검증(36 passed)해 완료 처리했다.
