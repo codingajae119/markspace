@@ -55,7 +55,7 @@
 
 ## 4. 프론트: 조회 어댑터·로드 훅
 
-- [ ] 4.1 (P) memberApi.list 어댑터 + MemberRosterRow 미러 타입
+- [x] 4.1 (P) memberApi.list 어댑터 + MemberRosterRow 미러 타입
   - `types.ts` 에 백엔드 `MemberRosterRead` 를 미러하는 `MemberRosterRow`(`user_id`·`name`·`email: string | null`·`role: MemberRole`) 인터페이스를 추가하고, 기존 `memberApi` 객체에 `list(id, {limit?, offset?}): Promise<Page<MemberRosterRow>>` 를 `assignableUserApi.listAssignable` query 조립 관례를 미러해 추가한다(fetch·baseURL·credentials·401·에러 파싱은 `apiClient` 단일 소유·재구현 금지).
   - 단위 테스트로 경로 `/workspaces/{id}/members`·query(limit/offset 기본 50/0) 조립과 `Page<MemberRosterRow>` 반환을 확인한다(apiClient mock).
   - 관찰 가능: `memberApi.list` 호출이 올바른 경로·query 로 `apiClient.get` 을 호출하고 타입이 그린이다.

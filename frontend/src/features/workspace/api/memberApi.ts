@@ -18,7 +18,13 @@
  */
 
 import { apiClient } from "@/shared/api/client";
-import type { MemberRead, MemberCreate, MemberUpdate } from "./types";
+import type { Page } from "@/shared/types/page";
+import type {
+  MemberRead,
+  MemberCreate,
+  MemberUpdate,
+  MemberRosterRow,
+} from "./types";
 
 /** 워크스페이스에 멤버 추가. 성공 시 생성된 `MemberRead`(201) 반환. */
 function add(id: number, body: MemberCreate): Promise<MemberRead> {
@@ -39,9 +45,28 @@ function remove(id: number, uid: number): Promise<void> {
   return apiClient.del<void>(`/workspaces/${id}/members/${uid}`);
 }
 
+/**
+ * 워크스페이스 멤버 로스터 페이지 조회. limit 기본 50·offset 기본 0.
+ *
+ * `assignableUserApi.listAssignable` 의 query 조립 관례를 미러한다(`apiClient` 는 query-param 옵션이
+ * 없어 경로에 직접 조립). 응답 항목은 `MemberRosterRow`(백엔드 `MemberRosterRead` 미러).
+ */
+function list(
+  id: number,
+  params?: { limit?: number; offset?: number },
+): Promise<Page<MemberRosterRow>> {
+  const q = new URLSearchParams();
+  q.set("limit", String(params?.limit ?? 50));
+  q.set("offset", String(params?.offset ?? 0));
+  return apiClient.get<Page<MemberRosterRow>>(
+    `/workspaces/${id}/members?${q.toString()}`,
+  );
+}
+
 /** 하위 훅(멤버 관리 컨텍스트 소비부)이 소비하는 얇은 멤버십 API. */
 export const memberApi = {
   add,
   changeRole,
   remove,
+  list,
 };

@@ -111,6 +111,19 @@ export interface UserUpdate {
 }
 
 /**
+ * 워크스페이스 멤버 로스터 행 — 백엔드 `MemberRosterRead`(ORMReadModel) 미러 (s25 Req 1.2).
+ *
+ * `GET /workspaces/{id}/members` 응답 항목으로, 멤버 사용자 식별자·이름·이메일·role 을 노출한다
+ * (`MemberRead` 와 달리 user 표시 정보 name·email 을 결합해 로스터 표시에 사용). email 은 null 가능.
+ */
+export interface MemberRosterRow {
+  user_id: number;
+  name: string;
+  email: string | null;
+  role: MemberRole;
+}
+
+/**
  * 배정 가능 사용자 응답용 narrow 정보 — 백엔드 `AssignableUserRead`(ORMReadModel) 미러 (s23 Req 3.1).
  *
  * `GET /workspaces/{id}/assignable-users` 응답 항목으로, 식별자·이름·이메일만 노출한다
