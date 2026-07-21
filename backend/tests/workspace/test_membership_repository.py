@@ -550,3 +550,162 @@ def test_list_assignable_users_orders_ascending_by_id(sessionmaker_factory):
         assert len(returned_ids) == 4
     finally:
         session.close()
+
+
+# --- list_members (소속 전량 조회, 소프트삭제 미필터, Req 1.1·1.3·1.5·1.6) ---
+
+
+def test_list_members_includes_inactive_and_deleted_with_role(sessionmaker_factory):
+    """비활성·삭제 멤버도 role 과 함께 로스터에 포함된다 (Req 1.5, divergence 회귀 잠금).
+
+    이 메서드는 인접한 list_assignable_users 의 정반대다: 소프트삭제 필터를 적용하지 않아
+    is_active=False·is_deleted=True 멤버도 각자의 role 과 함께 반환되어야 한다. 상태 필터가
+    하나라도 남으면(템플릿 무비판 복사) 이 케이스가 실패한다.
+    """
+    seed = sessionmaker_factory()
+    try:
+        ws = _make_workspace(seed, name="ws-roster-status")
+        active = _make_assignable_user(seed, login_id="roster-active")
+        inactive = _make_assignable_user(
+            seed, login_id="roster-inactive", is_active=False
+        )
+        deleted = _make_assignable_user(
+            seed, login_id="roster-deleted", is_deleted=True
+        )
+        seed.flush()
+        seed.add(WorkspaceMember(workspace_id=ws.id, user_id=active.id, role="owner"))
+        seed.add(
+            WorkspaceMember(workspace_id=ws.id, user_id=inactive.id, role="editor")
+        )
+        seed.add(
+            WorkspaceMember(workspace_id=ws.id, user_id=deleted.id, role="viewer")
+        )
+        seed.commit()
+        ws_id = ws.id
+        active_id, inactive_id, deleted_id = active.id, inactive.id, deleted.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        repo = MembershipRepository()
+        items, total = repo.list_members(session, ws_id, limit=50, offset=0)
+        by_id = {user.id: role for user, role in items}
+        assert active_id in by_id, "활성 멤버는 로스터에 포함되어야 한다"
+        assert inactive_id in by_id, "비활성 멤버도 로스터에 포함되어야 한다"
+        assert deleted_id in by_id, "삭제 멤버도 로스터에 포함되어야 한다"
+        assert by_id[active_id] == "owner"
+        assert by_id[inactive_id] == "editor"
+        assert by_id[deleted_id] == "viewer"
+        assert total == 3, "total 은 소속 멤버십 전체(비활성·삭제 포함) 개수여야 한다"
+    finally:
+        session.close()
+
+
+def test_list_members_includes_owner_self(sessionmaker_factory):
+    """조회를 요청한 owner 자신도 로스터에 포함된다 (Req 1.3)."""
+    seed = sessionmaker_factory()
+    try:
+        ws = _make_workspace(seed, name="ws-roster-owner")
+        owner = _make_assignable_user(seed, login_id="roster-owner")
+        seed.flush()
+        seed.add(WorkspaceMember(workspace_id=ws.id, user_id=owner.id, role="owner"))
+        seed.commit()
+        ws_id, owner_id = ws.id, owner.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        repo = MembershipRepository()
+        items, total = repo.list_members(session, ws_id, limit=50, offset=0)
+        returned = {user.id: role for user, role in items}
+        assert owner_id in returned, "owner 자신도 로스터에 포함되어야 한다"
+        assert returned[owner_id] == "owner"
+        assert total == 1
+    finally:
+        session.close()
+
+
+def test_list_members_orders_ascending_by_user_id(sessionmaker_factory):
+    """items 는 User.id 오름차순의 결정적 순서로 반환된다 (Req 1.6).
+
+    멤버십을 user.id 역순으로 삽입해도 결과가 user.id 오름차순으로 정렬되는지 확인한다.
+    """
+    seed = sessionmaker_factory()
+    try:
+        ws = _make_workspace(seed, name="ws-roster-order")
+        users = [
+            _make_assignable_user(seed, login_id=f"roster-ordered-{i}")
+            for i in range(4)
+        ]
+        seed.flush()
+        user_ids = [u.id for u in users]
+        # 삽입 순서를 user.id 역순으로 하여 order_by(User.id) 를 실증한다.
+        for user_id in reversed(user_ids):
+            seed.add(
+                WorkspaceMember(workspace_id=ws.id, user_id=user_id, role="viewer")
+            )
+        seed.commit()
+        ws_id = ws.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        repo = MembershipRepository()
+        items, _ = repo.list_members(session, ws_id, limit=50, offset=0)
+        returned_ids = [user.id for user, _role in items]
+        assert returned_ids == sorted(returned_ids), "items 는 User.id 오름차순이어야 한다"
+        assert len(returned_ids) == 4
+    finally:
+        session.close()
+
+
+def test_list_members_total_is_full_membership_count_not_page_size(
+    sessionmaker_factory,
+):
+    """total 은 페이지 크기가 아닌 소속 멤버십 전체 개수이며 limit/offset 과 무관하다 (Req 1.4).
+
+    limit 보다 많은 멤버를 시드하고, total 은 전체 소속 수인 반면 len(items) 는 limit 인지
+    확인한다. 다른 워크스페이스의 멤버십은 total 을 부풀리면 안 된다(동일 workspace_id 필터만 공유).
+    """
+    seed = sessionmaker_factory()
+    try:
+        ws = _make_workspace(seed, name="ws-roster-paged")
+        other_ws = _make_workspace(seed, name="ws-roster-other")
+        member_ids = []
+        for i in range(5):
+            user = _make_assignable_user(seed, login_id=f"roster-paged-{i}")
+            seed.flush()
+            member_ids.append(user.id)
+        # 다른 워크스페이스의 멤버는 대상 total 에 포함되면 안 된다.
+        noise = _make_assignable_user(seed, login_id="roster-noise")
+        seed.flush()
+        for user_id in member_ids:
+            seed.add(
+                WorkspaceMember(workspace_id=ws.id, user_id=user_id, role="viewer")
+            )
+        seed.add(
+            WorkspaceMember(
+                workspace_id=other_ws.id, user_id=noise.id, role="owner"
+            )
+        )
+        seed.commit()
+        ws_id = ws.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        repo = MembershipRepository()
+        items, total = repo.list_members(session, ws_id, limit=2, offset=0)
+        assert total == 5, "total 은 대상 워크스페이스 소속 전체(5)여야 한다"
+        assert len(items) == 2, "items 는 limit 만큼만 반환해야 한다"
+
+        # offset 을 적용해도 total 은 불변, items 는 남은 페이지를 반환한다.
+        page2, total2 = repo.list_members(session, ws_id, limit=2, offset=4)
+        assert total2 == 5, "total 은 limit/offset 과 무관해야 한다"
+        assert len(page2) == 1, "offset=4 이후 남은 1건만 반환해야 한다"
+    finally:
+        session.close()

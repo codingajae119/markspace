@@ -9,7 +9,7 @@
   - _Requirements: 1.2, 2.6_
   - _Boundary: MemberRosterRead (backend schema)_
 
-- [ ] 1.2 (P) MembershipRepository.list_members 소속 전량 조회 추가
+- [x] 1.2 (P) MembershipRepository.list_members 소속 전량 조회 추가
   - `User` ⋈ `WorkspaceMember`(ON `user_id`, WHERE `workspace_id`) inner-join 으로 `(User, role)` 목록을 `User.id` 오름차순·limit/offset 적용해 반환하고, 소속 멤버십 전체 개수를 별도 count(limit/offset 무관, 동일 `workspace_id` 필터만 공유)로 함께 반환한다.
   - **소프트삭제 필터를 적용하지 않는다**(`is_active`/`is_deleted` 미필터) — 비활성·삭제 상태 멤버도 role 과 함께 포함한다(INV-4 물리삭제 없음으로 inner-join FK dangling 없음). role 은 원시 문자열 그대로 반환하고 위계 비교·bypass 판정은 하지 않는다.
   - 단위 테스트로 (a) 비활성·삭제 멤버가 role 과 함께 포함, (b) owner 자신 포함, (c) `User.id` 오름차순 결정적 순서, (d) total 은 소속 전체 개수(페이지 크기 초과 시에도 limit/offset 무관)를 확인한다.

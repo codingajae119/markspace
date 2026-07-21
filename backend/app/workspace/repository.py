@@ -302,6 +302,46 @@ class MembershipRepository:
         )
         return items, total
 
+    def list_members(
+        self, db: Session, workspace_id: int, limit: int, offset: int
+    ) -> tuple[list[tuple[User, str]], int]:
+        """대상 워크스페이스의 소속 멤버 전량을 ((User, role) 목록, total) 로 반환한다(Req 1.1·1.3·1.5·1.6).
+
+        `User` ⋈ `WorkspaceMember`(ON `user_id`, WHERE `workspace_id`) inner-join 으로 소속
+        멤버 전량을 조회하며, 조인한 멤버십 행에서 `role` 을 함께 SELECT 해 각 항목을
+        `(User, role)` 튜플로 돌려준다. items 는 `User.id` 오름차순으로 결정적 정렬하며
+        `limit`/`offset` 은 items 에만 적용한다. `total` 은 소속 멤버십 전체 개수로 items 와
+        **동일한 `workspace_id` 필터만** 공유하며(드리프트 차단) limit/offset 은 적용하지 않는다.
+
+        결정적 divergence(design.md §결정적 divergence) — 이 메서드는 인접한
+        :meth:`list_assignable_users` 의 **정반대**다: **소프트삭제 필터를 적용하지 않는다**
+        (`is_active`/`is_deleted`/`is_admin` 미필터). 비활성·삭제 상태 멤버도 role 과 함께
+        포함해야 하므로(Req 1.5) `_assignable_filters` 를 재사용하지 않는다. INV-4(물리삭제
+        없음)로 멤버십↔user FK dangling 이 없어 무필터 inner-join 이 안전하다.
+
+        role 은 `workspace_member.role` 원시 문자열(owner/editor/viewer)을 그대로 반환하며
+        위계 비교·admin bypass 판정은 하지 않는다(resolver 의 책임). workspace_id 존재 여부는
+        게이트가 선행 처리하므로 리포지토리는 존재검사를 하지 않는다.
+        """
+        rows = db.execute(
+            select(User, WorkspaceMember.role)
+            .join(WorkspaceMember, WorkspaceMember.user_id == User.id)
+            .where(WorkspaceMember.workspace_id == workspace_id)
+            .order_by(User.id)
+            .limit(limit)
+            .offset(offset)
+        ).all()
+        items = [(user, role) for user, role in rows]
+        total = (
+            db.scalar(
+                select(func.count())
+                .select_from(WorkspaceMember)
+                .where(WorkspaceMember.workspace_id == workspace_id)
+            )
+            or 0
+        )
+        return items, total
+
     def user_exists(self, db: Session, user_id: int) -> bool:
         """user 행이 존재하면 True 를 반환한다(Req 3.2).
 
