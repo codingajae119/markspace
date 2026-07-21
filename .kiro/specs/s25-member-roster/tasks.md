@@ -45,7 +45,7 @@
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
   - _Boundary: backend integration (test_member_roster_integration)_
 
-- [ ] 3.2 로스터 divergence·narrow 봉투·pagination 통합 테스트
+- [x] 3.2 로스터 divergence·narrow 봉투·pagination 통합 테스트
   - 동일 통합 파일에서 비활성·삭제 상태 멤버가 role 과 함께 로스터에 존재하고(소프트삭제 미필터 divergence), 조회 owner 자신이 포함됨을 200 응답 본문으로 단언한다.
   - 각 item 키가 정확히 `{user_id, name, email, role}` 이며 `login_id`·`password_hash`·상태 flag·타임스탬프가 부재하고 email null 멤버가 `email: null` 로 포함됨을 단언한다. total > 페이지 크기일 때 limit/offset 경계에서 items·total 이 일관·결정적 순서이고, `limit=0`·`offset=-1` 은 422 임을 확인한다.
   - 관찰 가능: divergence·narrow 봉투·pagination 케이스가 모두 통과하고 전체 백엔드 스위트가 그린이다.
