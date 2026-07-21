@@ -12,7 +12,7 @@
 - **Language**: Python 3.13+ (backend)
 - **Framework**: FastAPI, React + Vite, Tailwind CSS 4
 - **Editor**: **Toast UI Editor** — 문서 편집기. 기본 WYSIWYG + markdown 토글, 읽기 전용
-  (viewer 권한·공유 링크)은 viewer mode로 통일한다(렌더 경로 이원화 금지).
+  (읽기 뷰·공유 링크)은 viewer mode로 통일한다(렌더 경로 이원화 금지).
 - **DB**: MySQL 8
 - **Runtime / 패키지 관리**: **uv** — backend의 모든 의존성 관리·실행은 uv를 기준으로 한다
   (아래 "실행 표준" 참조).
@@ -70,13 +70,13 @@
 ### Frontend
 
 - **에디터 = Toast UI Editor 단일 채택**: 편집은 WYSIWYG 기본 + markdown 토글을 같은 컴포넌트로 제공하고,
-  읽기 전용(뷰어 권한·공유 링크)은 viewer mode로 통일한다 — 편집 뷰와 읽기 뷰의 렌더 경로를 이원화하지
+  읽기 전용(읽기 뷰·공유 링크)은 viewer mode로 통일한다 — 편집 뷰와 읽기 뷰의 렌더 경로를 이원화하지
   않는다.
 - **자동저장 = 문서 이탈 시 1회**: 주기 타이머·키입력 debounce 저장이 아니라, 문서에서 벗어나는 시점
   (라우트 전환·언마운트)에 1회만 저장한다. 백엔드 계약상 저장 = 버전 스냅샷 생성이므로, 이 정책으로
   불필요한 버전 폭증을 피한다.
 - **편집 잠금 UI = 편집 진입 시 획득**: 편집 모드 진입 시 lock을 획득하고 이탈 시 해제한다. lock에
-  자동 타임아웃이 없으므로(위 "편집 잠금 방식") 강제 해제 UI를 제공하되, 노출 대상은 lock 보유 editor
+  자동 타임아웃이 없으므로(위 "편집 잠금 방식") 강제 해제 UI를 제공하되, 노출 대상은 lock 보유 member
   본인·워크스페이스 owner·admin으로 한정한다(권한 게이팅은 공통 레이어가 결정 — `structure.md` 참조).
 
 ---

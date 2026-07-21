@@ -117,7 +117,7 @@
   - _Boundary: tests(frontend role)_
   - _Depends: 4.1, 4.2_
 
-- [ ] 5.5 (P) steering 문서 role 문구 정합
+- [x] 5.5 (P) steering 문서 role 문구 정합
   - product·tech steering 문서의 "owner/editor/viewer"·"viewer 권한" 문구를 owner/member 2단계 모델로 갱신(에디터 읽기 렌더 모드 명칭 "viewer mode"는 role 이름이 아니므로 유지)
   - 관측 완료: steering 문서에 삭제된 viewer role 흔적이 남지 않고 owner/member 모델과 정합
   - _Requirements: 1.1_
