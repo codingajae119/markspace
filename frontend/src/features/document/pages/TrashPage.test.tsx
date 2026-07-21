@@ -7,7 +7,7 @@ import type { UseTrashResult } from "../hooks/useTrash";
 
 /**
  * TrashPage 조립 테스트: 현재 워크스페이스 스코프(workspaceId·role)를 TrashList 로 위임함을
- * 관측한다. TrashList 는 자체 RequireRole(EDITOR) 게이트를 소유하므로, 게이트 통과(role EDITOR)
+ * 관측한다. TrashList 는 자체 RequireRole(MEMBER) 게이트를 소유하므로, 게이트 통과(role MEMBER)
  * 시 useTrash 로드 body 가 workspaceId 로 결선됨을 확인한다. useTrash 를 모킹해 네트워크를 회피한다.
  */
 
@@ -38,7 +38,7 @@ beforeEach(() => {
     workspaces: [],
     currentWorkspace: null,
     workspaceId: "7",
-    role: Role.EDITOR,
+    role: Role.MEMBER,
     isShareable: false,
     selectWorkspace: vi.fn(),
     refresh: vi.fn(),

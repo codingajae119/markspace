@@ -54,28 +54,21 @@ describe("useForceUnlock — canForceUnlock 파생 (5.1, 5.5)", () => {
     expect(result.current.canForceUnlock).toBe(true);
   });
 
-  it("admin bypass(currentRole=VIEWER, isAdmin=true) → true", () => {
+  it("admin bypass(currentRole=MEMBER, isAdmin=true) → true", () => {
     const { result } = renderHook(() =>
-      useForceUnlock(DOC_ID, Role.VIEWER, true),
+      useForceUnlock(DOC_ID, Role.MEMBER, true),
     );
     expect(result.current.canForceUnlock).toBe(true);
   });
 
-  it("EDITOR(non-admin) → false", () => {
+  it("MEMBER(non-admin, owner 미만) → false", () => {
     const { result } = renderHook(() =>
-      useForceUnlock(DOC_ID, Role.EDITOR, false),
+      useForceUnlock(DOC_ID, Role.MEMBER, false),
     );
     expect(result.current.canForceUnlock).toBe(false);
   });
 
-  it("VIEWER(non-admin) → false", () => {
-    const { result } = renderHook(() =>
-      useForceUnlock(DOC_ID, Role.VIEWER, false),
-    );
-    expect(result.current.canForceUnlock).toBe(false);
-  });
-
-  it("currentRole=null(non-admin) → false", () => {
+  it("currentRole=null(비멤버, non-admin) → false", () => {
     const { result } = renderHook(() =>
       useForceUnlock(DOC_ID, null, false),
     );

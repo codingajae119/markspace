@@ -115,12 +115,12 @@ describe("EditLockBanner — self 상태 (Req 2.1)", () => {
 });
 
 describe("EditLockBanner — other 상태 게이팅 (Req 2.2, 5.1, 5.5)", () => {
-  it("VIEWER(non-admin) → '다른 사용자가 편집 중' 안내, 강제 해제 숨김", () => {
+  it("MEMBER(non-admin) → '다른 사용자가 편집 중' 안내, 강제 해제 숨김", () => {
     render(
       <EditLockBanner
         lockState={otherState()}
         documentId={DOC_ID}
-        currentRole={Role.VIEWER}
+        currentRole={Role.MEMBER}
         isAdmin={false}
         onRetry={vi.fn()}
       />,
@@ -130,12 +130,12 @@ describe("EditLockBanner — other 상태 게이팅 (Req 2.2, 5.1, 5.5)", () => 
     expect(screen.queryByRole("button", { name: /강제 해제/ })).toBeNull();
   });
 
-  it("EDITOR(non-admin) → 강제 해제 숨김", () => {
+  it("비멤버(null, non-admin) → 강제 해제 숨김", () => {
     render(
       <EditLockBanner
         lockState={otherState()}
         documentId={DOC_ID}
-        currentRole={Role.EDITOR}
+        currentRole={null}
         isAdmin={false}
         onRetry={vi.fn()}
       />,
@@ -164,13 +164,13 @@ describe("EditLockBanner — other 상태 게이팅 (Req 2.2, 5.1, 5.5)", () => 
     expect(forceUnlockMock).toHaveBeenCalledWith(DOC_ID);
   });
 
-  it("VIEWER 이지만 session.is_admin=true(prop isAdmin=true) → admin bypass 로 강제 해제 노출 (Req 5.1)", () => {
+  it("MEMBER 이지만 session.is_admin=true(prop isAdmin=true) → admin bypass 로 강제 해제 노출 (Req 5.1)", () => {
     mockAdmin();
     render(
       <EditLockBanner
         lockState={otherState()}
         documentId={DOC_ID}
-        currentRole={Role.VIEWER}
+        currentRole={Role.MEMBER}
         isAdmin={true}
         onRetry={vi.fn()}
       />,

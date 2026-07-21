@@ -8,8 +8,8 @@ import { useSession } from "@/app/session/useSession";
 import type { useDocumentMutations } from "../hooks/useDocumentMutations";
 import { DocumentToolbar } from "./DocumentToolbar";
 
-// DocumentToolbar 은 생성·이름변경·삭제 조작을 RequireRole(minimum=EDITOR) 단일 게이트로
-// 감싸 viewer·비멤버에게 미노출한다(Req 3.6·4.5·5.6·9.2). RequireRole 은 isAdmin 을
+// DocumentToolbar 은 생성·이름변경·삭제 조작을 RequireRole(minimum=MEMBER) 단일 게이트로
+// 감싸 비멤버(null)에게 미노출한다(Req 3.6·4.5·5.6·9.2). RequireRole 은 isAdmin 을
 // useSession() 에서만 취득하므로(admin override) 세션 훅을 모킹한다. mutations 는 주입된
 // 의존을 그대로 소비하는 목으로 대체해 호출 인자를 관찰한다.
 // Requirements: 3.1, 3.6, 4.1, 4.5, 5.1, 5.6, 9.2
@@ -60,12 +60,12 @@ afterEach(() => {
 });
 
 describe("DocumentToolbar — RequireRole 단일 게이트 생성·이름변경·삭제", () => {
-  it("viewer(비-admin) → 생성·이름변경·삭제 컨트롤 미노출 (Req 3.6·4.5·5.6·9.2)", () => {
+  it("비멤버(null, 비-admin) → 생성·이름변경·삭제 컨트롤 미노출 (Req 3.6·4.5·5.6·9.2)", () => {
     mockNonAdmin();
     render(
       <DocumentToolbar
         mutations={makeMutations()}
-        currentRole={Role.VIEWER}
+        currentRole={null}
         selectedId={5}
         selectedTitle="문서"
       />,
@@ -76,13 +76,13 @@ describe("DocumentToolbar — RequireRole 단일 게이트 생성·이름변경�
     expect(screen.queryByRole("button", { name: "삭제" })).not.toBeInTheDocument();
   });
 
-  it("editor → 생성 컨트롤 노출, 제출 시 create({ title, parentId }) 호출 (Req 3.1)", () => {
+  it("member → 생성 컨트롤 노출, 제출 시 create({ title, parentId }) 호출 (Req 3.1)", () => {
     mockNonAdmin();
     const mutations = makeMutations();
     render(
       <DocumentToolbar
         mutations={mutations}
-        currentRole={Role.EDITOR}
+        currentRole={Role.MEMBER}
         selectedId={null}
         selectedTitle={null}
       />,
@@ -99,13 +99,13 @@ describe("DocumentToolbar — RequireRole 단일 게이트 생성·이름변경�
     });
   });
 
-  it("editor → 빈 제목은 제출하지 않는다(클라이언트 가드, Req 3.1)", () => {
+  it("member → 빈 제목은 제출하지 않는다(클라이언트 가드, Req 3.1)", () => {
     mockNonAdmin();
     const mutations = makeMutations();
     render(
       <DocumentToolbar
         mutations={mutations}
-        currentRole={Role.EDITOR}
+        currentRole={Role.MEMBER}
         selectedId={null}
         selectedTitle={null}
       />,
@@ -161,7 +161,7 @@ describe("DocumentToolbar — RequireRole 단일 게이트 생성·이름변경�
     render(
       <DocumentToolbar
         mutations={mutations}
-        currentRole={Role.EDITOR}
+        currentRole={Role.MEMBER}
         selectedId={7}
         selectedTitle="지울 문서"
       />,
@@ -188,7 +188,7 @@ describe("DocumentToolbar — RequireRole 단일 게이트 생성·이름변경�
     render(
       <DocumentToolbar
         mutations={makeMutations({ pending: false, error })}
-        currentRole={Role.EDITOR}
+        currentRole={Role.MEMBER}
         selectedId={null}
         selectedTitle={null}
       />,

@@ -54,7 +54,7 @@ beforeEach(() => {
   useDocumentScopeMock.mockReturnValue({
     status: "ready",
     workspaceId: "7",
-    role: Role.EDITOR,
+    role: Role.MEMBER,
     isAdmin: false,
   });
   loadAllMock.mockResolvedValue([]);

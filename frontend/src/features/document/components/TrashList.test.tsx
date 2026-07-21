@@ -10,7 +10,7 @@ import type { UseTrashResult } from "../hooks/useTrash";
 import { useTrash } from "../hooks/useTrash";
 import { TrashList } from "./TrashList";
 
-// TrashList 는 휴지통 화면 전체를 RequireRole(minimum=EDITOR)로 게이팅한다(Req 8.6). 게이트
+// TrashList 는 휴지통 화면 전체를 RequireRole(minimum=MEMBER)로 게이팅한다(Req 8.6). 게이트
 // 통과 시에만 내부 body 가 useTrash 를 호출해 목록/복구/완전삭제를 렌더한다(Req 8.1·8.5).
 // RequireRole 은 isAdmin 을 useSession() 에서만 취득하므로(admin override) 세션 훅을 모킹하고,
 // 목록 상태를 관찰하기 위해 useTrash 훅을 모킹해 제어 가능한 가짜 상태를 주입한다.
@@ -83,31 +83,31 @@ afterEach(() => {
   cleanup();
 });
 
-describe("TrashList — 화면 전체 RequireRole(EDITOR) 게이팅", () => {
-  it("viewer(non-admin) → 휴지통 화면 미노출·useTrash body 미실행 (Req 8.6)", () => {
+describe("TrashList — 화면 전체 RequireRole(MEMBER) 게이팅", () => {
+  it("비멤버(null, non-admin) → 휴지통 화면 미노출·useTrash body 미실행 (Req 8.6)", () => {
     mockNonAdmin();
     mockTrash({ bundles: [sampleBundle()] });
 
-    render(<TrashList workspaceId="7" currentRole={Role.VIEWER} />);
+    render(<TrashList workspaceId="7" currentRole={null} />);
 
     // 게이팅된 콘텐츠(제목·묶음) 미노출
     expect(screen.queryByRole("heading", { name: /휴지통/ })).not.toBeInTheDocument();
     expect(screen.queryByText("프로젝트 계획")).not.toBeInTheDocument();
-    // body 가 렌더되지 않았으므로 useTrash 훅도 호출되지 않는다(뷰어는 트래시 로드 미유발).
+    // body 가 렌더되지 않았으므로 useTrash 훅도 호출되지 않는다(비멤버는 트래시 로드 미유발).
     expect(useTrashMock).not.toHaveBeenCalled();
   });
 
-  it("editor + loading → Spinner 노출 (Req 8.1)", () => {
+  it("member + loading → Spinner 노출 (Req 8.1)", () => {
     mockNonAdmin();
     mockTrash({ status: "loading" });
 
-    render(<TrashList workspaceId="7" currentRole={Role.EDITOR} />);
+    render(<TrashList workspaceId="7" currentRole={Role.MEMBER} />);
 
     expect(useTrashMock).toHaveBeenCalledWith("7");
     expect(screen.getByRole("status")).toBeInTheDocument();
   });
 
-  it("editor + ready(2 bundles) → TrashBundleItem 2행 렌더 (Req 8.1)", () => {
+  it("member + ready(2 bundles) → TrashBundleItem 2행 렌더 (Req 8.1)", () => {
     mockNonAdmin();
     mockTrash({
       status: "ready",
@@ -118,29 +118,29 @@ describe("TrashList — 화면 전체 RequireRole(EDITOR) 게이팅", () => {
       ],
     });
 
-    render(<TrashList workspaceId="7" currentRole={Role.EDITOR} />);
+    render(<TrashList workspaceId="7" currentRole={Role.MEMBER} />);
 
     expect(screen.getByRole("heading", { name: "묶음 A" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "묶음 B" })).toBeInTheDocument();
   });
 
-  it("editor + ready(empty) → EmptyState 노출 (Req 8.1)", () => {
+  it("member + ready(empty) → EmptyState 노출 (Req 8.1)", () => {
     mockNonAdmin();
     mockTrash({ status: "ready", bundles: [], total: 0 });
 
-    render(<TrashList workspaceId="7" currentRole={Role.EDITOR} />);
+    render(<TrashList workspaceId="7" currentRole={Role.MEMBER} />);
 
     expect(screen.getByText(/비어 있/)).toBeInTheDocument();
   });
 
-  it("editor + error → ErrorMessage 노출 (Req 8.1)", () => {
+  it("member + error → ErrorMessage 노출 (Req 8.1)", () => {
     mockNonAdmin();
     mockTrash({
       status: "error",
       error: new ApiError({ status: 403, code: "forbidden", message: "권한이 없습니다." }),
     });
 
-    render(<TrashList workspaceId="7" currentRole={Role.EDITOR} />);
+    render(<TrashList workspaceId="7" currentRole={Role.MEMBER} />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("권한이 없습니다.");
   });
@@ -153,7 +153,7 @@ describe("TrashList — 화면 전체 RequireRole(EDITOR) 게이팅", () => {
       bundles: [sampleBundle({ bundle_id: 99 })],
     });
 
-    render(<TrashList workspaceId="7" currentRole={Role.EDITOR} />);
+    render(<TrashList workspaceId="7" currentRole={Role.MEMBER} />);
 
     fireEvent.click(screen.getByRole("button", { name: "복구" }));
     expect(trash.restore).toHaveBeenCalledTimes(1);
@@ -168,7 +168,7 @@ describe("TrashList — 화면 전체 RequireRole(EDITOR) 게이팅", () => {
       bundles: [sampleBundle({ bundle_id: 55 })],
     });
 
-    render(<TrashList workspaceId="7" currentRole={Role.EDITOR} />);
+    render(<TrashList workspaceId="7" currentRole={Role.MEMBER} />);
 
     fireEvent.click(screen.getByRole("button", { name: "완전삭제" }));
     const dialog = screen.getByRole("alertdialog");
@@ -188,7 +188,7 @@ describe("TrashList — 화면 전체 RequireRole(EDITOR) 게이팅", () => {
       error: new ApiError({ status: 404, code: "not_found", message: "이미 없습니다." }),
     });
 
-    render(<TrashList workspaceId="7" currentRole={Role.EDITOR} />);
+    render(<TrashList workspaceId="7" currentRole={Role.MEMBER} />);
 
     expect(screen.getByRole("heading", { name: "잔존 묶음" })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("이미 없습니다.");

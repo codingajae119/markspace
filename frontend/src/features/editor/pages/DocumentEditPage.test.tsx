@@ -94,7 +94,7 @@ function makeSession(overrides: Partial<UseEditSession> = {}): UseEditSession {
 function makeScope(overrides: Partial<EditorScope> = {}): EditorScope {
   return {
     workspaceId: "7",
-    role: Role.EDITOR,
+    role: Role.MEMBER,
     isAdmin: false,
     currentUserId: 1,
     ...overrides,

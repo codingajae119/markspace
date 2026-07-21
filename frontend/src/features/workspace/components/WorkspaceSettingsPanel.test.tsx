@@ -75,7 +75,7 @@ function setWorkspace(current: WorkspaceRead | null): void {
   } satisfies CurrentWorkspaceContextValue);
 }
 
-/** MembershipRoleSource.roleFor 반환값 제어(OWNER/EDITOR/VIEWER/null). */
+/** MembershipRoleSource.roleFor 반환값 제어(OWNER/MEMBER/null). */
 function setRoleFor(role: Role | null): void {
   vi.mocked(useMembershipRoleSource).mockReturnValue({
     roleFor: () => role,

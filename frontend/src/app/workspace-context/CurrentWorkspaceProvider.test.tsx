@@ -52,15 +52,15 @@ const wsOwner: WorkspaceRead = {
   role: "owner",
 };
 
-/** role="editor" 를 담은 WS(전환 시 재파생 관찰용). */
-const wsEditor: WorkspaceRead = {
+/** role="member" 를 담은 WS(전환 시 재파생 관찰용). */
+const wsMember: WorkspaceRead = {
   id: 4,
   created_at: "2026-01-04T00:00:00Z",
   updated_at: null,
-  name: "WS Editor",
+  name: "WS Member",
   is_shareable: false,
   trash_retention_days: 30,
-  role: "editor",
+  role: "member",
 };
 
 /** role=null 을 명시한 WS(비멤버/미시드 → provider-role null 관찰용). */
@@ -117,8 +117,8 @@ function Probe() {
       <button type="button" onClick={() => ws.selectWorkspace(String(ws2.id))}>
         select-ws2
       </button>
-      <button type="button" onClick={() => ws.selectWorkspace(String(wsEditor.id))}>
-        select-editor
+      <button type="button" onClick={() => ws.selectWorkspace(String(wsMember.id))}>
+        select-member
       </button>
       <button
         type="button"
@@ -298,7 +298,7 @@ describe("CurrentWorkspaceProvider ambient context", () => {
 
   it("role 있는 WS 선택 시 provider-role 이 멤버십 role 로 파생된다 (Req 2.2)", async () => {
     mockAuthenticated();
-    getMock.mockResolvedValue(page([wsOwner, wsEditor]));
+    getMock.mockResolvedValue(page([wsOwner, wsMember]));
 
     renderWithProvider();
 
@@ -309,17 +309,17 @@ describe("CurrentWorkspaceProvider ambient context", () => {
 
   it("워크스페이스 전환 시 전환 WS 의 멤버십 role 로 재파생된다 (Req 2.3)", async () => {
     mockAuthenticated();
-    getMock.mockResolvedValue(page([wsOwner, wsEditor]));
+    getMock.mockResolvedValue(page([wsOwner, wsMember]));
 
     renderWithProvider();
 
     await waitFor(() => expect(screen.getByTestId("role")).toHaveTextContent(String(Role.OWNER)));
 
-    await userEvent.click(screen.getByRole("button", { name: "select-editor" }));
+    await userEvent.click(screen.getByRole("button", { name: "select-member" }));
 
-    expect(screen.getByTestId("current-name")).toHaveTextContent("WS Editor");
-    // 전환된 WS(editor)의 role 로 재파생.
-    expect(screen.getByTestId("role")).toHaveTextContent(String(Role.EDITOR));
+    expect(screen.getByTestId("current-name")).toHaveTextContent("WS Member");
+    // 전환된 WS(member)의 role 로 재파생.
+    expect(screen.getByTestId("role")).toHaveTextContent(String(Role.MEMBER));
   });
 
   it("role 부재 WS 선택 시 provider-role 은 null 이다 (Req 2.4)", async () => {

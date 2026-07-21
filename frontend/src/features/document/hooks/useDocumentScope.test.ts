@@ -32,7 +32,7 @@ function workspaceValue(
     workspaces: [],
     currentWorkspace: null,
     workspaceId: "7",
-    role: Role.EDITOR,
+    role: Role.MEMBER,
     isShareable: false,
     selectWorkspace: vi.fn(),
     refresh: vi.fn(),

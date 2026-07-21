@@ -110,7 +110,7 @@
   - _Boundary: tests(integration L2-L6)_
   - _Depends: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 5.4 (P) 프론트엔드 role 테스트 갱신
+- [x] 5.4 (P) 프론트엔드 role 테스트 갱신
   - role 모델·권한 판정·역할 선택·role 복원 관련 프론트엔드 테스트를 owner/member 2단계 모델로 갱신
   - 관측 완료: 갱신된 프론트엔드 role 관련 테스트 스위트가 전부 통과
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 7.5_

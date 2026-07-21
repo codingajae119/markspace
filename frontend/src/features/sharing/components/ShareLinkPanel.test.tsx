@@ -11,14 +11,14 @@ import type { UseShareManagerResult } from "../hooks/useShareManager";
 import type { ShareLinkRead } from "../api/types";
 import { ShareLinkPanel } from "./ShareLinkPanel";
 
-// ShareLinkPanel 은 관리 UI 전체를 RequireRole(minimum=EDITOR, currentRole=useCurrentWorkspace().role)
-// 단일 게이트로 감싸 viewer·비멤버에게 미노출한다(Req 1.1·1.2). RequireRole 은 isAdmin 을
+// ShareLinkPanel 은 관리 UI 전체를 RequireRole(minimum=MEMBER, currentRole=useCurrentWorkspace().role)
+// 단일 게이트로 감싸 비멤버(null)에게 미노출한다(Req 1.1·1.2). RequireRole 은 isAdmin 을
 // useSession() 에서만 취득하므로(admin override) 세션 훅을 모킹한다. 발급/토글 상태는
 // useShareManager 를 모킹해 제어하며, InvalidationNotice·CopyLinkButton 은 실제 컴포넌트를 사용한다.
 //
 // role=null 상위갭(seam): useCurrentWorkspace().role 은 현재 항상 null(s16 하드코딩·s18 주입 이연)
 // 이므로, 오늘 패널은 admin 세션의 is_admin override 로만 노출된다. 이를 재현하기 위해 게이트 통과
-// 케이스는 mockAdmin() 또는 role=EDITOR 를 명시적으로 주입한다.
+// 케이스는 mockAdmin() 또는 role=MEMBER 를 명시적으로 주입한다.
 // Requirements: 1.1, 1.2, 1.3, 1.5, 2.2, 3.3, 5.1
 
 vi.mock("@/app/session/useSession", () => ({ useSession: vi.fn() }));
@@ -105,10 +105,10 @@ afterEach(() => {
 });
 
 describe("ShareLinkPanel — RequireRole 게이팅 + 발급/토글 배선", () => {
-  it("viewer(비-admin) → 관리 컨트롤 미노출 + 도메인 훅 미호출 (Req 1.1·1.2)", async () => {
+  it("비멤버(null, 비-admin) → 관리 컨트롤 미노출 + 도메인 훅 미호출 (Req 1.1·1.2)", async () => {
     const workspaceMock = await importWorkspaceMock();
     mockNonAdmin();
-    mockWorkspace(workspaceMock, { role: Role.VIEWER, isShareable: true });
+    mockWorkspace(workspaceMock, { role: null, isShareable: true });
 
     render(<ShareLinkPanel documentId={10} documentStatus="active" />);
 
@@ -128,10 +128,10 @@ describe("ShareLinkPanel — RequireRole 게이팅 + 발급/토글 배선", () =
     expect(screen.getByRole("button", { name: "링크 발급" })).toBeInTheDocument();
   });
 
-  it("role=EDITOR(비-admin) → 관리 패널 노출(currentRole 주입 경로, Req 1.1)", async () => {
+  it("role=MEMBER(비-admin) → 관리 패널 노출(currentRole 주입 경로, Req 1.1)", async () => {
     const workspaceMock = await importWorkspaceMock();
     mockNonAdmin();
-    mockWorkspace(workspaceMock, { role: Role.EDITOR, isShareable: true });
+    mockWorkspace(workspaceMock, { role: Role.MEMBER, isShareable: true });
 
     render(<ShareLinkPanel documentId={10} documentStatus="active" />);
 
