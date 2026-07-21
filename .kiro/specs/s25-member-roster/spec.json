@@ -1,0 +1,22 @@
+{
+  "feature_name": "s25-member-roster",
+  "created_at": "2026-07-21T06:34:41Z",
+  "updated_at": "2026-07-21T08:30:00Z",
+  "language": "ko",
+  "phase": "tasks-generated",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": true
+}
