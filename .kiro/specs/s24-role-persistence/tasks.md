@@ -27,7 +27,7 @@
 
 ## 2. 공통 레이어: role 번역 단일 소스 이관 및 응답 타입 미러
 
-- [ ] 2.1 role 번역 단일 소스 shared 이관(명시적 마이그레이션, 트리 그린 유지)
+- [x] 2.1 role 번역 단일 소스 shared 이관(명시적 마이그레이션, 트리 그린 유지)
   - `WorkspaceRole = "owner" | "editor" | "viewer"` 문자열 유니온을 정의하고 `memberRoleToRole(role: WorkspaceRole): Role` 를 `shared/auth/roles` 로 이관해 `Role` enum 과 co-locate 한다(번역 단일 소스, 방향 위반 없이 app·features 양측 소비).
   - 기존 `features/workspace/context/membershipRoleSource` 의 `memberRoleToRole` export 는 shared 재-export shim 으로 전환하고, `useMemberActions` 의 import 도 단일 소스에 정렬한다(동작 무변경). 이동과 shim 을 한 태스크에서 원자적으로 처리해 기존 importer·테스트가 그대로 통과하게 유지한다(후방 호환).
   - 관찰 가능: 단위 테스트에서 "owner"/"editor"/"viewer" → `Role.OWNER`/`EDITOR`/`VIEWER` 매핑이 성립하고, 기존 import 경로와 신규 shared 경로가 동일 함수를 가리키며 타입 체크가 그린이다.

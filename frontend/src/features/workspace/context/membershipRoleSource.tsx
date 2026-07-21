@@ -26,7 +26,13 @@ import { createContext, useCallback, useContext, useMemo, useState } from "react
 import type { ReactElement, ReactNode } from "react";
 
 import { Role } from "@/shared/auth/roles";
-import type { MemberRole } from "../api/types";
+
+/**
+ * role 번역 단일 소스 재-export shim. `memberRoleToRole` 소유는 `@/shared/auth/roles` 로 이관되어
+ * {@link Role} enum 과 co-locate 한다(단일 소스 규칙). 기존 importer(예: `CurrentWorkspaceIndicator`,
+ * `useMemberActions` 및 테스트)의 후방 호환을 위해 여기서 그대로 재-export 한다 — 동일 함수 참조.
+ */
+export { memberRoleToRole } from "@/shared/auth/roles";
 
 /**
  * 현재 사용자의 WS별 확인된 role 을 축적하는 단일 소스 인터페이스(design.md Contracts).
@@ -39,22 +45,6 @@ export interface MembershipRoleSource {
   recordOwner(workspaceId: number): void;
   /** 멤버 뮤테이션 응답의 자기 role 에코를 해당 WS role 로 반영(덮어쓰기). */
   recordSelfRole(workspaceId: number, role: Role): void;
-}
-
-/**
- * 백엔드 `MemberRole` 문자열("owner"|"editor"|"viewer")을 s16 `Role` enum 으로 번역하는
- * **중앙 지점**. 모든 role 번역은 여기에만 둔다(단일 소스 규칙) — 패널·어댑터가 산발적으로
- * 문자열↔enum 변환을 재구현하지 않는다.
- */
-export function memberRoleToRole(role: MemberRole): Role {
-  switch (role) {
-    case "owner":
-      return Role.OWNER;
-    case "editor":
-      return Role.EDITOR;
-    case "viewer":
-      return Role.VIEWER;
-  }
 }
 
 /**

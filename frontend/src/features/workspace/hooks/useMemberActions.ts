@@ -35,9 +35,10 @@ import { useCallback, useState } from "react";
 
 import { memberApi } from "../api/memberApi";
 import type { MemberCreate, MemberRead, MemberRole, MemberUpdate } from "../api/types";
-import { useMembershipRoleSource, memberRoleToRole } from "../context/membershipRoleSource";
+import { useMembershipRoleSource } from "../context/membershipRoleSource";
 import { useSession } from "@/app/session/useSession";
 import { ApiError } from "@/shared/api/errors";
+import { memberRoleToRole } from "@/shared/auth/roles";
 
 /** useMemberActions 가 노출하는 멤버 뮤테이션 액션·로컬 상태·진행/오류. */
 export interface UseMemberActionsResult {
