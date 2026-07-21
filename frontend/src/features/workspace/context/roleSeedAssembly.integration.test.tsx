@@ -105,10 +105,12 @@ function stubPanelLeaves(): void {
     pending: false,
     error: null,
   });
+  // 배정 가능 후보 1명 이상이어야 추가 폼(멤버 추가 버튼)이 렌더된다(0명이면 폼 은닉). role 게이팅
+  // 회귀 검증은 "멤버 추가" 버튼을 패널 노출 프록시로 쓰므로 후보를 최소 1명 둔다.
   useAssignableUsersMock.mockReturnValue({
     status: "ready",
-    users: [],
-    total: 0,
+    users: [{ id: 99, name: "후보", email: null }],
+    total: 1,
     error: null,
     reload: vi.fn().mockResolvedValue(undefined),
   });

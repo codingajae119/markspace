@@ -25,6 +25,13 @@
  * 로딩(`roster.status==="loading"`)·오류(`roster.status==="error"`→`roster.error`)·빈
  * (`roster.status==="ready"` && `members.length===0`) 상태를 표면화한다.
  *
+ * ## 추가 폼 노출·역할 단순화 (UX)
+ * 배정 가능 사용자가 확정적으로 0명(`assignable.status==="ready"` && `users.length===0`)이면 추가
+ * 폼 전체를 숨긴다 — 비활성 버튼 + "배정 가능한 사용자가 없습니다" 를 남기지 않는다(막다른 UI 제거).
+ * 로딩·오류 상태에서는 폼을 유지해 `AssignableUserSelect` 가 그 상태를 표면화한다. 또한 추가 시 역할은
+ * 항상 `member` 로 고정하므로 추가 폼에는 역할 combo 를 두지 않는다. owner 승격은 멤버 목록의 role
+ * 변경(RoleSelect)으로만 수행한다(s26 owner/member 2단계).
+ *
  * ## 노출 게이팅 (D-1 role seam, 사용자 승인 2026-07-19 — 무변경)
  * 패널 전체를 s16 `<RequireRole minimum={Role.OWNER} currentRole={role}>` 로 감싼다. `currentRole` 은
  * s16 `useCurrentWorkspace().role`(하드코딩 null)이 아니라 s18 `MembershipRoleSource.roleFor(id)` 에서
@@ -86,7 +93,10 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
   // 배정 가능 사용자 조회: raw user_id 입력을 대체하는 선택 UI 의 데이터·reload 소스(Req 3.2·3.3·4.3).
   const assignable = useAssignableUsers(workspaceId);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [addRole, setAddRole] = useState<MemberRole>("member");
+
+  // 추가되는 멤버는 항상 member 로 시작한다(s26 owner/member 2단계). owner 승격은 아래 목록의 role
+  // 변경(RoleSelect)으로 수행하므로 추가 폼에는 역할 combo 를 두지 않는다.
+  const ADD_ROLE: MemberRole = "member";
 
   const handleAdd = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -94,7 +104,7 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
       return;
     }
     // add 는 항상 void resolve(실패는 useMemberActions.error 로 삼킴) → await 후 단일 경로 reload 안전.
-    await add(workspaceId, { user_id: selectedUserId, role: addRole });
+    await add(workspaceId, { user_id: selectedUserId, role: ADD_ROLE });
     setSelectedUserId(null); // 선택 초기화
     // 서버 재동기화: 로스터(표시원) + 배정 후보(추가로 감소). 성공·stale·실패 모두 서버 진실 재확인(Req 4.1·4.3).
     void roster.reload();
@@ -104,7 +114,11 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
   // 멤버 표시 라벨 — 로스터 name 사용(캡처 우회 없음, Req 3.7).
   const memberLabel = (row: MemberRosterRow): string => `${row.user_id} ${row.name}`;
 
-  // 배정 가능 목록이 준비되지 않았거나(로딩·오류) 0명이거나, 사용자 미선택·진행 중이면 추가 비활성(Req 3.5·3.6).
+  // 배정 가능 사용자가 확정적으로 0명(조회 성공·빈 목록)이면 추가 UI 자체를 노출하지 않는다.
+  // 비활성 버튼 + "배정 가능한 사용자가 없습니다" 를 남기는 대신 폼 전체를 숨겨 막다른 UI 를 제거한다.
+  const hasNoAssignableUsers = assignable.status === "ready" && assignable.users.length === 0;
+
+  // 배정 가능 목록이 준비되지 않았거나(로딩·오류) 0명이거나, 사용자 미선택·진행 중이면 추가 비활성(Req 3.6).
   const isAddDisabled =
     pending || assignable.status !== "ready" || assignable.users.length === 0 || selectedUserId === null;
 
@@ -135,26 +149,28 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
       {/* 서버 403 등 뮤테이션 오류는 게이팅 여부와 무관하게 항상 표시(Req 7.5). */}
       <ErrorMessage error={error} />
 
-      <form onSubmit={(event) => void handleAdd(event)} className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-slate-700">사용자</span>
-          {/* raw user_id 입력 대체: 배정 가능 사용자 선택. loading/empty/error 표면화는 이 컴포넌트가 소유(Req 3.1·3.5·3.6·4.1). */}
-          <AssignableUserSelect
-            users={assignable.users}
-            status={assignable.status}
-            error={assignable.error}
-            value={selectedUserId}
-            onChange={setSelectedUserId}
-            disabled={pending}
-          />
-        </div>
-        <div className="flex items-center">
-          <RoleSelect id="member-add-role" label="역할" value={addRole} onChange={setAddRole} disabled={pending} />
-        </div>
-        <Button type="submit" disabled={isAddDisabled}>
-          멤버 추가
-        </Button>
-      </form>
+      {/* 배정 가능 사용자가 확정 0명이면 추가 폼(사용자 선택·멤버 추가 버튼)을 통째로 숨긴다.
+          로딩·오류 상태에서는 폼을 유지해 AssignableUserSelect 가 그 상태를 표면화한다. */}
+      {!hasNoAssignableUsers && (
+        <form onSubmit={(event) => void handleAdd(event)} className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-slate-700">사용자</span>
+            {/* raw user_id 입력 대체: 배정 가능 사용자 선택. loading/error 표면화는 이 컴포넌트가 소유(Req 3.1·3.6·4.1). */}
+            <AssignableUserSelect
+              users={assignable.users}
+              status={assignable.status}
+              error={assignable.error}
+              value={selectedUserId}
+              onChange={setSelectedUserId}
+              disabled={pending}
+            />
+          </div>
+          {/* 추가 시 역할은 항상 member(ADD_ROLE) — 역할 combo 는 두지 않는다. owner 승격은 목록의 role 변경으로. */}
+          <Button type="submit" disabled={isAddDisabled}>
+            멤버 추가
+          </Button>
+        </form>
+      )}
 
       {/* 멤버 목록: 서버 로스터 단일 표시원. status 판별자로 로딩·오류·빈·목록 중 하나를 표면화. */}
       {roster.status === "loading" ? (
