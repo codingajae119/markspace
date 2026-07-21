@@ -13,7 +13,7 @@
   - _Requirements: 1.2, 1.3_
   - _Boundary: AssignableUserRead_
 
-- [ ] 1.2 (P) 배정 가능 anti-join 저장소 쿼리 추가
+- [x] 1.2 (P) 배정 가능 anti-join 저장소 쿼리 추가
   - `workspace/repository.py` 의 `MembershipRepository` 에 `list_assignable_users(db, workspace_id, limit, offset) -> tuple[list[User], int]` 추가.
   - 공유 필터 헬퍼로 items 조회와 count 를 단일화(드리프트 차단): `is_admin=False`·`is_active=True`·`is_deleted=False`·상관 `~exists(WorkspaceMember where workspace_id 일치 and user_id==User.id)`.
   - items 는 `ORDER BY User.id`·`limit`·`offset` 적용, `total` 은 **동일 필터** count(무필터 `list_paginated`·`user_exists` 관례 복제 금지).

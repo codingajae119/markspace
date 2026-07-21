@@ -380,3 +380,173 @@ def test_user_exists_false_for_nonexistent_user(sessionmaker_factory):
         assert repo.user_exists(session, 999999) is False
     finally:
         session.close()
+
+
+# --- list_assignable_users (anti-join 배정 가능 조회, Req 1.1, 1.5) -------
+
+
+def _make_assignable_user(
+    session,
+    *,
+    login_id,
+    name="배정 대상",
+    email=None,
+    is_admin=False,
+    is_active=True,
+    is_deleted=False,
+):
+    """상태 플래그를 세밀히 지정해 User 를 삽입·flush 한다(배정 가능 필터 검증용)."""
+    user = User(
+        login_id=login_id,
+        password_hash="hash-initial",
+        name=name,
+        email=email,
+        is_admin=is_admin,
+        is_active=is_active,
+        is_deleted=is_deleted,
+        created_at=datetime.utcnow(),
+    )
+    session.add(user)
+    session.flush()
+    return user
+
+
+def test_list_assignable_users_filters_and_returns_only_assignable(
+    sessionmaker_factory,
+):
+    """list_assignable_users 는 admin·비활성·삭제·기존멤버를 제외하고 배정 가능만 반환한다 (Req 1.1).
+
+    admin·inactive·deleted·이 워크스페이스의 기존 멤버는 각각 제외되고, 평범한 배정 가능
+    사용자만 items 로 반환되며 total 이 그 수와 일치한다.
+    """
+    seed = sessionmaker_factory()
+    try:
+        ws = _make_workspace(seed, name="ws-assignable")
+        assignable = _make_assignable_user(seed, login_id="plain", name="배정가능")
+        admin = _make_assignable_user(seed, login_id="an-admin", is_admin=True)
+        inactive = _make_assignable_user(
+            seed, login_id="inactive", is_active=False
+        )
+        deleted = _make_assignable_user(seed, login_id="deleted", is_deleted=True)
+        member = _make_assignable_user(seed, login_id="already-member")
+        seed.flush()
+        seed.add(
+            WorkspaceMember(workspace_id=ws.id, user_id=member.id, role="editor")
+        )
+        seed.commit()
+        ws_id = ws.id
+        assignable_id = assignable.id
+        excluded_ids = {admin.id, inactive.id, deleted.id, member.id}
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        repo = MembershipRepository()
+        items, total = repo.list_assignable_users(
+            session, ws_id, limit=50, offset=0
+        )
+        returned_ids = {u.id for u in items}
+        assert assignable_id in returned_ids, "평범한 배정 가능 사용자는 반환되어야 한다"
+        assert returned_ids.isdisjoint(
+            excluded_ids
+        ), "admin·비활성·삭제·기존멤버는 제외되어야 한다"
+        assert returned_ids == {assignable_id}
+        assert total == 1, "total 은 필터된 배정 가능 수와 일치해야 한다"
+    finally:
+        session.close()
+
+
+def test_list_assignable_users_includes_member_of_other_workspace(
+    sessionmaker_factory,
+):
+    """다른 워크스페이스의 멤버는 여전히 배정 가능으로 반환된다 (Req 1.1, 상관 NOT EXISTS 정확성).
+
+    상관 조건이 (workspace_id AND user_id) 로 좁혀지지 않으면 임의 워크스페이스의 멤버가
+    잘못 제외되는 고전적 anti-join 버그를 잡는다.
+    """
+    seed = sessionmaker_factory()
+    try:
+        target_ws = _make_workspace(seed, name="ws-target")
+        other_ws = _make_workspace(seed, name="ws-other")
+        user = _make_assignable_user(seed, login_id="member-elsewhere")
+        seed.flush()
+        # user 는 other_ws 의 멤버지만 target_ws 에는 아니다 → target 기준 배정 가능.
+        seed.add(
+            WorkspaceMember(
+                workspace_id=other_ws.id, user_id=user.id, role="owner"
+            )
+        )
+        seed.commit()
+        target_id, user_id = target_ws.id, user.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        repo = MembershipRepository()
+        items, total = repo.list_assignable_users(
+            session, target_id, limit=50, offset=0
+        )
+        returned_ids = {u.id for u in items}
+        assert user_id in returned_ids, (
+            "다른 워크스페이스의 멤버는 대상 워크스페이스 기준 배정 가능이어야 한다"
+        )
+        assert total == 1
+    finally:
+        session.close()
+
+
+def test_list_assignable_users_total_is_filtered_count_not_page_size(
+    sessionmaker_factory,
+):
+    """total 은 페이지 크기가 아니라 전체 배정 가능 수와 일치한다 (Req 1.5, 무필터 count 금지).
+
+    limit 보다 많은 배정 가능 사용자를 시드하고, total 은 전체 배정 가능 수인 반면
+    len(items) 는 limit 인지 확인한다.
+    """
+    seed = sessionmaker_factory()
+    try:
+        ws = _make_workspace(seed, name="ws-paged")
+        for i in range(5):
+            _make_assignable_user(seed, login_id=f"assignable-{i}")
+        # 필터로 제외되어 total 을 부풀리면 안 되는 노이즈 계정.
+        _make_assignable_user(seed, login_id="noise-admin", is_admin=True)
+        seed.commit()
+        ws_id = ws.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        repo = MembershipRepository()
+        items, total = repo.list_assignable_users(
+            session, ws_id, limit=2, offset=0
+        )
+        assert total == 5, "total 은 페이지 크기가 아닌 전체 배정 가능 수(5)여야 한다"
+        assert len(items) == 2, "items 는 limit 만큼만 반환해야 한다"
+    finally:
+        session.close()
+
+
+def test_list_assignable_users_orders_ascending_by_id(sessionmaker_factory):
+    """items 는 user.id 오름차순의 결정적 순서로 반환된다 (Req 1.5)."""
+    seed = sessionmaker_factory()
+    try:
+        ws = _make_workspace(seed, name="ws-order")
+        for i in range(4):
+            _make_assignable_user(seed, login_id=f"ordered-{i}")
+        seed.commit()
+        ws_id = ws.id
+    finally:
+        seed.close()
+
+    session = sessionmaker_factory()
+    try:
+        repo = MembershipRepository()
+        items, _ = repo.list_assignable_users(session, ws_id, limit=50, offset=0)
+        returned_ids = [u.id for u in items]
+        assert returned_ids == sorted(returned_ids), "items 는 user.id 오름차순이어야 한다"
+        assert len(returned_ids) == 4
+    finally:
+        session.close()
