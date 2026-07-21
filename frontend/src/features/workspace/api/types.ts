@@ -111,6 +111,18 @@ export interface UserUpdate {
 }
 
 /**
+ * 배정 가능 사용자 응답용 narrow 정보 — 백엔드 `AssignableUserRead`(ORMReadModel) 미러 (s23 Req 3.1).
+ *
+ * `GET /workspaces/{id}/assignable-users` 응답 항목으로, 식별자·이름·이메일만 노출한다
+ * (`login_id`·상태 플래그·타임스탬프 등은 백엔드 스키마에서 직렬화 대상이 아님). email 은 null 가능.
+ */
+export interface AssignableUser {
+  id: number;
+  name: string;
+  email: string | null;
+}
+
+/**
  * admin 비밀번호 재설정 요청 본문 — 백엔드 `AdminPasswordResetRequest` 미러 (Req 8.1).
  */
 export interface AdminPasswordResetRequest {

@@ -55,7 +55,7 @@
 
 - [ ] 3. (P) 프론트: 배정 가능 조회 계층
   - design 에 동결된 `AssignableUserRead` 계약 shape 를 미러 — 백엔드 런타임 없이 병렬 진행(테스트는 `@/shared/api/client` mock).
-- [ ] 3.1 프론트 타입·조회 어댑터 추가
+- [x] 3.1 프론트 타입·조회 어댑터 추가
   - `features/workspace/api/types.ts` 에 `AssignableUser { id: number; name: string; email: string | null }` 추가.
   - `features/workspace/api/assignableUserApi.ts` 신규: `listAssignable(workspaceId, {limit,offset})` 가 `URLSearchParams` 로 경로 조립(기존 관례) 후 `apiClient.get<Page<AssignableUser>>` 호출. base URL·전역 401 은 `apiClient` 소유.
   - 관찰 가능한 완료: `assignableUserApi.listAssignable(1, {limit:50, offset:0})` 가 `/workspaces/1/assignable-users?limit=50&offset=0` 경로로 `apiClient.get` 를 호출하고 `Page<AssignableUser>` 를 반환.
