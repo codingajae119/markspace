@@ -33,6 +33,11 @@ export interface RoleSelectProps {
   id?: string;
   /** 연결할 라벨 텍스트(제공 시 `<label htmlFor>` 로 접근성 연결, 선택). */
   label?: string;
+  /**
+   * 라벨을 접근성 연결용으로만 두고 시각적으로 숨긴다(`sr-only`, 선택). 상위가 이미 대상을
+   * 시각적으로 명시(예: 멤버 행의 "{id} {name}")해 라벨 텍스트가 화면상 중복될 때 사용한다.
+   */
+  srOnlyLabel?: boolean;
   /** 비활성 여부(진행 중·미충족 게이팅 시, 선택). */
   disabled?: boolean;
 }
@@ -43,11 +48,14 @@ const SELECT_CLASSES =
   "disabled:cursor-not-allowed disabled:opacity-50";
 
 /** owner/editor/viewer 3값만 방출하는 스타일드 select. `onChange` 는 항상 `MemberRole` 을 전달한다. */
-export function RoleSelect({ value, onChange, id, label, disabled }: RoleSelectProps): ReactElement {
+export function RoleSelect({ value, onChange, id, label, srOnlyLabel, disabled }: RoleSelectProps): ReactElement {
   return (
     <>
       {label !== undefined ? (
-        <label htmlFor={id} className="mr-2 text-sm font-medium text-slate-700">
+        <label
+          htmlFor={id}
+          className={srOnlyLabel ? "sr-only" : "mr-2 text-sm font-medium text-slate-700"}
+        >
           {label}
         </label>
       ) : null}

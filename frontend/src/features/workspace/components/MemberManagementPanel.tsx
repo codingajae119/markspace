@@ -42,7 +42,7 @@ import { AssignableUserSelect } from "./AssignableUserSelect";
 import { useMembershipRoleSource } from "../context/membershipRoleSource";
 import { useMemberActions } from "../hooks/useMemberActions";
 import { useAssignableUsers } from "../hooks/useAssignableUsers";
-import type { MemberRole } from "../api/types";
+import type { MemberRead, MemberRole } from "../api/types";
 
 /**
  * owner(및 admin override) 조건에서만 노출되는 멤버 관리 패널. 노출 판정은 s16 `RequireRole` 단일
@@ -73,17 +73,32 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
   const assignable = useAssignableUsers(workspaceId);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [addRole, setAddRole] = useState<MemberRole>("viewer");
+  // 표시용 user_id→name 맵. 계약상 MemberRead 는 name 을 담지 않고(백엔드 스키마), S1 상 목록에 보이는
+  // 멤버는 모두 이 화면의 배정 선택으로 추가된 사용자이므로, 추가 시점의 배정 목록에서 이름을 포착해 보존한다.
+  const [nameById, setNameById] = useState<Map<number, string>>(new Map());
 
   const handleAdd = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (workspaceId === null || selectedUserId === null || pending) {
       return;
     }
+    const targetUserId = selectedUserId;
+    // 이름은 추가 시점의 배정 목록에만 있으므로 await·reload 로 목록이 바뀌기 전에 포착한다.
+    const selectedName = assignable.users.find((user) => user.id === targetUserId)?.name;
     // add 는 항상 void resolve(실패는 useMemberActions.error 로 삼킴) → await 후 단일 경로 reload 안전.
-    await add(workspaceId, { user_id: selectedUserId, role: addRole });
+    await add(workspaceId, { user_id: targetUserId, role: addRole });
+    if (selectedName !== undefined) {
+      setNameById((prev) => new Map(prev).set(targetUserId, selectedName));
+    }
     setSelectedUserId(null); // 선택 초기화
     // 단일 경로: 성공(추가 사용자 제외)·stale-409(목록 교정)·기타 실패(서버 진실 재확인) 모두 reload(Req 3.4·4.3).
     void assignable.reload();
+  };
+
+  // 멤버 표시 라벨 — 이름을 포착했으면 "{id} {name}", 아니면 방어적으로 "사용자 {id}"(직접 주입 등 이름 미상).
+  const memberLabel = (member: MemberRead): string => {
+    const name = nameById.get(member.user_id);
+    return name ? `${member.user_id} ${name}` : `사용자 ${member.user_id}`;
   };
 
   // 배정 가능 목록이 준비되지 않았거나(로딩·오류) 0명이거나, 사용자 미선택·진행 중이면 추가 비활성(Req 3.5·3.6).
@@ -137,17 +152,18 @@ function MemberManagementContent({ workspaceId }: { workspaceId: number | null }
               key={member.user_id}
               className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 px-3 py-2"
             >
-              <span className="text-sm text-slate-800">사용자 {member.user_id}</span>
+              <span className="text-sm text-slate-800">{memberLabel(member)}</span>
               <RoleSelect
                 id={`member-role-${member.user_id}`}
-                label={`사용자 ${member.user_id} 역할`}
+                label={`${memberLabel(member)} 역할`}
+                srOnlyLabel
                 value={member.role}
                 onChange={(next) => void changeRole(workspaceId, member.user_id, { role: next })}
                 disabled={pending}
               />
               <Button
                 variant="secondary"
-                aria-label={`사용자 ${member.user_id} 제거`}
+                aria-label={`${memberLabel(member)} 제거`}
                 disabled={pending}
                 onClick={() => void remove(workspaceId, member.user_id)}
               >

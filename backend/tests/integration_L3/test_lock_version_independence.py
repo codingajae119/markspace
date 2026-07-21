@@ -475,7 +475,7 @@ def test_s09_added_no_new_migration():
     )
     # s01 baseline(0001) + additive user_setting(0002). s09 는 자기 마이그레이션을
     # 추가하지 않았음을 검증하는 것이 목적이므로 additive user_setting 은 허용한다.
-    assert migration_files == ["0001_initial_schema.py", "0002_user_setting.py"], (
+    assert migration_files == ["0001_initial_schema.py", "0002_user_setting.py", "0003_user_setting_last_selected_workspace.py"], (
         f"s09 는 새 마이그레이션을 추가하지 않아야 한다 — 0001 + additive user_setting 뿐이어야 한다(7.2): "
         f"{migration_files}"
     )

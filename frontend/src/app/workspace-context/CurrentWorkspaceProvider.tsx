@@ -71,6 +71,9 @@ export function CurrentWorkspaceProvider({ children }: { children: ReactNode }) 
   // 콜백에서 최신 값을 읽기 위한 미러: 현재 선택 id(영속 규약)와 목록(selectWorkspace 조회).
   const selectedIdRef = useRef<string | null>(null);
   const workspacesRef = useRef<WorkspaceRead[]>([]);
+  // 서버가 확정한 마지막 선택 WS id(교차 브라우저·기기 복원 소스). 세션 설정에서 미러링해
+  // 빈 deps 의 load() 콜백에서 최신값을 읽는다. 미인증/미설정이면 null.
+  const serverPreferredIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -78,6 +81,16 @@ export function CurrentWorkspaceProvider({ children }: { children: ReactNode }) 
       mountedRef.current = false;
     };
   }, []);
+
+  // 세션 설정의 last_selected_workspace_id 를 ref 로 미러링한다. load 트리거 effect 보다 먼저
+  // 선언해, authenticated 전환 시 이 effect 가 먼저 실행되어 ref 가 확정된 뒤 load 가 읽게 한다.
+  useEffect(() => {
+    const serverId =
+      session.status === "authenticated"
+        ? session.settings?.last_selected_workspace_id ?? null
+        : null;
+    serverPreferredIdRef.current = serverId === null ? null : String(serverId);
+  }, [session]);
 
   const load = useCallback(async (): Promise<void> => {
     const runId = runIdRef.current + 1;
@@ -98,9 +111,13 @@ export function CurrentWorkspaceProvider({ children }: { children: ReactNode }) 
     }
 
     const items = page.items;
-    // 선호 id: 진행 중 선택(있으면) 우선, 없으면 영속 저장값. 재로드 복원·현재 선택 유지 양쪽을 포괄.
+    // 선호 id 우선순위: 진행 중 선택(있으면) → 서버 설정(교차 브라우저 복원) → localStorage.
+    // 서버 값을 localStorage 보다 우선시켜 다른 브라우저/기기에서도 마지막 선택이 복원되게 한다.
+    // localStorage 는 서버 미설정/미인증 시의 로컬 폴백으로 남는다. stale id(목록에 없음)는 resolveCurrent 가 무시.
     const preferredId =
-      selectedIdRef.current ?? localStorage.getItem(CURRENT_WORKSPACE_STORAGE_KEY);
+      selectedIdRef.current ??
+      serverPreferredIdRef.current ??
+      localStorage.getItem(CURRENT_WORKSPACE_STORAGE_KEY);
     const current = resolveCurrent(items, preferredId);
 
     if (mountedRef.current && runIdRef.current === runId) {
@@ -133,6 +150,14 @@ export function CurrentWorkspaceProvider({ children }: { children: ReactNode }) 
     }
     selectedIdRef.current = id;
     localStorage.setItem(CURRENT_WORKSPACE_STORAGE_KEY, id);
+    // 서버에도 마지막 선택을 영속(교차 브라우저 복원). fire-and-forget: 실패해도 로컬 선택은
+    // 유지되므로 UX 를 막지 않는다. 다음 세션 부트스트랩 시 서버값이 우선 복원된다.
+    serverPreferredIdRef.current = id;
+    void apiClient
+      .patch("/me/settings", { last_selected_workspace_id: Number(id) })
+      .catch(() => {
+        // 설정 영속 실패는 무시(로컬 선택 유지). 관측은 apiClient 단일 지점에 위임.
+      });
     setCurrentWorkspace(match);
   }, []);
 

@@ -24,3 +24,10 @@ class UserSetting(Base):
     autosave_enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
+    # 마지막으로 선택한 워크스페이스(브라우저·기기 간 재로그인 시 복원용 "선택 힌트").
+    # 의도적으로 FK 를 두지 않는다: (1) 소비자(프론트)가 자기 워크스페이스 목록에 없는 stale id 를
+    # 이미 무시·폴백하므로 참조 무결성이 기능상 불필요하고, (2) FK 를 걸면 워크스페이스 삭제가
+    # user_setting 과 cascade 로 결합돼(s05 삭제 원자성) 강한 결합이 생기기 때문. 미선택은 NULL.
+    last_selected_workspace_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, default=None
+    )

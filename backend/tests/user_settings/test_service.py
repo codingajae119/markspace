@@ -23,19 +23,32 @@ class _FakeRepo:
         self._store: dict[int, UserSetting] = {}
         if existing is not None:
             self._store[existing.user_id] = existing
-        self.upsert_calls: list[tuple[int, bool]] = []
+        self.upsert_calls: list[tuple[int, bool, int | None]] = []
 
     def get_by_user_id(self, user_id: int) -> UserSetting | None:
         return self._store.get(user_id)
 
-    def upsert(self, user_id: int, autosave_enabled: bool) -> UserSetting:
-        self.upsert_calls.append((user_id, autosave_enabled))
+    def upsert(
+        self,
+        user_id: int,
+        autosave_enabled: bool,
+        last_selected_workspace_id: int | None,
+    ) -> UserSetting:
+        self.upsert_calls.append(
+            (user_id, autosave_enabled, last_selected_workspace_id)
+        )
         setting = self._store.get(user_id)
         if setting is None:
-            setting = UserSetting(id=1, user_id=user_id, autosave_enabled=autosave_enabled)
+            setting = UserSetting(
+                id=1,
+                user_id=user_id,
+                autosave_enabled=autosave_enabled,
+                last_selected_workspace_id=last_selected_workspace_id,
+            )
             self._store[user_id] = setting
         else:
             setting.autosave_enabled = autosave_enabled
+            setting.last_selected_workspace_id = last_selected_workspace_id
         return setting
 
 
@@ -96,7 +109,7 @@ def test_update_sets_value_creating_record_when_absent(default_false):
     result = service.update(_ctx(), UserSettingsUpdate(autosave_enabled=True))
 
     assert result.autosave_enabled is True
-    assert repo.upsert_calls == [(42, True)]
+    assert repo.upsert_calls == [(42, True, None)]
 
 
 def test_update_none_keeps_existing_value(default_false):
@@ -108,7 +121,7 @@ def test_update_none_keeps_existing_value(default_false):
     result = service.update(_ctx(), UserSettingsUpdate())
 
     assert result.autosave_enabled is True
-    assert repo.upsert_calls == [(42, True)]
+    assert repo.upsert_calls == [(42, True, None)]
 
 
 def test_update_none_uses_default_when_no_record(default_true):
@@ -119,7 +132,7 @@ def test_update_none_uses_default_when_no_record(default_true):
     result = service.update(_ctx(), UserSettingsUpdate())
 
     assert result.autosave_enabled is True
-    assert repo.upsert_calls == [(42, True)]
+    assert repo.upsert_calls == [(42, True, None)]
 
 
 def test_update_targets_only_ctx_user(default_false):
@@ -129,4 +142,68 @@ def test_update_targets_only_ctx_user(default_false):
     service.update(_ctx(user_id=7), UserSettingsUpdate(autosave_enabled=True))
 
     # upsert 대상 user_id 는 항상 ctx.user_id 다(본인 것만).
-    assert repo.upsert_calls == [(7, True)]
+    assert repo.upsert_calls == [(7, True, None)]
+
+
+# --- update: last_selected_workspace_id ---------------------------------------
+
+
+def test_update_sets_last_selected_workspace(default_false):
+    """last_selected_workspace_id 만 담은 PATCH 는 그 값을 저장하고 autosave 는 기본값 유지."""
+    repo = _FakeRepo(existing=None)
+    service = UserSettingsService(repo)
+
+    result = service.update(_ctx(), UserSettingsUpdate(last_selected_workspace_id=7))
+
+    assert result.last_selected_workspace_id == 7
+    assert result.autosave_enabled is False  # 기본값 유지
+    assert repo.upsert_calls == [(42, False, 7)]
+
+
+def test_update_none_keeps_existing_last_selected_workspace(default_false):
+    """빈 PATCH 는 기존 last_selected_workspace_id(5)를 유지한다."""
+    existing = UserSetting(
+        id=1, user_id=42, autosave_enabled=True, last_selected_workspace_id=5
+    )
+    repo = _FakeRepo(existing)
+    service = UserSettingsService(repo)
+
+    result = service.update(_ctx(), UserSettingsUpdate())
+
+    assert result.last_selected_workspace_id == 5
+    assert repo.upsert_calls == [(42, True, 5)]
+
+
+def test_update_changes_last_selected_workspace_over_existing(default_false):
+    """이미 5 를 가진 사용자가 9 를 선택하면 9 로 갱신된다."""
+    existing = UserSetting(
+        id=1, user_id=42, autosave_enabled=True, last_selected_workspace_id=5
+    )
+    repo = _FakeRepo(existing)
+    service = UserSettingsService(repo)
+
+    result = service.update(_ctx(), UserSettingsUpdate(last_selected_workspace_id=9))
+
+    assert result.last_selected_workspace_id == 9
+    assert repo.upsert_calls == [(42, True, 9)]
+
+
+def test_get_returns_stored_last_selected_workspace(default_true):
+    """get 은 저장된 last_selected_workspace_id 를 그대로 노출한다."""
+    existing = UserSetting(
+        id=1, user_id=42, autosave_enabled=False, last_selected_workspace_id=3
+    )
+    service = UserSettingsService(_FakeRepo(existing))
+
+    result = service.get(_ctx())
+
+    assert result.last_selected_workspace_id == 3
+
+
+def test_get_returns_none_last_selected_workspace_when_no_record(default_true):
+    """레코드 부재 시 last_selected_workspace_id 는 None(미선택)이다."""
+    service = UserSettingsService(_FakeRepo(existing=None))
+
+    result = service.get(_ctx())
+
+    assert result.last_selected_workspace_id is None

@@ -24,6 +24,8 @@ class UserSettingsRead(ORMReadModel):
     """
 
     autosave_enabled: bool
+    # 마지막 선택 워크스페이스 id. 레코드/선택 부재 시 None(미선택).
+    last_selected_workspace_id: int | None = None
 
 
 class UserSettingsUpdate(BaseModel):
@@ -34,3 +36,5 @@ class UserSettingsUpdate(BaseModel):
     """
 
     autosave_enabled: bool | None = None
+    # 마지막 선택 워크스페이스 id. None 은 "변경하지 않음"(기존 autosave 와 동일한 PATCH 규약).
+    last_selected_workspace_id: int | None = None

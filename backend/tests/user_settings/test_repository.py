@@ -108,7 +108,7 @@ def test_upsert_creates_row_when_absent(sessionmaker_factory):
     session = sessionmaker_factory()
     try:
         repo = UserSettingRepository(session)
-        created = repo.upsert(user_id, True)
+        created = repo.upsert(user_id, True, None)
         assert created.user_id == user_id
         assert created.autosave_enabled is True
     finally:
@@ -139,14 +139,14 @@ def test_upsert_updates_existing_row_keeping_single_row(sessionmaker_factory):
     session = sessionmaker_factory()
     try:
         repo = UserSettingRepository(session)
-        repo.upsert(user_id, True)
+        repo.upsert(user_id, True, None)
     finally:
         session.close()
 
     session = sessionmaker_factory()
     try:
         repo = UserSettingRepository(session)
-        updated = repo.upsert(user_id, False)
+        updated = repo.upsert(user_id, False, None)
         assert updated.autosave_enabled is False
     finally:
         session.close()
@@ -164,5 +164,46 @@ def test_upsert_updates_existing_row_keeping_single_row(sessionmaker_factory):
             select(UserSetting).where(UserSetting.user_id == user_id)
         )
         assert reloaded.autosave_enabled is False
+    finally:
+        verify.close()
+
+
+def test_upsert_persists_last_selected_workspace(sessionmaker_factory):
+    """last_selected_workspace_id 가 INSERT·UPDATE 모두에서 영속화되고 재조회로 확인된다."""
+    seed = sessionmaker_factory()
+    try:
+        user = _make_user(seed, login_id="carol")
+        seed.commit()
+        user_id = user.id
+    finally:
+        seed.close()
+
+    # 최초 upsert(생성) 시 워크스페이스 5 선택.
+    session = sessionmaker_factory()
+    try:
+        repo = UserSettingRepository(session)
+        created = repo.upsert(user_id, True, 5)
+        assert created.last_selected_workspace_id == 5
+    finally:
+        session.close()
+
+    # 재조회로 영속화 확인 후, 이후 upsert(갱신)로 9 로 전환.
+    session = sessionmaker_factory()
+    try:
+        repo = UserSettingRepository(session)
+        reloaded = repo.get_by_user_id(user_id)
+        assert reloaded is not None
+        assert reloaded.last_selected_workspace_id == 5
+        updated = repo.upsert(user_id, True, 9)
+        assert updated.last_selected_workspace_id == 9
+    finally:
+        session.close()
+
+    verify = sessionmaker_factory()
+    try:
+        final = verify.scalar(
+            select(UserSetting).where(UserSetting.user_id == user_id)
+        )
+        assert final.last_selected_workspace_id == 9
     finally:
         verify.close()

@@ -35,6 +35,8 @@ export interface AuthUser {
 /** `GET /me/settings` → `UserSettingsRead` 미러. */
 export interface UserSettings {
   autosave_enabled: boolean;
+  /** 마지막 선택 워크스페이스 id(재로그인·새 브라우저 복원용). 미선택 시 null. */
+  last_selected_workspace_id: number | null;
 }
 
 /** 부트스트랩 판정 tri-state. authenticated 는 사용자 확정, settings 는 nullable. */

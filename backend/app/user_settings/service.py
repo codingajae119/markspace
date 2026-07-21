@@ -55,5 +55,16 @@ class UserSettingsService:
             if payload.autosave_enabled is not None
             else current_autosave
         )
-        updated = self._repo.upsert(ctx.user_id, autosave_enabled)
+        # 마지막 선택 워크스페이스: 레코드 없으면 미선택(None)이 현재 유효값이다.
+        current_last_ws = (
+            setting.last_selected_workspace_id if setting is not None else None
+        )
+        last_selected_workspace_id = (
+            payload.last_selected_workspace_id
+            if payload.last_selected_workspace_id is not None
+            else current_last_ws
+        )
+        updated = self._repo.upsert(
+            ctx.user_id, autosave_enabled, last_selected_workspace_id
+        )
         return UserSettingsRead.model_validate(updated)

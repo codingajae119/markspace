@@ -392,7 +392,7 @@ def test_s05_adds_no_new_migration(ws_harness):
     }
     # s01 baseline(0001) + additive user_setting(0002). s05(및 s02~s04)가 자기
     # 마이그레이션을 추가하지 않았음을 검증하는 것이 목적이므로 additive user_setting 은 허용.
-    assert revision_files == {"0001_initial_schema.py", "0002_user_setting.py"}, (
+    assert revision_files == {"0001_initial_schema.py", "0002_user_setting.py", "0003_user_setting_last_selected_workspace.py"}, (
         "s05(및 s02~s04)는 새 마이그레이션을 추가하지 않아야 한다(s01 baseline + additive user_setting 만 존재해야 함): "
         f"관측={sorted(revision_files)}"
     )

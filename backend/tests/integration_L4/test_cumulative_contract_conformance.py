@@ -360,7 +360,7 @@ def test_s09_s10_add_no_new_migration_over_s01_initial_schema():
     )
     # s01 baseline(0001) + additive user_setting(0002). s09·s10 이 자기 마이그레이션을
     # 추가하지 않았음을 검증하는 것이 목적이므로 additive user_setting 은 허용한다.
-    assert revision_files == ["0001_initial_schema.py", "0002_user_setting.py"], (
+    assert revision_files == ["0001_initial_schema.py", "0002_user_setting.py", "0003_user_setting_last_selected_workspace.py"], (
         "s09·s10 은 새 마이그레이션을 추가하지 않고 s01 단일 리비전(0001) + additive user_setting 위에서 동작해야 "
         f"한다(2.1): 관측 리비전 파일={revision_files}"
     )
@@ -369,9 +369,9 @@ def test_s09_s10_add_no_new_migration_over_s01_initial_schema():
     cfg.set_main_option("script_location", str(backend_dir / "migrations"))
     script = ScriptDirectory.from_config(cfg)
 
-    # head 는 additive user_setting(0002)로 전진했으나 여전히 단일 선형 체인이다.
+    # head 는 additive user_setting(0003)로 전진했으나 여전히 단일 선형 체인이다.
     heads = list(script.get_heads())
-    assert heads == ["0002"], f"alembic head 는 단일 선형 체인의 0002 여야 한다: {heads}"
+    assert heads == ["0003"], f"alembic head 는 단일 선형 체인의 0003 여야 한다: {heads}"
 
     # baseline 0001 은 여전히 최초 리비전(down_revision None)이다.
     rev = script.get_revision("0001")

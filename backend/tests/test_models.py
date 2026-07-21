@@ -52,9 +52,10 @@ def test_all_registered_tables():
 
 
 def test_user_setting_table_user_id_unique_and_fk():
-    """user_setting: user_id UNIQUE + FK(user.id), autosave_enabled NOT NULL (additive)."""
+    """user_setting: user_id UNIQUE + FK(user.id), autosave_enabled NOT NULL,
+    last_selected_workspace_id nullable + FK 없음 (additive)."""
     t = METADATA.tables["user_setting"]
-    for name in ("id", "user_id", "autosave_enabled"):
+    for name in ("id", "user_id", "autosave_enabled", "last_selected_workspace_id"):
         assert name in t.columns, f"user_setting.{name} 누락"
 
     # 사용자당 1행: user_id UNIQUE.
@@ -66,6 +67,14 @@ def test_user_setting_table_user_id_unique_and_fk():
 
     assert t.columns["user_id"].nullable is False
     assert t.columns["autosave_enabled"].nullable is False
+
+    # 마지막 선택 워크스페이스: nullable(미선택 허용)이고 FK 는 의도적으로 없다
+    # (선택 힌트 — 소비자가 stale id 를 폴백 처리, 워크스페이스 삭제와의 결합 회피).
+    ws_col = t.columns["last_selected_workspace_id"]
+    assert ws_col.nullable is True
+    assert len(ws_col.foreign_keys) == 0, (
+        "last_selected_workspace_id 는 FK 를 두지 않아야 한다(선택 힌트, 삭제 결합 회피)"
+    )
 
 
 def test_user_table_columns_and_login_id_unique():

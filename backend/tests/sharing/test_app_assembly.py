@@ -80,6 +80,6 @@ def test_no_new_sharing_migration_added() -> None:
     migration_files = sorted(p.name for p in versions_dir.glob("*.py"))
     # s01 baseline(0001) + additive user_setting(0002)만 허용. sharing 전용
     # 마이그레이션(0002 는 user_settings additive 확장 소유)은 여전히 없어야 한다.
-    assert migration_files == ["0001_initial_schema.py", "0002_user_setting.py"], (
+    assert migration_files == ["0001_initial_schema.py", "0002_user_setting.py", "0003_user_setting_last_selected_workspace.py"], (
         f"sharing 전용 마이그레이션이 추가되면 안 된다(발견: {migration_files})"
     )

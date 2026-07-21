@@ -500,7 +500,7 @@ def test_documents_served_on_s01_initial_schema_no_new_migration():
     )
     # s01 baseline(0001) + additive user_setting(0002). s07 이 자기 마이그레이션을
     # 추가하지 않았음을 검증하는 것이 목적이므로 additive user_setting 은 허용한다.
-    assert revision_files == ["0001_initial_schema.py", "0002_user_setting.py"], (
+    assert revision_files == ["0001_initial_schema.py", "0002_user_setting.py", "0003_user_setting_last_selected_workspace.py"], (
         "s07 은 새 마이그레이션을 추가하지 않고 s01 단일 리비전(0001) + additive user_setting 위에서 문서를 "
         f"제공해야 한다(10.6): 관측 리비전 파일={revision_files}"
     )

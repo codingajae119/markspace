@@ -25,18 +25,29 @@ class UserSettingRepository:
             select(UserSetting).where(UserSetting.user_id == user_id)
         )
 
-    def upsert(self, user_id: int, autosave_enabled: bool) -> UserSetting:
+    def upsert(
+        self,
+        user_id: int,
+        autosave_enabled: bool,
+        last_selected_workspace_id: int | None,
+    ) -> UserSetting:
         """설정 행을 생성하거나(없을 때) 갱신하고(있을 때) commit 하여 영속화한다.
 
         ``user_id`` UNIQUE 로 사용자당 한 행만 존재하므로, 조회 후 없으면 INSERT,
-        있으면 UPDATE 한다. 갱신된(또는 생성된) 행을 반환한다.
+        있으면 UPDATE 한다. 호출자(서비스)가 병합해 확정한 유효값 전체를 그대로 기록한다
+        (PATCH 병합은 서비스 책임). 갱신된(또는 생성된) 행을 반환한다.
         """
         setting = self.get_by_user_id(user_id)
         if setting is None:
-            setting = UserSetting(user_id=user_id, autosave_enabled=autosave_enabled)
+            setting = UserSetting(
+                user_id=user_id,
+                autosave_enabled=autosave_enabled,
+                last_selected_workspace_id=last_selected_workspace_id,
+            )
             self._db.add(setting)
         else:
             setting.autosave_enabled = autosave_enabled
+            setting.last_selected_workspace_id = last_selected_workspace_id
         self._db.commit()
         self._db.refresh(setting)
         return setting
