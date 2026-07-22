@@ -27,6 +27,7 @@
  * 노출 여부를 트리 토글과 동일한 성격의 로컬 UI 상태(`settingsVisible`)로 소유한다. 판넬 자체는
  * `RequireRole(MEMBER)` 게이트를 내부 소유하므로 비멤버에겐 빈 판넬이다 — 따라서 토글 버튼도
  * `canEdit`(admin override 포함) 로 게이팅해 편집 권한이 있는 사용자(owner 포함)에게만 노출한다.
+ * 트리 토글과 달리 세션 시작 시 기본 숨김(`false`)이며, 사용자가 토글로 펼쳐야 판넬이 나타난다.
  * 토글은 "문서" 제목 옆의 작은 삼각형 버튼으로, 보임 상태=위쪽(▴, 접기)·숨김 상태=아래쪽(▾, 펼치기)을
  * 가리키며 방향 글리프는 aria-hidden, 의미는 aria-label 로 스크린리더에 전달한다.
  *
@@ -66,8 +67,8 @@ export function DocumentWorkspacePage(): ReactElement {
 
   // 읽기 화면 왼쪽 문서 트리 패널 노출 여부(기본 표시). 순수 화면 표시 상태.
   const [treeVisible, setTreeVisible] = useState(true);
-  // 상단 문서 설정 판넬(생성·이름변경·삭제 툴바) 노출 여부(기본 표시). 순수 화면 표시 상태.
-  const [settingsVisible, setSettingsVisible] = useState(true);
+  // 상단 문서 설정 판넬(생성·이름변경·삭제 툴바) 노출 여부(기본 숨김). 순수 화면 표시 상태.
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
   const canEdit = hasWorkspaceRole({
     currentRole: scope.role,
