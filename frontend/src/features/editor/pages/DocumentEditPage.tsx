@@ -17,8 +17,11 @@
  *   여기서는 scope.role·isAdmin·session.retryAcquire(재획득)만 주입한다.
  * - 편집 활성(`session.document` 존재): EditorPane(세션 결선)을 전폭으로 마운트한다. 콘텐츠
  *   없이 편집 인스턴스를 만들지 않으므로 document 확보 시에만 마운트한다.
- * - "읽기로 돌아가기" back affordance: 타인 잠금(other)·취소(released) 후 읽기 화면 복귀 경로
- *   (Req 2.2). `useNavigate` 로 문서 메인(`/documents`)으로 복귀한다.
+ * - "읽기로 돌아가기" back affordance: 타인 잠금(other) 등에서 읽기 화면으로 복귀하는 수동
+ *   경로(Req 2.2). `useNavigate` 로 문서 메인(`/documents`)으로 복귀한다.
+ * - 취소 자동 복귀: 취소 성공은 세션을 `released` 로 확정하며(useEditSession), 조립부가 그
+ *   신호를 이펙트로 소비해 읽기 화면으로 자동 전이한다(Req 4.2). 훅은 상태로 표면화만 하고
+ *   라우터에 결합되지 않으며, 화면 전이는 이 페이지가 소유한다.
  *
  * 경계: viewer 는 편집에 도달하지 않으며(진입점 게이팅은 s19, 서버 403 이 최종 경계) 이 페이지는
  * 로컬 role 게이트를 재구현하지 않는다(Req 1.5·7.2·7.8). 401 은 s16 전역 인터셉터가 처리하므로
@@ -32,7 +35,7 @@
  */
 
 import type { ReactElement } from "react";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Spinner } from "@/shared/ui";
@@ -57,6 +60,15 @@ export function DocumentEditPage(): ReactElement {
   const goToReading = useCallback(() => {
     navigate(READING_PATH);
   }, [navigate]);
+
+  // 취소 성공(POST /cancel 204)은 세션을 `released` 로 확정하며(useEditSession) 그 자체가
+  // 읽기 복귀 신호다(Req 4.2·design §편집 취소). 조립부가 이 신호를 소비해 읽기 화면으로
+  // 전이한다 — 훅은 라우터에 결합되지 않고 상태로 표면화만 하고, 화면 전이는 페이지가 소유한다.
+  useEffect(() => {
+    if (session.status === "released") {
+      goToReading();
+    }
+  }, [session.status, goToReading]);
 
   return (
     <section

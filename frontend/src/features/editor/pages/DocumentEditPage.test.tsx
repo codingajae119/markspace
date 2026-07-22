@@ -99,6 +99,8 @@ function renderPage(): void {
     <MemoryRouter initialEntries={["/documents/42/edit"]}>
       <Routes>
         <Route path="/documents/:id/edit" element={<DocumentEditPage />} />
+        {/* 취소 자동 복귀·읽기 복귀 버튼의 목적지(문서 메인) 관측용 랜딩 라우트. */}
+        <Route path="/documents" element={<div data-testid="reading-landing" />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -179,6 +181,20 @@ describe("DocumentEditPage 조립 (세션 + EditorPane + EditLockBanner)", () =>
     expect(lockBannerSpy).toHaveBeenCalledWith(
       expect.objectContaining({ lockState: otherLock, onRetry: session.retryAcquire }),
     );
+    expect(screen.queryByTestId("editor-pane")).not.toBeInTheDocument();
+  });
+
+  it("취소 성공(released)이면 읽기 화면으로 자동 전이한다 (Req 4.2)", () => {
+    useEditorScopeMock.mockReturnValue(makeScope());
+    // 취소 성공 후 세션은 released 로 확정되지만 초기 콘텐츠(document)는 남아 있다 —
+    // 조립부가 released 신호를 소비해 읽기 화면으로 전이해야 편집 표면에 머무르지 않는다.
+    useEditSessionMock.mockReturnValue(
+      makeSession({ status: "released", document: editableDoc }),
+    );
+
+    renderPage();
+
+    expect(screen.getByTestId("reading-landing")).toBeInTheDocument();
     expect(screen.queryByTestId("editor-pane")).not.toBeInTheDocument();
   });
 
