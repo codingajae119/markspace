@@ -50,8 +50,8 @@ function makeTree(partial: Partial<Tree> = {}): Tree {
 }
 
 describe("Breadcrumb", () => {
-  it("깊은 경로의 조상 제목을 root→current 순서로 렌더한다 (Req 2.1)", () => {
-    // A(1) → B(2) → D(4) 경로, D 선택.
+  it("깊은 경로에서 현재 문서를 제외한 상위 경로만 root→parent 순서로 렌더한다 (Req 2.1)", () => {
+    // A(1) → B(2) → D(4) 경로, D 선택. 현재 문서 D 는 제외하고 상위(A, B)만 표시한다.
     const path = [
       sampleDoc({ id: 1, title: "A" }),
       sampleDoc({ id: 2, title: "B", parent_id: 1 }),
@@ -65,12 +65,10 @@ describe("Breadcrumb", () => {
     // 선택 id 로 조상 파생을 위임한다(별도 조회 없음, Req 2.4).
     expect(ancestorsOf).toHaveBeenCalledWith(4);
 
-    // 각 항목의 라벨 요소(버튼 또는 현재 표시)만 읽어 구분자("/")를 제외한 제목 순서를 검증한다.
+    // 상위 경로는 모두 이동 가능한 버튼으로 렌더한다(현재 문서 제목은 아래 <h1> 이 소유).
     const items = screen.getAllByRole("listitem");
-    const labels = items.map(
-      (li) => li.querySelector("button, [aria-current]")?.textContent,
-    );
-    expect(labels).toEqual(["A", "B", "D"]);
+    const labels = items.map((li) => li.querySelector("button")?.textContent);
+    expect(labels).toEqual(["A", "B"]);
   });
 
   it("중간 조상 항목 클릭 시 select(ancestorId) 를 호출한다 (Req 2.2)", () => {
@@ -92,7 +90,8 @@ describe("Breadcrumb", () => {
     expect(select).toHaveBeenCalledWith(2);
   });
 
-  it("루트 문서(단일 조상)면 항목을 정확히 하나만 렌더한다 (Req 2.3)", () => {
+  it("루트 문서(조상 없음)면 상위 경로가 없어 아무 항목도 렌더하지 않는다 (Req 2.3)", () => {
+    // 파생 경로는 자기 자신 하나뿐 → 현재 문서를 제외하면 표시할 상위가 없다(빈 nav).
     const path = [sampleDoc({ id: 1, title: "A" })];
     const tree = makeTree({
       selectedId: 1,
@@ -101,9 +100,7 @@ describe("Breadcrumb", () => {
 
     render(<Breadcrumb tree={tree} />);
 
-    const items = screen.getAllByRole("listitem");
-    expect(items).toHaveLength(1);
-    expect(items[0]!.textContent).toBe("A");
+    expect(screen.queryAllByRole("listitem")).toHaveLength(0);
   });
 
   it("selectedId 가 null 이면 아무 항목도 렌더하지 않는다", () => {
