@@ -46,6 +46,17 @@ describe("ReadOnlyProse — 공용 읽기 전용 prose 컨테이너 (12.1, 12.2)
     expect(prose.querySelector("span")?.textContent).toBe("child");
   });
 
+  it("html 안의 LaTeX 구분자를 KaTeX 로 렌더한다 (게스트 content_html 수식 경로)", () => {
+    // 백엔드(markdown-it-py + nh3)는 수식을 모르므로 `$$…$$` 가 content_html 에 텍스트로
+    // 남는다 — ReadOnlyProse 가 렌더 직후 KaTeX 패스를 태워 게스트 뷰에서도 수식이 보인다.
+    const { container } = render(
+      <ReadOnlyProse html="<p>질량-에너지 $$E = mc^2$$</p>" />,
+    );
+
+    const prose = getProseContainer(container);
+    expect(prose.querySelector(".katex")).not.toBeNull();
+  });
+
   it("html 경로와 children 경로가 동일한 컨테이너 클래스를 사용한다 (동일 시각 언어 보장, 12.2)", () => {
     const htmlRender = render(<ReadOnlyProse html="<p>x</p>" />);
     const htmlClass = getProseContainer(htmlRender.container).className;

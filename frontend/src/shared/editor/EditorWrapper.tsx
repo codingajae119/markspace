@@ -50,6 +50,7 @@ import "@toast-ui/editor/dist/toastui-editor.css";
 import "@toast-ui/editor/dist/toastui-editor-viewer.css";
 
 import { ReadOnlyProse } from "./ReadOnlyProse";
+import { renderMathIn } from "./renderMath";
 
 /** Toast 위치 좌표 `[line, ch]`(래퍼가 Toast API 형태로 정규화). */
 export type EditorPos = [line: number, ch: number];
@@ -192,6 +193,11 @@ export function EditorWrapper({
       };
       onReadyRef.current?.(handle);
 
+      // 읽기 전용 — Toast 가 채운 뷰어 DOM 에 남은 LaTeX 구분자를 KaTeX 로 렌더한다(8.3
+      // 게스트 뷰와 동일 수식 렌더). 편집 표면(WYSIWYG)에는 적용하지 않는다(ProseMirror
+      // 텍스트 노드 교체 시 에디터 상태 손상). Viewer 는 생성 시 initialValue 를 동기 렌더한다.
+      renderMathIn(el);
+
       return () => {
         viewer.destroy();
       };
@@ -205,7 +211,13 @@ export function EditorWrapper({
       el,
       initialEditType: "wysiwyg",
       initialValue: content,
-      previewStyle: "vertical",
+      // 편집 표면이 mount 컨테이너(전폭·전고 flex 셀)를 가득 채우도록 100% 로 둔다. Toast 기본
+      // 값은 300px 이라 지정하지 않으면 뷰포트가 큰 브라우저에서 화면 절반만 차지한다. 조상 flex
+      // 높이 체인(AppLayout main → section → EditorPane → 이 el)이 확정 높이를 전달한다.
+      height: "100%",
+      // 마크다운 모드는 preview 를 상시 표시하지 않고 탭(Write/Preview) 방식으로 둔다.
+      // 기본 Write 탭에서 편집 영역이 전폭이 되며, 렌더 결과는 WYSIWYG 전환으로 확인한다.
+      previewStyle: "tab",
       hideModeSwitch: false, // markdown 토글을 강제로 숨기지 않는다(8.2).
       ...(customHTMLRenderer !== undefined ? { customHTMLRenderer } : {}),
       ...(wireImagePaste
@@ -218,6 +230,17 @@ export function EditorWrapper({
           }
         : {}),
     });
+
+    // 마크다운 모드 Preview 탭 수식 렌더(읽기 뷰와 동일 KaTeX 패스). Preview 는 편집 표면이
+    // 아니라 markdown → HTML 로 그린 **읽기 전용 출력 DOM** 이므로 KaTeX 패스가 안전하다.
+    // (WYSIWYG 편집 표면은 ProseMirror 소유라 수식을 렌더하지 않고 원문을 유지한다.)
+    // Preview 는 탭 전환·타이핑마다 markdown 에서 재렌더되어 KaTeX 가 지워지므로, 매 렌더
+    // 완료(`afterPreviewRender`)마다 다시 태운다. 이 mutation 은 재렌더를 유발하지 않아 루프가
+    // 없다.
+    const renderPreviewMath = (): void => {
+      renderMathIn(editor.getEditorElements().mdPreview);
+    };
+    editor.on("afterPreviewRender", renderPreviewMath);
 
     // 일반 파일 드롭 — 콜백이 있을 때만 에디터 루트에 DOM drop 리스너 결선(8.6).
     // 브라우저 기본 파일 열기/네비게이션만 최소 차단하고, 업로드 정책은 s21 소유.
@@ -256,6 +279,7 @@ export function EditorWrapper({
       if (wireFileDrop) {
         el.removeEventListener("drop", handleDrop);
       }
+      editor.off("afterPreviewRender");
       editor.destroy();
     };
   }, [mode, initialContent]);
@@ -269,5 +293,7 @@ export function EditorWrapper({
     );
   }
 
-  return <div ref={elRef} />;
+  // 편집 mount 컨테이너 — Toast height:"100%" 가 채울 확정 높이를 확보하도록 flex 셀로 채운다
+  // (부모 flex 컬럼에서 남은 세로 공간 전부 차지, min-h-0 로 내부 스크롤 허용).
+  return <div ref={elRef} className="min-h-0 flex-1" />;
 }

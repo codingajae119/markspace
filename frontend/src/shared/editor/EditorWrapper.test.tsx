@@ -16,6 +16,12 @@ const destroySpy = vi.fn();
 const insertTextSpy = vi.fn<(text: string) => void>();
 const replaceSelectionSpy =
   vi.fn<(text: string, start?: unknown, end?: unknown) => void>();
+const onSpy = vi.fn<(type: string, handler: () => void) => void>();
+const offSpy = vi.fn<(type: string) => void>();
+// getEditorElements().mdPreview 에 채울 HTML — 편집 모드 Preview 수식 렌더 테스트가 주입한다.
+let mdPreviewHtml = "";
+// 마지막으로 반환된 안정적 mdPreview 요소(테스트가 renderMathIn 결과를 검증하려 참조).
+let lastMdPreview: HTMLElement | null = null;
 const MOCK_MARKDOWN = "# mock markdown\n\nbody";
 
 vi.mock("@toast-ui/editor", () => {
@@ -36,6 +42,32 @@ vi.mock("@toast-ui/editor", () => {
     // 6.2 capability: 범위 치환(placeholder→최종 참조).
     replaceSelection(text: string, start?: unknown, end?: unknown): void {
       replaceSelectionSpy(text, start, end);
+    }
+
+    // 편집 모드 이벤트 구독(Preview 수식 렌더 결선용). 타입별 핸들러를 기록한다.
+    on(type: string, handler: () => void): void {
+      onSpy(type, handler);
+    }
+
+    off(type: string): void {
+      offSpy(type);
+    }
+
+    // 편집 표면 DOM 슬롯. Preview 요소는 안정적으로 캐시하여(테스트가 검증) 주입 HTML 로 채운다.
+    getEditorElements(): {
+      mdEditor: HTMLElement;
+      mdPreview: HTMLElement;
+      wwEditor: HTMLElement;
+    } {
+      if (lastMdPreview === null) {
+        lastMdPreview = document.createElement("div");
+        lastMdPreview.innerHTML = mdPreviewHtml;
+      }
+      return {
+        mdEditor: document.createElement("div"),
+        mdPreview: lastMdPreview,
+        wwEditor: document.createElement("div"),
+      };
     }
 
     destroy(): void {
@@ -62,6 +94,10 @@ beforeEach(() => {
   destroySpy.mockClear();
   insertTextSpy.mockClear();
   replaceSelectionSpy.mockClear();
+  onSpy.mockClear();
+  offSpy.mockClear();
+  mdPreviewHtml = "";
+  lastMdPreview = null;
 });
 
 afterEach(() => {
@@ -86,6 +122,29 @@ describe("EditorWrapper — Toast UI 단일 래퍼 (8.1~8.5)", () => {
     expect(options.viewer).not.toBe(true);
     // el 컨테이너가 주입된다.
     expect(options.el).toBeInstanceOf(HTMLElement);
+  });
+
+  it("mode=edit 는 afterPreviewRender 에 Preview 수식 렌더를 결선하고 unmount 시 해제한다", () => {
+    // Preview(markdown 모드 출력 DOM)에 수식이 들어있다고 가정한다.
+    mdPreviewHtml = "<p>미리보기 $x+y=1$ 끝</p>";
+    const { unmount } = render(<EditorWrapper mode="edit" initialContent="x" />);
+
+    // afterPreviewRender 이벤트에 핸들러가 구독된다.
+    const call = onSpy.mock.calls.find(([type]) => type === "afterPreviewRender");
+    expect(call).toBeDefined();
+
+    // 핸들러 실행 시 Preview DOM 에 실제 KaTeX 가 렌더된다(모킹 아님 — 실제 renderMathIn).
+    const handler = call![1];
+    handler();
+    expect(lastMdPreview).not.toBeNull();
+    expect(lastMdPreview!.querySelector(".katex")).not.toBeNull();
+
+    // WYSIWYG 편집 표면(wwEditor)에는 수식을 렌더하지 않는다 — 현 상태 유지.
+    expect(lastMdPreview!.textContent).not.toContain("$x+y=1$");
+
+    // unmount 시 이벤트 구독을 해제한다(리스너 누수 방지).
+    unmount();
+    expect(offSpy).toHaveBeenCalledWith("afterPreviewRender");
   });
 
   it("mode=read 는 Viewer factory 로 렌더하고 .readonly-prose 컨테이너 안에 위치한다 (8.3)", () => {

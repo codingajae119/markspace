@@ -15,8 +15,9 @@
  *   React 가 이스케이프하도록 넘길 것.
  */
 
-import type { ReactElement, ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactElement, type ReactNode } from "react";
 
+import { renderMathIn } from "./renderMath";
 import "./prose.css";
 
 /** 공용 prose 컨테이너 클래스 — 두 렌더 경로가 동일하게 공유하는 단일 시각 언어. */
@@ -37,9 +38,26 @@ export interface ReadOnlyProseProps {
  * 두 경로 모두 동일한 `.readonly-prose` 컨테이너를 사용한다.
  */
 export function ReadOnlyProse({ html, children }: ReadOnlyProseProps): ReactElement {
+  const htmlRef = useRef<HTMLDivElement | null>(null);
+
+  // html(게스트 content_html) 경로: 렌더된 DOM 에 남은 `$$…$$`·`$…$` 텍스트를 KaTeX 로
+  // 렌더한다. children 경로는 EditorWrapper(read) 가 Toast 뷰어 DOM 에 직접 수식 패스를
+  // 태우므로 여기서 처리하지 않는다(이중 처리·Toast 채우기 전 실행 방지).
+  useLayoutEffect(() => {
+    if (html !== undefined) {
+      renderMathIn(htmlRef.current);
+    }
+  }, [html]);
+
   if (html !== undefined) {
-    // 신뢰된 sanitized HTML — sanitize 는 호출자(s22) 책임. 여기서는 스타일 래핑만.
-    return <div className={PROSE_CLASS} dangerouslySetInnerHTML={{ __html: html }} />;
+    // 신뢰된 sanitized HTML — sanitize 는 호출자(s22) 책임. 여기서는 스타일 래핑 + 수식 패스만.
+    return (
+      <div
+        ref={htmlRef}
+        className={PROSE_CLASS}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    );
   }
 
   return <div className={PROSE_CLASS}>{children}</div>;
