@@ -93,14 +93,15 @@ describe("CurrentWorkspaceIndicator", () => {
     expect(screen.getByText("member")).toBeInTheDocument();
   });
 
-  it("역할 신호가 없으면(best-effort 미확정) '역할 미확인'을 표시한다", () => {
+  it("멤버십 role 이 없으면(비멤버) 'viewer' 로 표시한다", () => {
     stubRoleSource(null);
     render(<CurrentWorkspaceIndicator />, {
       wrapper: withWorkspaceCtx("ready", workspace(1, "test1")),
     });
 
     expect(screen.getByText("test1")).toBeInTheDocument();
-    expect(screen.getByText("역할 미확인")).toBeInTheDocument();
+    expect(screen.getByText("viewer")).toBeInTheDocument();
+    expect(screen.queryByText("역할 미확인")).not.toBeInTheDocument();
   });
 
   it("선택된 WS 가 없으면 '워크스페이스 미선택'을 명시한다(empty status)", () => {

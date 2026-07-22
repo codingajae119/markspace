@@ -8,9 +8,13 @@
  *
  * 데이터 출처(둘 다 옵셔널 읽기 — provider 밖에서도 던지지 않음):
  * - 현재 WS 이름·id·status: s16 앰비언트 `CurrentWorkspaceContext`.
- * - 역할: s18 `MembershipRoleSource`(best-effort). 백엔드 `WorkspaceRead` 는 호출자 role 을 담지
- *   않고 자기-role 조회 엔드포인트도 없어, WS 생성(→owner) 또는 멤버 뮤테이션 응답 에코로만 role 이
- *   축적된다. 신호가 없으면(예: 새로고침 직후) role 은 `null` 이며 "역할 미확인"으로 정직하게 표시한다.
+ * - 역할: s18 `MembershipRoleSource`. 목록 응답의 `WorkspaceRead.role` 로 시드되며(s24 로드-시드)
+ *   WS 생성(→owner)·멤버 뮤테이션 응답 에코로도 갱신된다.
+ *
+ * `role === null` 의 의미(목록 읽기 전역 개방 이후): 목록은 **모든** 워크스페이스를 싣고 비멤버
+ * 항목의 `role` 만 null 이므로, null 은 "신호 부재"가 아니라 **비멤버 확정**이다. 이 배지는
+ * `status === "loading"` 동안 렌더를 보류하므로 표시 시점에는 목록이 이미 로드돼 있다. 따라서
+ * null 을 읽기 전용 열람자, 즉 "viewer" 로 표시한다(owner/member 와 달리 편집 권한 없음).
  *
  * role 번역은 `MembershipRoleSource` 단일 소스(`memberRoleToRole`)와 `Role` enum 을 그대로 소비하며
  * 여기서 문자열↔enum 변환을 재구현하지 않는다.
@@ -29,10 +33,10 @@ const ROLE_BADGE: Record<Role, { label: string; className: string }> = {
   [Role.MEMBER]: { label: "member", className: "bg-sky-100 text-sky-800" },
 };
 
-/** 역할 신호 부재(best-effort 미확정) 시 표시. */
-const UNKNOWN_ROLE_BADGE = {
-  label: "역할 미확인",
-  className: "bg-slate-100 text-slate-500",
+/** 멤버십 role 부재(=비멤버) 시 표시. 읽기만 가능한 열람자이므로 "viewer" 로 명시한다. */
+const VIEWER_ROLE_BADGE = {
+  label: "viewer",
+  className: "bg-slate-100 text-slate-600",
 } as const;
 
 /** 전역 헤더에 놓이는 현재 WS·역할 표시. 선택된 WS 가 없으면 안내 배지를 표시한다. */
@@ -65,7 +69,7 @@ export function CurrentWorkspaceIndicator(): ReactElement | null {
   }
 
   const role = roleSource?.roleFor(currentWorkspace.id) ?? null;
-  const badge = role !== null ? ROLE_BADGE[role] : UNKNOWN_ROLE_BADGE;
+  const badge = role !== null ? ROLE_BADGE[role] : VIEWER_ROLE_BADGE;
 
   return (
     <span

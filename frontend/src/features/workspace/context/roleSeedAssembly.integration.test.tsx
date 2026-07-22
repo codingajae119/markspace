@@ -11,7 +11,7 @@
  * - 시드-only 복원: in-session 기록(recordOwner/recordSelfRole) 없이 로드된 `workspaces[].role` 만으로
  *   roleFor·배지·owner 패널이 정확히 동작(Req 3.2·4.2·5.2).
  * - 마운트 순서 역전 회귀: MembershipRoleProvider 를 CurrentWorkspaceProvider **상위**로 뒤집으면
- *   옵셔널 읽기가 null → 시드 중단 → roleFor null·배지 "역할 미확인". 이 테스트가 실패하면 실제
+ *   옵셔널 읽기가 null → 시드 중단 → roleFor null·배지 "viewer". 이 테스트가 실패하면 실제
  *   조립 순서가 뒤집혔다는 신호다(design.md Revalidation Triggers: 마운트 순서 규약).
  *
  * 실물: CurrentWorkspaceProvider, MembershipRoleProvider, CurrentWorkspaceIndicator,
@@ -245,10 +245,10 @@ describe("배지 회귀: CurrentWorkspaceIndicator in real assembly (Req 3.1·3.
     );
 
     await waitFor(() => expect(screen.getByText("member")).toBeInTheDocument());
-    expect(screen.queryByText("역할 미확인")).not.toBeInTheDocument();
+    expect(screen.queryByText("viewer")).not.toBeInTheDocument();
   });
 
-  it("현재 WS role 신호가 없으면(role=null) '역할 미확인' 을 유지한다 (Req 3.3)", async () => {
+  it("현재 WS 멤버십 role 이 없으면(role=null) 비멤버 표시 'viewer' 를 유지한다 (Req 3.3)", async () => {
     mockNonAdmin();
     getMock.mockResolvedValue(page([ws(1, null)]));
 
@@ -258,9 +258,9 @@ describe("배지 회귀: CurrentWorkspaceIndicator in real assembly (Req 3.1·3.
       </Assembled>,
     );
 
-    // 목록은 로드되되(현재 WS 이름 노출) role 신호는 부재 → 미확인.
+    // 목록은 로드되되(현재 WS 이름 노출) 멤버십 role 은 부재 → 읽기 전용 열람자.
     await waitFor(() => expect(screen.getByText("WS 1")).toBeInTheDocument());
-    expect(screen.getByText("역할 미확인")).toBeInTheDocument();
+    expect(screen.getByText("viewer")).toBeInTheDocument();
     expect(screen.queryByText("owner")).not.toBeInTheDocument();
     expect(screen.queryByText("member")).not.toBeInTheDocument();
   });
@@ -365,7 +365,7 @@ describe("마운트 순서 역전 회귀: 시드 중단 고정 (design Revalidat
     expect(screen.getByTestId("role-1")).toHaveTextContent("null");
   });
 
-  it("역전 조립에서는 배지가 실제 role 로드에도 '역할 미확인' 을 표시한다(시드 중단 회귀)", async () => {
+  it("역전 조립에서는 배지가 실제 role 로드에도 'viewer' 로 남는다(시드 중단 회귀)", async () => {
     mockNonAdmin();
     getMock.mockResolvedValue(page([ws(1, "owner")]));
 
@@ -375,9 +375,9 @@ describe("마운트 순서 역전 회귀: 시드 중단 고정 (design Revalidat
       </ReversedAssembled>,
     );
 
-    // 현재 WS 이름은 로드되지만(status ready) role 시드 부재 → "역할 미확인".
+    // 현재 WS 이름은 로드되지만(status ready) role 시드 부재 → 비멤버와 구분되지 않는 "viewer".
     await waitFor(() => expect(screen.getByText("WS 1")).toBeInTheDocument());
-    expect(screen.getByText("역할 미확인")).toBeInTheDocument();
+    expect(screen.getByText("viewer")).toBeInTheDocument();
     expect(screen.queryByText("owner")).not.toBeInTheDocument();
   });
 });
