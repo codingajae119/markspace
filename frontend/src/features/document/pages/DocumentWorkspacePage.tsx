@@ -22,6 +22,7 @@
  */
 
 import type { ReactElement } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { Role } from "@/shared/auth/roles";
 import { hasWorkspaceRole } from "@/shared/auth/permissions";
@@ -35,11 +36,19 @@ import { DocumentTree } from "../components/DocumentTree";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { DocumentViewer } from "../components/DocumentViewer";
 
+// 편집 화면 진입 경로 빌더(s20 소유 `/documents/:id/edit`). 두 feature 는 서로 직접 import 하지
+// 않으므로(Req 7.5, DocumentEditPage 의 READING_PATH 대칭) editor 의 DOCUMENT_EDIT_PATH 를
+// import 하지 않고 경로 문자열만 로컬에서 조립한다.
+function buildDocumentEditPath(documentId: number): string {
+  return `/documents/${documentId}/edit`;
+}
+
 /** 문서 메인 화면. 현재 WS 스코프에 트리·브레드크럼·뷰어·툴바를 조립한다. */
 export function DocumentWorkspacePage(): ReactElement {
   const scope = useDocumentScope();
   const tree = useDocumentTree();
   const mutations = useDocumentMutations(tree, scope.workspaceId ?? "");
+  const navigate = useNavigate();
 
   const canEdit = hasWorkspaceRole({
     currentRole: scope.role,
@@ -112,7 +121,13 @@ export function DocumentWorkspacePage(): ReactElement {
         <div className="min-w-0 flex-1">
           <Breadcrumb tree={tree} />
           {tree.selectedId !== null ? (
-            <DocumentViewer documentId={tree.selectedId} canEdit={canEdit} />
+            <DocumentViewer
+              documentId={tree.selectedId}
+              canEdit={canEdit}
+              onEnterEdit={(documentId) => {
+                navigate(buildDocumentEditPath(documentId));
+              }}
+            />
           ) : (
             <EmptyState
               title="문서를 선택하세요"

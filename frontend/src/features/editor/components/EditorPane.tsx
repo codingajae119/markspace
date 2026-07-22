@@ -56,7 +56,7 @@ export function EditorPane({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex justify-end">
         {/* 명시적 저장 버튼 없음 — 저장은 세션 이탈 시 1회 자동저장(Req 3.1). */}
         <Button

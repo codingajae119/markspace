@@ -104,6 +104,33 @@ describe("보호/게스트 라우트 프레임", () => {
     expect(screen.queryByText("login")).not.toBeInTheDocument();
   });
 
+  it("인증 상태·feature index 미등록이면 보호 영역 루트(/)에 built-in index 플레이스홀더가 렌더된다", () => {
+    setSession({
+      status: "authenticated",
+      user: { id: 1, login_id: "alice", name: "Alice", email: null, is_admin: false },
+      settings: null,
+    });
+
+    renderAt(["/"]);
+
+    // feature 홈 라우트가 없으면 프레임 단독 렌더용 placeholder(<div>home</div>)가 유지된다.
+    expect(screen.getByText("home")).toBeInTheDocument();
+  });
+
+  it("feature 가 index 라우트를 등록하면 built-in index 플레이스홀더가 override 되어 물러난다", () => {
+    setSession({
+      status: "authenticated",
+      user: { id: 1, login_id: "alice", name: "Alice", email: null, is_admin: false },
+      settings: null,
+    });
+
+    // s19 문서 메인 리다이렉트처럼 feature 가 보호 슬롯 index 를 등록하면 placeholder 는 배제된다.
+    renderAt(["/"], { protectedRoutes: [{ index: true, element: <div>feature home</div> }] });
+
+    expect(screen.getByText("feature home")).toBeInTheDocument();
+    expect(screen.queryByText("home")).not.toBeInTheDocument();
+  });
+
   it("/share/:token 게스트 라우트는 세션 없이 렌더되고 로그인으로 리다이렉트하지 않는다 (AC 2.4, 4.3)", () => {
     setSession({ status: "unauthenticated" });
 

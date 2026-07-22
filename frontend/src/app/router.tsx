@@ -48,7 +48,10 @@ function SharePlaceholder() {
   return <div>share</div>;
 }
 
-/** 보호 영역 루트 index 플레이스홀더. feature 홈 라우트가 등록되기 전 프레임 단독 렌더용. */
+/**
+ * 보호 영역 루트 index 플레이스홀더. feature 홈 라우트가 등록되기 전 프레임 단독 렌더용.
+ * feature 가 index 라우트를 등록하면(s19 문서 메인 리다이렉트) 이 placeholder 는 override 되어 물러난다.
+ */
 function RootIndexPlaceholder() {
   return <div>home</div>;
 }
@@ -87,13 +90,23 @@ export function createAppRoutes(ext: AppRouteExtensions = {}): RouteObject[] {
     { path: ROUTES.share, element: <SharePlaceholder /> },
   ].filter((route) => typeof route.path !== "string" || !overriddenGuestPaths.has(route.path));
 
+  // 보호 영역 index(홈) 슬롯: feature 가 홈 index 라우트를 등록하면(예: s19 문서 메인 리다이렉트)
+  // built-in 플레이스홀더는 물러난다(guest path override 와 대칭). react-router 는 index 라우트가
+  // 둘 이상이면 오류이므로, feature index 가 있을 때 placeholder 를 배제한다.
+  const hasFeatureIndex = protectedRoutes.some(
+    (route) => "index" in route && route.index === true,
+  );
+  const builtInIndex: RouteObject[] = hasFeatureIndex
+    ? []
+    : [{ index: true, element: <RootIndexPlaceholder /> }];
+
   return [
     ...builtInGuest,
     ...guestRoutes,
     // 보호 영역 — 세션 가드 레이아웃. 자식은 `<Outlet />` 로 렌더된다(AppLayout 래핑은 5.2/7.1).
     {
       element: <ProtectedRoute />,
-      children: [{ index: true, element: <RootIndexPlaceholder /> }, ...protectedRoutes],
+      children: [...builtInIndex, ...protectedRoutes],
     },
   ];
 }

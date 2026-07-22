@@ -20,6 +20,8 @@
  * - 8.1 휴지통 화면을 s16 RouteModule 계약(보호 슬롯)에 결선
  */
 
+import { Navigate } from "react-router-dom";
+
 import type { RouteModule } from "@/app/routeModule";
 
 import { DocumentWorkspacePage } from "./pages/DocumentWorkspacePage";
@@ -35,6 +37,10 @@ export const documentRoutes: RouteModule[] = [
   {
     scope: "protected",
     routes: [
+      // 보호 영역 홈(`/`)을 문서 메인으로 결선한다. canonical 경로는 `/documents`(editor 복귀·공유
+      // 경로가 이를 전제)이며, `/`(로그인 기본 복귀·브랜드 홈)는 이 index 리다이렉트로 canonical 로
+      // 수렴한다. s16 프레임의 built-in index 플레이스홀더는 이 feature index 등록으로 override 된다.
+      { index: true, element: <Navigate to={DOCUMENTS_PATH} replace /> },
       { path: "documents", element: <DocumentWorkspacePage /> },
       { path: "trash", element: <TrashPage /> },
     ],

@@ -25,11 +25,16 @@ export interface AppLayoutProps {
 /** 인증 영역 공통 프레임: 상단 header 영역 + main 콘텐츠 슬롯. */
 export function AppLayout({ children, nav }: AppLayoutProps): ReactElement {
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900">
+    <div className="flex h-screen flex-col overflow-hidden bg-slate-50 text-slate-900">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex h-14 w-full max-w-5xl items-center px-4">{nav}</div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
+      {/* 앱 셸: 루트를 확정 높이(h-screen)로 고정하고 main 이 내부 스크롤을 담당한다. 편집
+          페이지는 flex-1 체인으로 남은 높이를 채우고(에디터 전고), 긴 페이지는 main 안에서
+          스크롤된다. min-h-0 로 flex 자식이 축소 가능해야 내부 스크롤이 살아난다. */}
+      <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col overflow-y-auto px-4 py-6">
+        {children}
+      </main>
     </div>
   );
 }

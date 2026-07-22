@@ -6,8 +6,8 @@
  * 화면으로 이동할 링크가 전혀 없었다. 이 컴포넌트가 그 seam 을 채운다.
  *
  * 구성:
- * - 브랜드 링크(홈=문서 메인)
- * - 주요 이동 링크: 문서(`ROUTES.root`) · 워크스페이스(`WORKSPACE_PATH`)
+ * - 브랜드 링크(홈=문서 메인, `DOCUMENTS_PATH`)
+ * - 주요 이동 링크: 문서(`DOCUMENTS_PATH`) · 워크스페이스(`WORKSPACE_PATH`)
  * - 관리자 콘솔 링크(`ADMIN_CONSOLE_PATH`) — s16 `RequireAdmin`(세션 `is_admin`)으로 게이팅하여
  *   admin 세션에만 노출한다(INV-3, 콘솔 자체도 `RequireAdmin` self-gating 이라 이중 안전).
  * - 로그아웃(auth feature `LogoutButton`)
@@ -19,10 +19,10 @@
 import type { ReactElement } from "react";
 import { NavLink } from "react-router-dom";
 
-import { ROUTES } from "@/app/routes";
 import { RequireAdmin } from "@/shared/auth/RequireAdmin";
 import { LogoutButton } from "@/features/auth/components/LogoutButton";
 import { WORKSPACE_PATH, ADMIN_CONSOLE_PATH } from "@/features/workspace/routes";
+import { DOCUMENTS_PATH } from "@/features/document/routes";
 import { CurrentWorkspaceIndicator } from "@/features/workspace/components/CurrentWorkspaceIndicator";
 
 /** 활성 라우트를 강조하는 NavLink 클래스 계산기. */
@@ -39,12 +39,12 @@ function navLinkClass({ isActive }: { isActive: boolean }): string {
 export function AppHeaderNav(): ReactElement {
   return (
     <div className="flex w-full items-center gap-4">
-      <NavLink to={ROUTES.root} end className="text-base font-semibold text-slate-900">
+      <NavLink to={DOCUMENTS_PATH} className="text-base font-semibold text-slate-900">
         Notion-lite
       </NavLink>
 
       <nav aria-label="주요" className="flex items-center gap-1">
-        <NavLink to={ROUTES.root} end className={navLinkClass}>
+        <NavLink to={DOCUMENTS_PATH} className={navLinkClass}>
           문서
         </NavLink>
         <NavLink to={WORKSPACE_PATH} className={navLinkClass}>

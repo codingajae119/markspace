@@ -11,9 +11,10 @@ import type { EditableDocument, LockState } from "../types";
 
 /**
  * DocumentEditPage 조립 통합 테스트: 세션 생명주기(useEditSession)·스코프(useEditorScope)를
- * 결선해 EditorPane + EditLockBanner + VersionHistoryPanel 을 조립하는 in-boundary 페이지를
- * 관측한다. 세 자식 컴포넌트와 두 훅을 lightweight stub 으로 모킹해 수신 props 를 기록하고,
- * 라우트 파라미터(:id)에서 documentId 를 파싱해 훅·패널에 전달함을 검증한다.
+ * 결선해 EditorPane + EditLockBanner 를 조립하는 in-boundary 페이지를 관측한다. 편집창 폭
+ * 확보를 위해 버전 이력 사이드 패널은 렌더하지 않는다. 두 자식 컴포넌트와 두 훅을 lightweight
+ * stub 으로 모킹해 수신 props 를 기록하고, 라우트 파라미터(:id)에서 documentId 를 파싱해
+ * 훅에 전달함을 검증한다.
  *
  * Requirements: 1.1(진입·세션 결선), 1.5/7.2/7.8(viewer 미도달·로컬 role 게이트 없음),
  *   7.1(WS·세션 스코프 주입), 7.3(ApiError 표면화 위임), 7.4(401 전역 위임), 7.5(다른 feature
@@ -38,14 +39,6 @@ vi.mock("../components/EditLockBanner", () => ({
   EditLockBanner: (props: unknown): ReactElement => {
     lockBannerSpy(props);
     return <div data-testid="lock-banner" />;
-  },
-}));
-
-const versionPanelSpy = vi.fn<(props: unknown) => void>();
-vi.mock("../components/VersionHistoryPanel", () => ({
-  VersionHistoryPanel: (props: unknown): ReactElement => {
-    versionPanelSpy(props);
-    return <div data-testid="version-panel" />;
   },
 }));
 
@@ -116,14 +109,13 @@ beforeEach(() => {
   useEditorScopeMock.mockReset();
   editorPaneSpy.mockReset();
   lockBannerSpy.mockReset();
-  versionPanelSpy.mockReset();
 });
 
 afterEach(() => {
   cleanup();
 });
 
-describe("DocumentEditPage 조립 (세션 + EditorPane + EditLockBanner + VersionHistoryPanel)", () => {
+describe("DocumentEditPage 조립 (세션 + EditorPane + EditLockBanner)", () => {
   it("라우트 파라미터(:id)에서 documentId 를 파싱해 훅에 전달한다 (Req 1.1)", () => {
     useEditorScopeMock.mockReturnValue(makeScope());
     useEditSessionMock.mockReturnValue(makeSession({ document: editableDoc }));
@@ -133,7 +125,7 @@ describe("DocumentEditPage 조립 (세션 + EditorPane + EditLockBanner + Versio
     expect(useEditSessionMock).toHaveBeenCalledWith(42);
   });
 
-  it("편집 활성(document 존재) 시 EditorPane·VersionHistoryPanel·EditLockBanner 를 조립한다 (Req 1.1, 7.1)", () => {
+  it("편집 활성(document 존재) 시 EditorPane·EditLockBanner 를 조립한다 (Req 1.1, 7.1)", () => {
     const scope = makeScope();
     const session = makeSession({ document: editableDoc });
     useEditorScopeMock.mockReturnValue(scope);
@@ -147,11 +139,8 @@ describe("DocumentEditPage 조립 (세션 + EditorPane + EditLockBanner + Versio
       expect.objectContaining({ session }),
     );
 
-    // VersionHistoryPanel 은 파싱된 documentId 와 문서의 current_version_id 를 받는다.
-    expect(screen.getByTestId("version-panel")).toBeInTheDocument();
-    expect(versionPanelSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ documentId: 42, currentVersionId: 99 }),
-    );
+    // 버전 이력 사이드 패널은 편집창 폭 확보를 위해 렌더하지 않는다.
+    expect(screen.queryByTestId("version-panel")).not.toBeInTheDocument();
 
     // EditLockBanner 는 lockState + 스코프(role/isAdmin) + onRetry(재획득) 를 받는다.
     expect(screen.getByTestId("lock-banner")).toBeInTheDocument();
@@ -163,19 +152,6 @@ describe("DocumentEditPage 조립 (세션 + EditorPane + EditLockBanner + Versio
         isAdmin: scope.isAdmin,
         onRetry: session.retryAcquire,
       }),
-    );
-  });
-
-  it("current_version_id 가 없으면 VersionHistoryPanel 에 null 을 전달한다 (Req 6.5)", () => {
-    useEditorScopeMock.mockReturnValue(makeScope());
-    useEditSessionMock.mockReturnValue(
-      makeSession({ document: { ...editableDoc, current_version_id: null } }),
-    );
-
-    renderPage();
-
-    expect(versionPanelSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ documentId: 42, currentVersionId: null }),
     );
   });
 
@@ -204,7 +180,6 @@ describe("DocumentEditPage 조립 (세션 + EditorPane + EditLockBanner + Versio
       expect.objectContaining({ lockState: otherLock, onRetry: session.retryAcquire }),
     );
     expect(screen.queryByTestId("editor-pane")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("version-panel")).not.toBeInTheDocument();
   });
 
   it("읽기로 돌아가기 back affordance 를 노출한다 (Req 2.2)", () => {

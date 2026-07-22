@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { ReactElement } from "react";
+import { Navigate } from "react-router-dom";
 
 import { documentRoutes, DOCUMENTS_PATH, TRASH_PATH } from "./routes";
 import { DocumentWorkspacePage } from "./pages/DocumentWorkspacePage";
@@ -44,5 +45,17 @@ describe("documentRoutes 등록 결선 (보호 슬롯 문서 메인 + 휴지통)
     const trashRoute = guarded?.routes.find((route) => route.path === "trash");
     expect(trashRoute).toBeDefined();
     expect((trashRoute?.element as ReactElement).type).toBe(TrashPage);
+  });
+
+  it("보호 영역 index(홈, `/`) 라우트는 canonical `/documents` 로 리다이렉트한다", () => {
+    const guarded = documentRoutes.find((module) => module.scope === "protected");
+
+    const indexRoute = guarded?.routes.find((route) => route.index === true);
+    expect(indexRoute).toBeDefined();
+
+    const element = indexRoute?.element as ReactElement;
+    expect(element.type).toBe(Navigate);
+    expect((element.props as { to: string; replace?: boolean }).to).toBe(DOCUMENTS_PATH);
+    expect((element.props as { to: string; replace?: boolean }).replace).toBe(true);
   });
 });

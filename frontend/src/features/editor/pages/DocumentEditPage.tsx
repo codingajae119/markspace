@@ -3,8 +3,9 @@
  *
  * 라우트 파라미터(:id)에서 documentId 를 파싱해 편집 세션 생명주기(`useEditSession`)와 s16
  * 앰비언트 스코프(`useEditorScope`: workspaceId·role·isAdmin·currentUserId)를 결선하고,
- * EditorPane + EditLockBanner + VersionHistoryPanel 을 하나의 화면으로 조립하는 in-boundary
- * 페이지다. 상태·잠금·저장·권한 판정은 소유하지 않고 이미 구현된 훅·컴포넌트에 위임한다:
+ * EditorPane + EditLockBanner 를 하나의 화면으로 조립하는 in-boundary 페이지다. 편집창 폭을
+ * 최대한 확보하기 위해 버전 이력 사이드 패널은 두지 않고 편집 표면을 전폭으로 렌더한다.
+ * 상태·잠금·저장·권한 판정은 소유하지 않고 이미 구현된 훅·컴포넌트에 위임한다:
  * - `useEditorScope()`: s16 `useCurrentWorkspace()`(workspaceId·role) + `useSession()`(isAdmin·
  *   userId)의 얇은 투영(Req 7.1). role 비교는 하위 컴포넌트의 RequireRole 이 소유한다.
  * - `useEditSession(documentId)`: 진입 잠금 획득 → 편집 활성 → 이탈 시 1회 자동저장/취소 생명주기.
@@ -14,8 +15,8 @@
  * - EditLockBanner: `lockState` 를 표시(self "내가 편집 중"/other "다른 사용자가 편집 중"/error).
  *   강제 해제 노출·호출은 배너 내부 s16 게이팅(RequireRole OWNER + useForceUnlock)이 소유하며,
  *   여기서는 scope.role·isAdmin·session.retryAcquire(재획득)만 주입한다.
- * - 편집 활성(`session.document` 존재): EditorPane(세션 결선) + VersionHistoryPanel(현재 버전
- *   구분 표시). 콘텐츠 없이 편집 인스턴스를 만들지 않으므로 document 확보 시에만 마운트한다.
+ * - 편집 활성(`session.document` 존재): EditorPane(세션 결선)을 전폭으로 마운트한다. 콘텐츠
+ *   없이 편집 인스턴스를 만들지 않으므로 document 확보 시에만 마운트한다.
  * - "읽기로 돌아가기" back affordance: 타인 잠금(other)·취소(released) 후 읽기 화면 복귀 경로
  *   (Req 2.2). `useNavigate` 로 문서 메인(`/documents`)으로 복귀한다.
  *
@@ -40,7 +41,6 @@ import { useEditorScope } from "../hooks/useEditorScope";
 import { useEditSession } from "../hooks/useEditSession";
 import { EditorPane } from "../components/EditorPane";
 import { EditLockBanner } from "../components/EditLockBanner";
-import { VersionHistoryPanel } from "../components/VersionHistoryPanel";
 
 // 읽기 화면 복귀 경로(문서 메인). s19 소유 라우트지만 feature import 를 피하기 위해 경로 문자열만
 // 사용한다(두 feature 는 서로 직접 import 하지 않는다, Req 7.5).
@@ -59,7 +59,10 @@ export function DocumentEditPage(): ReactElement {
   }, [navigate]);
 
   return (
-    <section aria-labelledby="document-edit-heading" className="flex flex-col gap-6">
+    <section
+      aria-labelledby="document-edit-heading"
+      className="flex min-h-0 flex-1 flex-col gap-6"
+    >
       <header className="flex items-center justify-between">
         <h1 id="document-edit-heading" className="text-lg font-semibold text-slate-900">
           문서 편집
@@ -90,18 +93,11 @@ export function DocumentEditPage(): ReactElement {
             onRetry={session.retryAcquire}
           />
 
-          {/* 잠금 보유(self)로 초기 콘텐츠가 확보된 경우에만 편집 표면·버전 이력을 마운트한다. */}
+          {/* 잠금 보유(self)로 초기 콘텐츠가 확보된 경우에만 편집 표면을 마운트한다.
+              편집창 폭 확보를 위해 버전 이력 사이드 패널은 표시하지 않고 전폭으로 렌더한다. */}
           {session.document !== null ? (
-            <div className="flex flex-col gap-6 lg:flex-row">
-              <div className="min-w-0 flex-1">
-                <EditorPane session={session} />
-              </div>
-              <aside className="lg:w-80 lg:shrink-0">
-                <VersionHistoryPanel
-                  documentId={documentId}
-                  currentVersionId={session.document.current_version_id ?? null}
-                />
-              </aside>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <EditorPane session={session} />
             </div>
           ) : null}
         </>
