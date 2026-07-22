@@ -105,7 +105,7 @@ afterEach(() => {
 });
 
 describe("EditorWrapper — Toast UI 단일 래퍼 (8.1~8.5)", () => {
-  it("mode=edit 는 Editor 를 WYSIWYG 기본으로 생성하고 markdown 토글을 차단하지 않는다 (8.2)", () => {
+  it("mode=edit 는 Editor 를 markdown(Write) 기본으로 생성하고 모드 토글을 차단하지 않는다 (8.2)", () => {
     render(<EditorWrapper mode="edit" initialContent="hello" />);
 
     // Editor 생성자가 호출되고 Viewer factory 는 호출되지 않는다(편집 경로).
@@ -113,10 +113,10 @@ describe("EditorWrapper — Toast UI 단일 래퍼 (8.1~8.5)", () => {
     expect(factorySpy).not.toHaveBeenCalled();
 
     const options = editorCtorSpy.mock.calls[0][0];
-    // WYSIWYG 기본.
-    expect(options.initialEditType).toBe("wysiwyg");
+    // markdown(Write) 기본.
+    expect(options.initialEditType).toBe("markdown");
     expect(options.initialValue).toBe("hello");
-    // markdown 토글(모드 스위치)을 강제로 숨기지 않는다 → markdown 토글 사용 가능.
+    // 모드 스위치를 강제로 숨기지 않는다 → WYSIWYG 토글 사용 가능.
     expect(options.hideModeSwitch).not.toBe(true);
     // viewer 모드가 아니다.
     expect(options.viewer).not.toBe(true);

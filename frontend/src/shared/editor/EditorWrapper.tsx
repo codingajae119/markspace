@@ -3,7 +3,7 @@
  *
  * 편집(`mode:"edit"`)·읽기(`mode:"read"`) 렌더 경로를 **단일 컴포넌트**로 통일한다.
  * 하위 feature 는 Editor/Viewer 를 직접 고르지 않는다(렌더 경로 이원화 금지 — 8.1, 8.3):
- *   - edit → Toast `Editor`(WYSIWYG 기본 + toolbar markdown 토글)(8.2)
+ *   - edit → Toast `Editor`(markdown(Write) 기본 + toolbar WYSIWYG 토글)(8.2)
  *   - read → Toast Viewer(`Editor.factory({ viewer:true })`), `ReadOnlyProse` 컨테이너로
  *            감싸 s22 게스트 뷰와 동일한 공용 prose 시각 언어를 공유(8.3)
  * `onReady(handle)` 로 초기 콘텐츠 주입·현재 콘텐츠 조회 인터페이스(`EditorHandle`)를
@@ -203,13 +203,13 @@ export function EditorWrapper({
       };
     }
 
-    // 편집 — WYSIWYG 기본 + toolbar markdown 토글(mode switch) 유지(8.2).
+    // 편집 — markdown(Write) 기본 + toolbar WYSIWYG 토글(mode switch) 유지(8.2).
     // 붙여넣기/드롭 이미지 훅은 콜백이 있을 때만 결선한다(8.6). 실제 업로드는 s21 소유:
     // 훅은 File 만 전달하고 Toast 삽입 callback(정책)은 호출하지 않는다.
     const wireImagePaste = onImagePasteRef.current !== undefined;
     const editor = new Editor({
       el,
-      initialEditType: "wysiwyg",
+      initialEditType: "markdown",
       initialValue: content,
       // 편집 표면이 mount 컨테이너(전폭·전고 flex 셀)를 가득 채우도록 100% 로 둔다. Toast 기본
       // 값은 300px 이라 지정하지 않으면 뷰포트가 큰 브라우저에서 화면 절반만 차지한다. 조상 flex
