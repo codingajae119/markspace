@@ -61,6 +61,12 @@ export type UseDocumentTreeResult = DocumentTreeState & {
   /** 낙관 반영 seam: 패치 배열 대체 / null 은 서버 스냅샷 복원. */
   applyLocal(patch: DocumentNode[] | null): void;
   /**
+   * 가시화 seam: 주어진 문서의 조상들을 모두 펼쳐 트리에서 보이게 한다(자기 자신은 펼치지 않음).
+   * 생성 직후처럼 접힌 부모 아래에 새 노드가 생겨 선택이 화면에서 사라지는 것을 막는다.
+   * reload 직후 호출을 전제로 최신 서버 스냅샷(ref)을 기준으로 조상을 해석한다.
+   */
+  revealAncestors(id: number): void;
+  /**
    * 삭제 후 선택 재배치 seam: reload 직후 호출한다. 현재 선택이 최신 서버 스냅샷에 살아 있으면
    * 유지하고, 사라졌으면 주어진 후보(부모→루트 등 가까운 순) 중 첫 생존 노드로, 없으면 null 로
    * 이동한다(가장 가까운 부모 표시, 없으면 빈 화면).
@@ -85,6 +91,17 @@ function collectNodeById(patch: DocumentNode[]): Map<number, DocumentNode> {
     }
   }
   return map;
+}
+
+/**
+ * 대상 문서를 트리에서 보이게 하기 위해 펼쳐야 할 조상 id 목록.
+ * `resolveAncestors` 는 root→current(자기 포함)를 반환하므로 자기 자신은 제외한다
+ * (자신을 펼칠 필요는 없다 — 부모들만 펼치면 노출된다).
+ */
+function ancestorIdsToExpand(nodeById: Map<number, DocumentNode>, id: number): number[] {
+  return resolveAncestors(nodeById, id)
+    .map((doc) => doc.id)
+    .filter((ancestorId) => ancestorId !== id);
 }
 
 /** 알 수 없는 throw 를 안정적 ApiError 로 정규화(Req 1.5, 내부 세부정보 미노출). */
@@ -175,10 +192,7 @@ export function useDocumentTree(): UseDocumentTreeResult {
         if (remembered !== null && tree.nodeById.has(remembered)) {
           selectedIdRef.current = remembered;
           setSelectedId(remembered);
-          // resolveAncestors 는 root→current(자기 포함)를 반환한다. 자신은 제외하고 조상만 펼친다.
-          const toExpand = resolveAncestors(tree.nodeById, remembered)
-            .map((doc) => doc.id)
-            .filter((ancestorId) => ancestorId !== remembered);
+          const toExpand = ancestorIdsToExpand(tree.nodeById, remembered);
           if (toExpand.length > 0) {
             setExpandedIds((prev) => {
               const next = new Set(prev);
@@ -259,6 +273,22 @@ export function useDocumentTree(): UseDocumentTreeResult {
     [workspaceId],
   );
 
+  const revealAncestors = useCallback((id: number): void => {
+    // reload 직후 호출을 전제로 최신 서버 스냅샷(load 가 동기 세팅한 ref)에서 조상을 해석한다.
+    // nodeById state 를 쓰면 변이 훅이 캡처한 stale 클로저로 새 노드를 못 찾는다.
+    const toExpand = ancestorIdsToExpand(serverSnapshotRef.current.nodeById, id);
+    if (toExpand.length === 0) {
+      return;
+    }
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      for (const ancestorId of toExpand) {
+        next.add(ancestorId);
+      }
+      return next;
+    });
+  }, []);
+
   const applyLocal = useCallback((patch: DocumentNode[] | null): void => {
     if (patch === null) {
       // 서버 스냅샷으로 정확 복원(네트워크 호출 없음).
@@ -283,6 +313,7 @@ export function useDocumentTree(): UseDocumentTreeResult {
     toggleExpand,
     ancestorsOf,
     applyLocal,
+    revealAncestors,
     reselectAfterRemoval,
   };
 }

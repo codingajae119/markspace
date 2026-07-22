@@ -44,6 +44,7 @@ function makeTree(partial: Partial<Tree> = {}): Tree {
     toggleExpand: vi.fn<(id: number) => void>(),
     ancestorsOf: vi.fn<(id: number) => DocumentRead[]>(() => []),
     applyLocal: vi.fn<(patch: DocumentNode[] | null) => void>(),
+    revealAncestors: vi.fn<(id: number) => void>(),
     reselectAfterRemoval: vi.fn<(candidateIdsNearestFirst: number[]) => void>(),
     ...partial,
   };

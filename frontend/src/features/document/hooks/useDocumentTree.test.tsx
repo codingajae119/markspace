@@ -149,6 +149,33 @@ describe("useDocumentTree", () => {
     expect(loadAllMock).toHaveBeenCalledTimes(2);
   });
 
+  it("revealAncestors: 새로 생긴 하위 문서의 조상을 모두 펼친다(자기 자신은 제외)", async () => {
+    // 초기 1(루트) 만 있고 접힌 상태 → 1 아래 2, 그 아래 3 을 만든 뒤 reload 한 상황.
+    loadAllMock.mockResolvedValue([doc(1, null, "a")]);
+    const { result } = renderHook(() => useDocumentTree());
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.expandedIds.size).toBe(0);
+
+    loadAllMock.mockResolvedValue([doc(1, null, "a"), doc(2, 1, "a"), doc(3, 2, "a")]);
+    await act(async () => {
+      await result.current.reload();
+    });
+    act(() => result.current.revealAncestors(3));
+
+    // 3 을 보이게 하려면 1·2 가 펼쳐져야 한다. 3 자신은 펼칠 필요가 없다.
+    expect([...result.current.expandedIds].sort()).toEqual([1, 2]);
+  });
+
+  it("revealAncestors: 루트 문서면 펼칠 조상이 없어 확장 집합이 그대로다", async () => {
+    loadAllMock.mockResolvedValue([doc(1, null, "a")]);
+    const { result } = renderHook(() => useDocumentTree());
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+
+    act(() => result.current.revealAncestors(1));
+
+    expect(result.current.expandedIds.size).toBe(0);
+  });
+
   it("reselectAfterRemoval: 선택이 삭제되면 가장 가까운 생존 조상으로 이동한다", async () => {
     // 초기 트리 1→2→3, 3 을 선택한 뒤 3 삭제(reload 는 1,2 만 반환)를 시뮬레이션한다.
     loadAllMock.mockResolvedValue([doc(1, null, "a"), doc(2, 1, "b"), doc(3, 2, "c")]);

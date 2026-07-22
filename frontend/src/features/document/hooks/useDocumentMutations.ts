@@ -8,7 +8,8 @@
  * 에러 형태를 발명하지 않는다(Req 9.4). `state.error` 는 매 변이 시작 시 null 로 초기화하고,
  * `state.pending` 은 변이 진행 중 true 다(Req 9.3).
  *
- * - create: 성공(201) 시 `tree.reload()`→`tree.select(created.id)`(반영+현재 선택, Req 3.3),
+ * - create: 성공(201) 시 `tree.reload()`→`tree.revealAncestors(id)`→`tree.select(created.id)`
+ *   (반영+가시화+현재 선택, Req 3.3),
  *   실패(422/404/409) 시 트리 불변·null 반환(Req 3.4·3.5).
  * - rename: 낙관 title 반영 후 확정/복원(Req 4.2·4.3·4.4).
  * - remove: 성공(204) 시 `tree.reload()` 로 서버 묶음 캐스케이드 반영(프론트 재계산 금지, Req 5.2·5.3),
@@ -181,6 +182,9 @@ export function useDocumentMutations(
         });
         // 반영 후 현재 선택으로 승격(Req 3.3).
         await tree.reload();
+        // 하위 문서 생성 시 부모가 접혀 있으면 새 노드가 렌더되지 않아 선택이 화면에서 사라진다.
+        // 조상을 펼쳐 방금 만든 문서가 트리에 보이는 상태로 선택되게 한다(루트 생성은 no-op).
+        tree.revealAncestors(created.id);
         tree.select(created.id);
         setState(IDLE_STATE);
         return created;

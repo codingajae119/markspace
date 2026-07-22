@@ -34,6 +34,7 @@ type MockTree = Tree & {
   reload: Mock;
   select: Mock;
   applyLocal: Mock;
+  revealAncestors: Mock;
   reselectAfterRemoval: Mock;
 };
 
@@ -74,6 +75,7 @@ function makeTree(docs: DocumentRead[]): MockTree {
     toggleExpand: vi.fn(),
     ancestorsOf: vi.fn().mockReturnValue([]),
     applyLocal: vi.fn(),
+    revealAncestors: vi.fn(),
     reselectAfterRemoval: vi.fn(),
   };
   return tree as MockTree;
@@ -132,6 +134,28 @@ describe("useDocumentMutations", () => {
     expect(tree.select).toHaveBeenCalledWith(10);
     expect(returned).toBe(created);
     expect(result.current.state.error).toBeNull();
+  });
+
+  it("create 하위 문서 → reload 이후 revealAncestors(newId) 로 접힌 부모를 펼친다", async () => {
+    // 접힌 부모(1) 아래에 하위 문서(10)를 만들면 트리에 렌더되지 않아 선택이 사라진다.
+    // reload 로 새 스냅샷을 받은 뒤 조상을 펼쳐야(select 보다 앞서) 새 문서가 보인 채 선택된다.
+    const tree = makeTree([doc(1, null, "a")]);
+    const created = doc(10, 1, "a", "하위 문서");
+    createMock.mockResolvedValue(created);
+
+    const { result } = renderHook(() => useDocumentMutations(tree, "7"));
+
+    await act(async () => {
+      await result.current.create({ title: "하위 문서", parentId: 1 });
+    });
+
+    expect(tree.revealAncestors).toHaveBeenCalledWith(10);
+    expect(tree.revealAncestors.mock.invocationCallOrder[0]).toBeGreaterThan(
+      tree.reload.mock.invocationCallOrder[0],
+    );
+    expect(tree.select.mock.invocationCallOrder[0]).toBeGreaterThan(
+      tree.revealAncestors.mock.invocationCallOrder[0],
+    );
   });
 
   it("create 오류(ApiError) → state.error 에 그 ApiError, null 반환, reload 미호출", async () => {
