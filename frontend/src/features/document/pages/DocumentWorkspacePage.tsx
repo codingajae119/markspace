@@ -17,16 +17,23 @@
  * 툴바는 RequireRole(MEMBER) 단일 게이트를 내부 소유하므로(DocumentToolbar) 여기서 role 을 다시
  * 비교하지 않고 `currentRole` 만 주입한다. `canEdit` 는 트리 DnD·뷰어 편집 seam 노출에 쓴다.
  *
+ * 트리 패널 표시 토글: 읽기 화면 왼쪽 문서 트리 패널의 노출 여부를 로컬 UI 상태(`treeVisible`)로
+ * 소유한다. 서버·URL 과 무관한 순수 화면 표시 상태이므로 훅에 위임하지 않고 조립부가 직접 보유한다.
+ * 숨김 시 `<aside>` 를 렌더에서 제외하면 남은 `flex-1` 뷰어가 전폭을 차지한다(권한과 무관하게
+ * owner 를 포함한 모든 사용자가 사용 가능). 토글 버튼은 `aria-expanded`/`aria-controls` 로 aside 를
+ * 가리켜 스크린리더에 의미를 전달한다.
+ *
  * Requirements: 7.1(트리·상세 조립), 9.1(현재 WS 스코프 단일 바인딩·안내), 9.5(전역 401 위임),
  *   9.6(role 기반 조작 컨트롤 노출).
  */
 
 import type { ReactElement } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Role } from "@/shared/auth/roles";
 import { hasWorkspaceRole } from "@/shared/auth/permissions";
-import { EmptyState, Spinner, ErrorMessage } from "@/shared/ui";
+import { EmptyState, Spinner, ErrorMessage, Button } from "@/shared/ui";
 
 import { useDocumentScope } from "../hooks/useDocumentScope";
 import { useDocumentTree } from "../hooks/useDocumentTree";
@@ -49,6 +56,9 @@ export function DocumentWorkspacePage(): ReactElement {
   const tree = useDocumentTree();
   const mutations = useDocumentMutations(tree, scope.workspaceId ?? "");
   const navigate = useNavigate();
+
+  // 읽기 화면 왼쪽 문서 트리 패널 노출 여부(기본 표시). 순수 화면 표시 상태.
+  const [treeVisible, setTreeVisible] = useState(true);
 
   const canEdit = hasWorkspaceRole({
     currentRole: scope.role,
@@ -94,29 +104,42 @@ export function DocumentWorkspacePage(): ReactElement {
         selectedTitle={selectedTitle}
       />
 
+      <div>
+        <Button
+          variant="secondary"
+          onClick={() => setTreeVisible((visible) => !visible)}
+          aria-expanded={treeVisible}
+          aria-controls="document-tree-panel"
+        >
+          {treeVisible ? "문서 목록 숨기기" : "문서 목록 보기"}
+        </Button>
+      </div>
+
       <div className="flex flex-col gap-6 md:flex-row">
-        <aside className="md:w-72 md:shrink-0">
-          {/* 트리 로드 상태를 트래시 페인과 동일하게 표면화한다(Req 1.5·1.6). */}
-          {tree.status === "loading" ? (
-            <Spinner />
-          ) : tree.status === "error" ? (
-            <ErrorMessage error={tree.error} />
-          ) : tree.roots.length === 0 ? (
-            // 빈 워크스페이스: 트리 목록만 안내로 대체한다(툴바는 위에서 유지, Req 1.6).
-            <EmptyState
-              title="이 워크스페이스에 문서가 없습니다"
-              message="위 툴바에서 첫 문서를 만들어 시작하세요."
-            />
-          ) : (
-            <DocumentTree
-              tree={tree}
-              canEdit={canEdit}
-              onMove={(dragId, drop) => {
-                void mutations.move(dragId, drop);
-              }}
-            />
-          )}
-        </aside>
+        {treeVisible ? (
+          <aside id="document-tree-panel" className="md:w-72 md:shrink-0">
+            {/* 트리 로드 상태를 트래시 페인과 동일하게 표면화한다(Req 1.5·1.6). */}
+            {tree.status === "loading" ? (
+              <Spinner />
+            ) : tree.status === "error" ? (
+              <ErrorMessage error={tree.error} />
+            ) : tree.roots.length === 0 ? (
+              // 빈 워크스페이스: 트리 목록만 안내로 대체한다(툴바는 위에서 유지, Req 1.6).
+              <EmptyState
+                title="이 워크스페이스에 문서가 없습니다"
+                message="위 툴바에서 첫 문서를 만들어 시작하세요."
+              />
+            ) : (
+              <DocumentTree
+                tree={tree}
+                canEdit={canEdit}
+                onMove={(dragId, drop) => {
+                  void mutations.move(dragId, drop);
+                }}
+              />
+            )}
+          </aside>
+        ) : null}
 
         <div className="min-w-0 flex-1">
           <Breadcrumb tree={tree} />
