@@ -23,6 +23,13 @@
  * owner 를 포함한 모든 사용자가 사용 가능). 토글 버튼은 `aria-expanded`/`aria-controls` 로 aside 를
  * 가리켜 스크린리더에 의미를 전달한다.
  *
+ * 문서 설정 판넬 표시 토글: 상단 `DocumentToolbar`(문서·하위 문서 생성, 제목 변경, 삭제 컨트롤)의
+ * 노출 여부를 트리 토글과 동일한 성격의 로컬 UI 상태(`settingsVisible`)로 소유한다. 판넬 자체는
+ * `RequireRole(MEMBER)` 게이트를 내부 소유하므로 비멤버에겐 빈 판넬이다 — 따라서 토글 버튼도
+ * `canEdit`(admin override 포함) 로 게이팅해 편집 권한이 있는 사용자(owner 포함)에게만 노출한다.
+ * 토글은 "문서" 제목 옆의 작은 삼각형 버튼으로, 보임 상태=위쪽(▴, 접기)·숨김 상태=아래쪽(▾, 펼치기)을
+ * 가리키며 방향 글리프는 aria-hidden, 의미는 aria-label 로 스크린리더에 전달한다.
+ *
  * Requirements: 7.1(트리·상세 조립), 9.1(현재 WS 스코프 단일 바인딩·안내), 9.5(전역 401 위임),
  *   9.6(role 기반 조작 컨트롤 노출).
  */
@@ -59,6 +66,8 @@ export function DocumentWorkspacePage(): ReactElement {
 
   // 읽기 화면 왼쪽 문서 트리 패널 노출 여부(기본 표시). 순수 화면 표시 상태.
   const [treeVisible, setTreeVisible] = useState(true);
+  // 상단 문서 설정 판넬(생성·이름변경·삭제 툴바) 노출 여부(기본 표시). 순수 화면 표시 상태.
+  const [settingsVisible, setSettingsVisible] = useState(true);
 
   const canEdit = hasWorkspaceRole({
     currentRole: scope.role,
@@ -91,18 +100,40 @@ export function DocumentWorkspacePage(): ReactElement {
 
   return (
     <section aria-labelledby="document-workspace-heading" className="flex flex-col gap-6">
-      <header>
+      <header className="flex items-center gap-2">
         <h1 id="document-workspace-heading" className="text-lg font-semibold text-slate-900">
           문서
         </h1>
+        {/* 문서 설정 판넬 토글: 편집 권한이 있는 사용자(owner 포함)에게만 노출한다. 제목 옆
+            작은 삼각형 버튼으로, 보임 상태=위쪽(▴, 접기)·숨김 상태=아래쪽(▾, 펼치기)을 가리킨다.
+            판넬 내부는 RequireRole 이 다시 게이팅하므로 이 버튼은 노출 편의만 담당한다. */}
+        {canEdit ? (
+          <button
+            type="button"
+            onClick={() => setSettingsVisible((visible) => !visible)}
+            aria-expanded={settingsVisible}
+            aria-controls="document-settings-panel"
+            aria-label={settingsVisible ? "문서 설정 숨기기" : "문서 설정 보기"}
+            title={settingsVisible ? "문서 설정 숨기기" : "문서 설정 보기"}
+            className="flex h-12 w-12 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+          >
+            <span aria-hidden="true" className="text-4xl leading-none">
+              {settingsVisible ? "▴" : "▾"}
+            </span>
+          </button>
+        ) : null}
       </header>
 
-      <DocumentToolbar
-        mutations={mutations}
-        currentRole={scope.role}
-        selectedId={tree.selectedId}
-        selectedTitle={selectedTitle}
-      />
+      {settingsVisible ? (
+        <div id="document-settings-panel">
+          <DocumentToolbar
+            mutations={mutations}
+            currentRole={scope.role}
+            selectedId={tree.selectedId}
+            selectedTitle={selectedTitle}
+          />
+        </div>
+      ) : null}
 
       <div>
         <Button
