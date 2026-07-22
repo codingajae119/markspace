@@ -24,6 +24,18 @@
  * `canEdit`(admin override 포함) + 선택 문서 존재 시에만 툴바가 우측 정렬로 노출하며, 편집 진입(navigate)·
  * 삭제 변이(remove) seam 을 페이지가 배선한다.
  *
+ * 문서 목록 패널의 두 모드(활성 문서 ↔ 휴지통): 같은 `<aside>` 자리에서 `PanelModeTabs` 로 전환한다.
+ * 휴지통은 member+ 전용이므로 뷰어에게는 탭 자체를 노출하지 않고, 권한이 사라진 경우까지 대비해
+ * effect 대신 파생값(`trashMode = canEdit && panelMode === "trash"`)으로 모드를 강제 수렴시킨다.
+ * 목록은 휴지통 모드에서만 로드한다 — `useTrash` 가 빈 workspaceId 를 API 호출 없이 빈 목록으로
+ * 수렴시키는 방어 경로를 이용해, 조건부 훅 호출 없이 지연 로드를 얻는다.
+ *
+ * 휴지통 선택은 **2단**이다: 행 클릭이 `{bundleId, docId}` 를 함께 올려 뷰어는 클릭한 그 문서를
+ * (`GET /documents/{id}` 가 상태로 필터하지 않아 삭제 문서도 조회된다) 읽기 전용으로 렌더하고,
+ * 툴바의 복구·완전삭제는 항상 **묶음**을 대상으로 한다(`restoreBundle`/`purgeBundle` 계약). 선택
+ * 묶음이 재조회 후 목록에서 사라지면 툴바 버튼과 뷰어가 함께 비워진다. 복구 성공 시에는 문서 모드로
+ * 자동 복귀해 복구된 루트를 선택·가시화한다(신규 생성 시 조상을 펼치는 것과 동일 원칙).
+ *
  * 변이 오류 단일 sink: 생성·이름변경·삭제가 공유하는 `mutations.state.error` 를 헤더 바로 아래에
  * 항상 노출되는 `ErrorMessage` 로 표면화한다(컨트롤 행 개폐와 무관하게 오류가 보이도록 단일화).
  *
@@ -42,8 +54,11 @@ import { EmptyState, Spinner, ErrorMessage } from "@/shared/ui";
 import { useDocumentScope } from "../hooks/useDocumentScope";
 import { useDocumentTree } from "../hooks/useDocumentTree";
 import { useDocumentMutations } from "../hooks/useDocumentMutations";
+import { useTrash } from "../hooks/useTrash";
 import { DocumentToolbar } from "../components/DocumentToolbar";
 import { DocumentTree } from "../components/DocumentTree";
+import { PanelModeTabs, type PanelMode } from "../components/PanelModeTabs";
+import { TrashPanel } from "../components/TrashPanel";
 import { Breadcrumb } from "../components/Breadcrumb";
 import { DocumentViewer } from "../components/DocumentViewer";
 
@@ -63,12 +78,62 @@ export function DocumentWorkspacePage(): ReactElement {
 
   // 읽기 화면 왼쪽 문서 트리 패널 노출 여부(기본 표시). 순수 화면 표시 상태.
   const [treeVisible, setTreeVisible] = useState(true);
+  // 패널이 표시하는 대상(활성 문서 ↔ 휴지통). 서버·URL 과 무관한 순수 화면 표시 상태.
+  const [panelMode, setPanelMode] = useState<PanelMode>("active");
+  // 휴지통 2단 선택: 뷰어가 표시할 문서(docId) + 복구·완전삭제 대상 묶음(bundleId).
+  const [trashSelection, setTrashSelection] = useState<{
+    bundleId: number;
+    docId: number;
+  } | null>(null);
 
   const canEdit = hasWorkspaceRole({
     currentRole: scope.role,
     isAdmin: scope.isAdmin,
     minimum: Role.MEMBER,
   });
+
+  // 휴지통은 member+ 전용(서버 권한과 동일 기준). 뷰어에게는 모드 탭 자체를
+  // 노출하지 않으므로, 권한이 사라진 경우까지 대비해 effect 대신 파생값으로 모드를 강제 수렴시킨다.
+  const trashMode = canEdit && panelMode === "trash";
+
+  // 휴지통 모드일 때만 목록을 로드한다. useTrash 는 빈 workspaceId 를 API 호출 없이 빈 목록으로
+  // 수렴시키므로(방어 경로), 이 자리에서 조건부 훅 호출 없이 지연 로드를 얻는다.
+  const trash = useTrash(trashMode ? scope.workspaceId ?? "" : "");
+
+  // 선택 묶음이 목록에서 사라졌으면(복구·완전삭제·만료 후 재조회) 툴바 버튼과 뷰어를 함께 비운다.
+  const selectedBundle =
+    trashSelection !== null
+      ? trash.bundles.find((b) => b.bundle_id === trashSelection.bundleId) ?? null
+      : null;
+  const trashViewDocId = selectedBundle !== null ? trashSelection!.docId : null;
+
+  /** 묶음 전체 복구 → 문서 모드로 자동 복귀하고 복구된 루트를 선택·가시화한다. */
+  const handleRestore = async (): Promise<void> => {
+    if (selectedBundle === null) {
+      return;
+    }
+    const rootId = selectedBundle.root_document_id;
+    const ok = await trash.restore(selectedBundle.bundle_id);
+    if (!ok) {
+      // 실패 오류는 useTrash 가 목록과 함께 표면화한다(휴지통에 머문다).
+      return;
+    }
+    setTrashSelection(null);
+    setPanelMode("active");
+    // 복구 결과를 눈으로 확인시킨다: 재조회 → 루트 선택 → 조상 펼침(신규 생성과 동일 원칙).
+    await tree.reload();
+    tree.select(rootId);
+    tree.revealAncestors(rootId);
+  };
+
+  /** 묶음 완전삭제(비가역 확인은 툴바 소유). 성공/실패 모두 선택을 비운다. */
+  const handlePurge = async (): Promise<void> => {
+    if (selectedBundle === null) {
+      return;
+    }
+    await trash.purge(selectedBundle.bundle_id);
+    setTrashSelection(null);
+  };
 
   const selectedTitle =
     tree.selectedId !== null
@@ -119,13 +184,58 @@ export function DocumentWorkspacePage(): ReactElement {
         onDelete={(documentId) => {
           void mutations.remove(documentId);
         }}
+        trashMode={trashMode}
+        canUseTrash={canEdit}
+        trashSelection={
+          selectedBundle !== null
+            ? {
+                rootTitle: selectedBundle.root_title,
+                memberCount: selectedBundle.member_count,
+              }
+            : null
+        }
+        onRestore={() => {
+          void handleRestore();
+        }}
+        onPurge={() => {
+          void handlePurge();
+        }}
       />
 
       <div className="flex flex-col gap-6 md:flex-row">
         {treeVisible ? (
-          <aside id="document-tree-panel" className="md:w-72 md:shrink-0">
-            {/* 트리 로드 상태를 트래시 페인과 동일하게 표면화한다(Req 1.5·1.6). */}
-            {tree.status === "loading" ? (
+          <aside
+            id="document-tree-panel"
+            // 휴지통 모드는 배경색으로도 구분하되(요구), 모드 탭 라벨이라는 텍스트 신호와
+            // 항상 함께 쓴다 — 색상 단독 신호는 색각 이상·고대비 모드에서 소실된다.
+            className={
+              "md:w-72 md:shrink-0 " +
+              (trashMode ? "rounded-lg bg-slate-100 p-2" : "")
+            }
+          >
+            {/* 모드 탭은 member+ 에게만 노출한다(뷰어는 활성 문서 목록만 본다). */}
+            {canEdit ? (
+              <PanelModeTabs
+                mode={trashMode ? "trash" : "active"}
+                onChange={(next) => {
+                  setPanelMode(next);
+                  setTrashSelection(null);
+                }}
+                trashCount={trashMode ? trash.total : null}
+              />
+            ) : null}
+
+            {trashMode ? (
+              <TrashPanel
+                trash={trash}
+                selectedBundleId={trashSelection?.bundleId ?? null}
+                selectedDocId={trashSelection?.docId ?? null}
+                onSelect={(bundleId, docId) =>
+                  setTrashSelection({ bundleId, docId })
+                }
+              />
+            ) : /* 트리 로드 상태를 트래시 페인과 동일하게 표면화한다(Req 1.5·1.6). */
+            tree.status === "loading" ? (
               <Spinner />
             ) : tree.status === "error" ? (
               <ErrorMessage error={tree.error} />
@@ -148,14 +258,35 @@ export function DocumentWorkspacePage(): ReactElement {
         ) : null}
 
         <div className="min-w-0 flex-1">
-          <Breadcrumb tree={tree} />
-          {tree.selectedId !== null ? (
-            <DocumentViewer documentId={tree.selectedId} />
+          {trashMode ? (
+            /* 휴지통 모드: 브레드크럼(활성 트리 파생)은 삭제 문서에 의미가 없으므로 렌더하지 않고,
+               읽기 전용 배너로 대체한다. 본문은 동일한 DocumentViewer 로 렌더한다 —
+               `GET /documents/{id}` 가 상태로 필터하지 않아 삭제 문서도 조회된다. */
+            trashViewDocId !== null ? (
+              <>
+                <p className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-600">
+                  휴지통에 있는 문서입니다. 읽기 전용이며, 복구하면 편집할 수 있습니다.
+                </p>
+                <DocumentViewer documentId={trashViewDocId} />
+              </>
+            ) : (
+              <EmptyState
+                title="휴지통 문서를 선택하세요"
+                message="왼쪽 휴지통 목록에서 문서를 선택하면 내용이 표시됩니다."
+              />
+            )
           ) : (
-            <EmptyState
-              title="문서를 선택하세요"
-              message="왼쪽 트리에서 문서를 선택하면 내용이 표시됩니다."
-            />
+            <>
+              <Breadcrumb tree={tree} />
+              {tree.selectedId !== null ? (
+                <DocumentViewer documentId={tree.selectedId} />
+              ) : (
+                <EmptyState
+                  title="문서를 선택하세요"
+                  message="왼쪽 트리에서 문서를 선택하면 내용이 표시됩니다."
+                />
+              )}
+            </>
           )}
         </div>
       </div>
