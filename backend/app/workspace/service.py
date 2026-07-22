@@ -75,21 +75,18 @@ class WorkspaceService:
     ) -> Page[WorkspaceRead]:
         """워크스페이스 목록을 공통 `Page` 엔벨로프로 반환한다 (Req 1.1·1.2·1.3·1.4·1.5).
 
-        admin 은 전체 워크스페이스를(`list_all`), 비-admin 은 요청자가 멤버인 워크스페이스만
-        (`list_for_user`) 조회한다. 두 저장소 메서드 모두 `(Workspace, role)` 튜플 목록을
-        반환하며(role 은 admin 경로에서 비멤버 WS 는 `None`), 각 항목의 role 을 해당
-        `WorkspaceRead` 에 주입해 호출자 관점의 멤버십 role 을 응답에 싣는다(Req 1.1·1.4).
+        **목록 읽기 전역 개방**: admin 여부와 무관하게 모든 활성 사용자가 전체 워크스페이스를
+        본다(`list_all` 단일 경로). 멤버십 스코프 분기는 폐기되었다 — 상세(`get_workspace`)·문서
+        트리·첨부 읽기가 이미 role 판정 없이 전역 개방이므로, 목록만 멤버 스코프로 좁히면
+        "볼 수 있는 것을 찾을 수 없는" 불일치가 생긴다. 가시성은 전역, 편집 권한은 role 게이트로
+        분리한다(INV-1 읽기 완화).
 
-        role 은 리포지토리가 산출한 멤버십 role(또는 None)을 그대로 노출하며 admin 여부로
-        상승시키지 않는다(Req 1.2, INV-3). `total` 은 저장소가 계산한 스코프 전체 개수를 그대로
-        전달한다. `list_all` 은 호출자 멤버십 상관 조건을 위해 `ctx.user_id` 를 전달받는다.
+        `list_all` 은 `(Workspace, role)` 튜플 목록을 반환하며 role 은 **호출자 자신의 멤버십**
+        에서만 산출한다(비멤버 WS 는 `None`). 각 항목의 role 을 해당 `WorkspaceRead` 에 주입해
+        호출자 관점의 멤버십 role 을 응답에 싣는다(Req 1.1·1.4). admin 여부로 role 을 상승시키지
+        않는다(Req 1.2, INV-3). `total` 은 저장소가 계산한 전체 개수를 그대로 전달한다.
         """
-        if ctx.is_admin:
-            pairs, total = self._ws_repo.list_all(db, ctx.user_id, limit, offset)
-        else:
-            pairs, total = self._ws_repo.list_for_user(
-                db, ctx.user_id, limit, offset
-            )
+        pairs, total = self._ws_repo.list_all(db, ctx.user_id, limit, offset)
         return Page[WorkspaceRead](
             items=[self._to_read(ws, role) for ws, role in pairs],
             total=total,

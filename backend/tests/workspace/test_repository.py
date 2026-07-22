@@ -3,9 +3,9 @@
 design.md §Components and Interfaces #WorkspaceRepository 계약을 검증한다:
 - `create` 는 `is_shareable=False`·주어진 `trash_retention_days` 로 워크스페이스 행을
   생성하고 `created_at` 을 설정하며 fresh 세션 재조회로 영속화를 증명한다(Req 2.1).
-- `list_for_user` 는 요청자가 멤버인 워크스페이스만 반환하고(다른 사용자의 워크스페이스
-  제외) total 은 멤버 스코프 개수다. limit/offset 은 items 에만 적용한다(Req 1.3).
-- `list_all` 은 전체 워크스페이스를 반환하고 total 은 전체 개수다(admin, Req 1.4).
+- `list_all` 은 멤버 여부와 무관하게 전체 워크스페이스를 반환하고 total 은 전체 개수이며,
+  각 항목 role 은 호출자 자신의 멤버십(비멤버는 None)이다. limit/offset 은 items 에만
+  적용한다(목록 읽기 전역 개방, Req 1.3·1.4).
 - `apply_updates` 는 제공된 키(name/is_shareable/trash_retention_days)만 부분 갱신하고
   `updated_at` 을 설정한다(Req 2.1·2.2·2.3).
 - `delete` 는 워크스페이스 행을 물리적으로 제거한다(INV-4 비대상, Req 2.5).
@@ -155,106 +155,6 @@ def test_get_by_id_returns_workspace_or_none(sessionmaker_factory):
         assert found is not None
         assert found.id == ws_id
         assert repo.get_by_id(session, 999999) is None
-    finally:
-        session.close()
-
-
-# --- list_for_user -------------------------------------------------------
-
-
-def test_list_for_user_returns_only_member_workspaces(sessionmaker_factory):
-    """list_for_user 는 요청자가 멤버인 워크스페이스를 (Workspace, role) 로만 반환한다 (Req 1.3, 1.1)."""
-    seed = sessionmaker_factory()
-    try:
-        repo = WorkspaceRepository()
-        # 요청자 user 와 다른 user.
-        me = _make_user(seed, login_id="me")
-        other = _make_user(seed, login_id="other")
-
-        ws_mine_a = repo.create(seed, name="mine-a", trash_retention_days=30)
-        ws_mine_b = repo.create(seed, name="mine-b", trash_retention_days=30)
-        ws_other = repo.create(seed, name="other-ws", trash_retention_days=30)
-
-        _make_member(seed, workspace_id=ws_mine_a.id, user_id=me.id)
-        _make_member(seed, workspace_id=ws_mine_b.id, user_id=me.id)
-        _make_member(seed, workspace_id=ws_other.id, user_id=other.id)
-        seed.commit()
-
-        me_id = me.id
-    finally:
-        seed.close()
-
-    session = sessionmaker_factory()
-    try:
-        repo = WorkspaceRepository()
-        items, total = repo.list_for_user(session, me_id, limit=100, offset=0)
-        names = {ws.name for ws, _role in items}
-        assert total == 2, "total 은 요청자가 멤버인 워크스페이스 개수여야 한다"
-        assert names == {"mine-a", "mine-b"}
-        assert "other-ws" not in names, "다른 사용자의 워크스페이스는 제외되어야 한다"
-    finally:
-        session.close()
-
-
-def test_list_for_user_returns_actual_membership_role(sessionmaker_factory):
-    """list_for_user 의 각 항목은 호출자의 실제 멤버십 role 을 함께 반환한다 (Req 1.1)."""
-    seed = sessionmaker_factory()
-    try:
-        repo = WorkspaceRepository()
-        me = _make_user(seed, login_id="me-roles")
-
-        ws_owner = repo.create(seed, name="ws-owner", trash_retention_days=30)
-        ws_member = repo.create(seed, name="ws-member", trash_retention_days=30)
-
-        _make_member(seed, workspace_id=ws_owner.id, user_id=me.id, role="owner")
-        _make_member(seed, workspace_id=ws_member.id, user_id=me.id, role="member")
-        seed.commit()
-
-        me_id = me.id
-    finally:
-        seed.close()
-
-    session = sessionmaker_factory()
-    try:
-        repo = WorkspaceRepository()
-        items, total = repo.list_for_user(session, me_id, limit=100, offset=0)
-        assert total == 2
-        role_by_name = {ws.name: role for ws, role in items}
-        assert role_by_name == {
-            "ws-owner": "owner",
-            "ws-member": "member",
-        }, "각 항목은 호출자의 실제 멤버십 role 을 반환해야 한다(2단계 owner/member)"
-    finally:
-        session.close()
-
-
-def test_list_for_user_applies_limit_and_offset(sessionmaker_factory):
-    """limit/offset 은 items 에만 적용되고 total 은 멤버 스코프 전체를 반영한다 (Req 1.3)."""
-    seed = sessionmaker_factory()
-    try:
-        repo = WorkspaceRepository()
-        me = _make_user(seed, login_id="pager")
-        for i in range(5):
-            ws = repo.create(seed, name=f"page-{i}", trash_retention_days=30)
-            _make_member(seed, workspace_id=ws.id, user_id=me.id)
-        seed.commit()
-        me_id = me.id
-    finally:
-        seed.close()
-
-    session = sessionmaker_factory()
-    try:
-        repo = WorkspaceRepository()
-        items, total = repo.list_for_user(session, me_id, limit=2, offset=0)
-        assert total == 5
-        assert len(items) == 2
-        # items 는 (Workspace, role) 튜플이며 정렬은 Workspace.id 오름차순으로 유지한다.
-        ids = [ws.id for ws, _role in items]
-        assert ids == sorted(ids)
-
-        items2, total2 = repo.list_for_user(session, me_id, limit=2, offset=4)
-        assert total2 == 5
-        assert len(items2) == 1  # 마지막 페이지 잔여 1건
     finally:
         session.close()
 

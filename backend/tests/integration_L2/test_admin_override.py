@@ -131,12 +131,12 @@ def test_admin_bypasses_owner_gate_on_nonmember_workspace(ws_scenario):
 
 
 def test_admin_list_is_not_member_scoped(ws_scenario):
-    """전체 목록: admin `GET /workspaces` 가 자신이 멤버가 아닌 workspace_id 를 포함한다(4.3).
+    """전체 목록: `GET /workspaces` 가 호출자가 멤버가 아닌 workspace_id 를 포함한다(4.3).
 
-    admin 목록은 멤버 스코프에 제한되지 않아 전체 워크스페이스를 반환한다. 응답이 `Page`
-    형태(`items`·`total`)이고, admin 이 멤버가 아닌 시나리오 `workspace_id` 가 `items` 에
-    나타남을 단언한다. 대조로 비-admin 비멤버의 목록에는 같은 `workspace_id` 가 없음을 단언해,
-    admin 목록의 포함이 "모두에게 열린 목록"이 아니라 실제 admin 전체 스코프임을 증명한다.
+    목록 읽기 전역 개방 이후 목록은 admin·비-admin 모두 멤버 스코프에 제한되지 않는다. 응답이
+    `Page` 형태(`items`·`total`)이고 멤버가 아닌 시나리오 `workspace_id` 가 `items` 에 나타남을
+    admin 과 비-admin 비멤버 **양쪽에서** 단언한다. 즉 가시성은 전역이며, 권한 차이는 목록 포함
+    여부가 아니라 각 항목의 `role`(비멤버는 null)과 쓰기 게이트로만 표현된다.
     """
     ws_id = ws_scenario.workspace_id
 
@@ -155,15 +155,19 @@ def test_admin_list_is_not_member_scoped(ws_scenario):
         f"한다(4.3): {admin_page}"
     )
 
-    # 대조: 비-admin 비멤버 목록은 이 워크스페이스를 포함하지 않는다(멤버 스코프) →
-    # admin 의 포함이 전체 스코프임을 증명한다.
+    # 비-admin 비멤버 목록도 동일하게 이 워크스페이스를 포함한다(목록 읽기 전역 개방).
     nonmember_resp = ws_scenario.nonmember_client.get("/workspaces")
     assert nonmember_resp.status_code == 200, (
         f"비멤버 목록 조회도 200 이어야 한다: "
         f"{nonmember_resp.status_code} {nonmember_resp.text}"
     )
-    nonmember_ws_ids = {item["id"] for item in nonmember_resp.json()["items"]}
-    assert ws_id not in nonmember_ws_ids, (
-        f"비-admin 비멤버 목록은 멤버가 아닌 workspace_id={ws_id} 를 포함하지 않아야 한다"
-        f"(admin 목록이 전체 스코프임을 증명): {nonmember_resp.json()}"
+    nonmember_page = nonmember_resp.json()
+    nonmember_items = {item["id"]: item for item in nonmember_page["items"]}
+    assert ws_id in nonmember_items, (
+        f"비-admin 비멤버 목록도 멤버가 아닌 workspace_id={ws_id} 를 포함해야 한다"
+        f"(목록 읽기 전역 개방): {nonmember_page}"
+    )
+    assert nonmember_items[ws_id]["role"] is None, (
+        f"비멤버 항목의 role 은 null 이어야 한다(가시성은 전역, 권한은 멤버십에서만 산출): "
+        f"{nonmember_items[ws_id]}"
     )

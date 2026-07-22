@@ -86,11 +86,12 @@ def list_workspaces(
     ctx: AuthContext = Depends(get_current_user),
     service: WorkspaceService = Depends(get_workspace_service),
 ) -> Page[WorkspaceRead]:
-    """요청자 스코프의 워크스페이스 목록을 페이지네이션하여 조회한다 (Req 1.3·6.2, 인증 전용).
+    """전체 워크스페이스 목록을 페이지네이션하여 조회한다 (Req 1.3·6.2, 활성 사용자 전역 개방).
 
-    인증만 요구한다(미인증 401). `limit`(기본 50)·`offset`(기본 0) 쿼리 파라미터와 컨텍스트를
-    서비스로 전달한다(admin 전체·비-admin 멤버 스코프 분기는 서비스 소유). 성공 시 200 +
-    ``Page[WorkspaceRead]``.
+    인증만 요구한다(미인증 401). 활성 사용자면 admin 여부·멤버십과 무관하게 전체 목록을 받는다
+    (목록 읽기 전역 개방 — 상세·문서·첨부 읽기 개방과 정합). 각 항목의 `role` 은 호출자 자신의
+    멤버십에서만 산출되어 비멤버 워크스페이스는 null 이다. `limit`(기본 50)·`offset`(기본 0)
+    쿼리 파라미터와 컨텍스트를 서비스로 전달한다. 성공 시 200 + ``Page[WorkspaceRead]``.
     """
     return service.list_workspaces(db, ctx, limit, offset)
 
