@@ -17,24 +17,15 @@
  * 툴바는 RequireRole(MEMBER) 단일 게이트를 내부 소유하므로(DocumentToolbar) 여기서 role 을 다시
  * 비교하지 않고 `currentRole` 만 주입한다. `canEdit` 는 트리 DnD·뷰어 편집 seam 노출에 쓴다.
  *
- * 트리 패널 표시 토글: 읽기 화면 왼쪽 문서 트리 패널의 노출 여부를 로컬 UI 상태(`treeVisible`)로
- * 소유한다. 서버·URL 과 무관한 순수 화면 표시 상태이므로 훅에 위임하지 않고 조립부가 직접 보유한다.
- * 숨김 시 `<aside>` 를 렌더에서 제외하면 남은 `flex-1` 뷰어가 전폭을 차지한다(권한과 무관하게
- * owner 를 포함한 모든 사용자가 사용 가능). 토글 버튼은 `aria-expanded`/`aria-controls` 로 aside 를
- * 가리켜 스크린리더에 의미를 전달한다.
+ * 단일 컨트롤 행: 트리 표시 토글 · 생성/이름변경 입력 · 편집/삭제를 상단 `DocumentToolbar` 한 행에
+ * 합쳐 소유한다. 트리 토글 상태(`treeVisible`)는 서버·URL 과 무관한 순수 화면 표시 상태이므로 조립부가
+ * 직접 보유하고 seam(`onToggleTree`)으로 툴바에 주입한다. 숨김 시 `<aside>` 를 렌더에서 제외하면 남은
+ * `flex-1` 뷰어가 전폭을 차지한다(토글은 권한과 무관하게 모든 사용자가 사용 가능). 편집·삭제는
+ * `canEdit`(admin override 포함) + 선택 문서 존재 시에만 툴바가 우측 정렬로 노출하며, 편집 진입(navigate)·
+ * 삭제 변이(remove) seam 을 페이지가 배선한다.
  *
  * 변이 오류 단일 sink: 생성·이름변경·삭제가 공유하는 `mutations.state.error` 를 헤더 바로 아래에
- * 항상 노출되는 `ErrorMessage` 로 표면화한다. 삭제 버튼은 접힐 수 있는 설정 판넬이 아니라 항상 보이는
- * 뷰어 헤더가 소유하므로, 오류도 판넬 개폐와 무관하게 보여야 하기 때문이다 — 따라서 오류 표시를
- * 툴바에서 페이지로 끌어올려 단일화한다.
- *
- * 문서 설정 판넬 표시 토글: 상단 `DocumentToolbar`(문서·하위 문서 생성, 제목 변경 컨트롤)의
- * 노출 여부를 트리 토글과 동일한 성격의 로컬 UI 상태(`settingsVisible`)로 소유한다. 판넬 자체는
- * `RequireRole(MEMBER)` 게이트를 내부 소유하므로 비멤버에겐 빈 판넬이다 — 따라서 토글 버튼도
- * `canEdit`(admin override 포함) 로 게이팅해 편집 권한이 있는 사용자(owner 포함)에게만 노출한다.
- * 트리 토글과 달리 세션 시작 시 기본 숨김(`false`)이며, 사용자가 토글로 펼쳐야 판넬이 나타난다.
- * 토글은 "문서" 제목 옆의 작은 삼각형 버튼으로, 보임 상태=위쪽(▴, 접기)·숨김 상태=아래쪽(▾, 펼치기)을
- * 가리키며 방향 글리프는 aria-hidden, 의미는 aria-label 로 스크린리더에 전달한다.
+ * 항상 노출되는 `ErrorMessage` 로 표면화한다(컨트롤 행 개폐와 무관하게 오류가 보이도록 단일화).
  *
  * Requirements: 7.1(트리·상세 조립), 9.1(현재 WS 스코프 단일 바인딩·안내), 9.5(전역 401 위임),
  *   9.6(role 기반 조작 컨트롤 노출).
@@ -46,7 +37,7 @@ import { useNavigate } from "react-router-dom";
 
 import { Role } from "@/shared/auth/roles";
 import { hasWorkspaceRole } from "@/shared/auth/permissions";
-import { EmptyState, Spinner, ErrorMessage, Button } from "@/shared/ui";
+import { EmptyState, Spinner, ErrorMessage } from "@/shared/ui";
 
 import { useDocumentScope } from "../hooks/useDocumentScope";
 import { useDocumentTree } from "../hooks/useDocumentTree";
@@ -72,8 +63,6 @@ export function DocumentWorkspacePage(): ReactElement {
 
   // 읽기 화면 왼쪽 문서 트리 패널 노출 여부(기본 표시). 순수 화면 표시 상태.
   const [treeVisible, setTreeVisible] = useState(true);
-  // 상단 문서 설정 판넬(생성·이름변경·삭제 툴바) 노출 여부(기본 숨김). 순수 화면 표시 상태.
-  const [settingsVisible, setSettingsVisible] = useState(false);
 
   const canEdit = hasWorkspaceRole({
     currentRole: scope.role,
@@ -106,54 +95,31 @@ export function DocumentWorkspacePage(): ReactElement {
 
   return (
     <section aria-labelledby="document-workspace-heading" className="flex flex-col gap-6">
-      <header className="flex items-center gap-2">
+      <header>
         <h1 id="document-workspace-heading" className="text-lg font-semibold text-slate-900">
           문서
         </h1>
-        {/* 문서 설정 판넬 토글: 편집 권한이 있는 사용자(owner 포함)에게만 노출한다. 제목 옆
-            작은 삼각형 버튼으로, 보임 상태=위쪽(▴, 접기)·숨김 상태=아래쪽(▾, 펼치기)을 가리킨다.
-            판넬 내부는 RequireRole 이 다시 게이팅하므로 이 버튼은 노출 편의만 담당한다. */}
-        {canEdit ? (
-          <button
-            type="button"
-            onClick={() => setSettingsVisible((visible) => !visible)}
-            aria-expanded={settingsVisible}
-            aria-controls="document-settings-panel"
-            aria-label={settingsVisible ? "문서 설정 숨기기" : "문서 설정 보기"}
-            title={settingsVisible ? "문서 설정 숨기기" : "문서 설정 보기"}
-            className="flex h-12 w-12 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
-          >
-            <span aria-hidden="true" className="text-4xl leading-none">
-              {settingsVisible ? "▴" : "▾"}
-            </span>
-          </button>
-        ) : null}
       </header>
 
-      {/* 변이 오류 단일 sink: create/rename/삭제가 공유하는 오류를 판넬 개폐와 무관하게 항상 노출. */}
+      {/* 변이 오류 단일 sink: create/rename/삭제가 공유하는 오류를 항상 노출. */}
       <ErrorMessage error={mutations.state.error} />
 
-      {settingsVisible ? (
-        <div id="document-settings-panel">
-          <DocumentToolbar
-            mutations={mutations}
-            currentRole={scope.role}
-            selectedId={tree.selectedId}
-            selectedTitle={selectedTitle}
-          />
-        </div>
-      ) : null}
-
-      <div>
-        <Button
-          variant="secondary"
-          onClick={() => setTreeVisible((visible) => !visible)}
-          aria-expanded={treeVisible}
-          aria-controls="document-tree-panel"
-        >
-          {treeVisible ? "문서 목록 숨기기" : "문서 목록 보기"}
-        </Button>
-      </div>
+      {/* 단일 컨트롤 행: 트리 토글 + 생성/이름변경(RequireRole) + 편집/삭제(canEdit, 우측 정렬). */}
+      <DocumentToolbar
+        mutations={mutations}
+        currentRole={scope.role}
+        selectedId={tree.selectedId}
+        selectedTitle={selectedTitle}
+        treeVisible={treeVisible}
+        onToggleTree={() => setTreeVisible((visible) => !visible)}
+        canEdit={canEdit}
+        onEnterEdit={(documentId) => {
+          navigate(buildDocumentEditPath(documentId));
+        }}
+        onDelete={(documentId) => {
+          void mutations.remove(documentId);
+        }}
+      />
 
       <div className="flex flex-col gap-6 md:flex-row">
         {treeVisible ? (
@@ -184,16 +150,7 @@ export function DocumentWorkspacePage(): ReactElement {
         <div className="min-w-0 flex-1">
           <Breadcrumb tree={tree} />
           {tree.selectedId !== null ? (
-            <DocumentViewer
-              documentId={tree.selectedId}
-              canEdit={canEdit}
-              onEnterEdit={(documentId) => {
-                navigate(buildDocumentEditPath(documentId));
-              }}
-              onDelete={(documentId) => {
-                void mutations.remove(documentId);
-              }}
-            />
+            <DocumentViewer documentId={tree.selectedId} />
           ) : (
             <EmptyState
               title="문서를 선택하세요"
