@@ -29,6 +29,7 @@ import { ApiError } from "@/shared/api/errors";
 import type { DocumentRead, DocumentNode, DropPosition } from "../types";
 import { documentApi } from "../api/documentApi";
 import { computeMoveTarget } from "../lib/computeMoveTarget";
+import { resolveAncestors } from "../lib/resolveAncestors";
 import type { useDocumentTree } from "./useDocumentTree";
 
 /** 변이 상태 표면 (design.md §useDocumentMutations). */
@@ -214,10 +215,19 @@ export function useDocumentMutations(
   const remove = useCallback(
     async (id: number): Promise<boolean> => {
       setState({ pending: true, error: null });
+      // 삭제 전 스냅샷에서 조상 체인을 확보한다(reload 후엔 삭제 묶음이 사라져 계산 불가).
+      // resolveAncestors 는 root→self 이므로 자신을 제외하고 뒤집어 부모→루트(가까운 순)로 만든다.
+      const candidateIdsNearestFirst = resolveAncestors(tree.nodeById, id)
+        .filter((ancestor) => ancestor.id !== id)
+        .map((ancestor) => ancestor.id)
+        .reverse();
       try {
         await documentApi.deleteDocument(id);
         // 서버 묶음 캐스케이드 반영(프론트 재계산 금지, Req 5.2·5.3).
         await tree.reload();
+        // 보던 문서(또는 그 후손)가 삭제 묶음에 있었으면 가장 가까운 부모로 선택 이동(없으면 빈 화면).
+        // 삭제된 문서 id 가 selectedId 로 남아 뷰어가 유령 문서를 계속 표시하는 것을 방지한다.
+        tree.reselectAfterRemoval(candidateIdsNearestFirst);
         setState(IDLE_STATE);
         return true;
       } catch (err) {

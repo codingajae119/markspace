@@ -23,7 +23,12 @@
  * owner 를 포함한 모든 사용자가 사용 가능). 토글 버튼은 `aria-expanded`/`aria-controls` 로 aside 를
  * 가리켜 스크린리더에 의미를 전달한다.
  *
- * 문서 설정 판넬 표시 토글: 상단 `DocumentToolbar`(문서·하위 문서 생성, 제목 변경, 삭제 컨트롤)의
+ * 변이 오류 단일 sink: 생성·이름변경·삭제가 공유하는 `mutations.state.error` 를 헤더 바로 아래에
+ * 항상 노출되는 `ErrorMessage` 로 표면화한다. 삭제 버튼은 접힐 수 있는 설정 판넬이 아니라 항상 보이는
+ * 뷰어 헤더가 소유하므로, 오류도 판넬 개폐와 무관하게 보여야 하기 때문이다 — 따라서 오류 표시를
+ * 툴바에서 페이지로 끌어올려 단일화한다.
+ *
+ * 문서 설정 판넬 표시 토글: 상단 `DocumentToolbar`(문서·하위 문서 생성, 제목 변경 컨트롤)의
  * 노출 여부를 트리 토글과 동일한 성격의 로컬 UI 상태(`settingsVisible`)로 소유한다. 판넬 자체는
  * `RequireRole(MEMBER)` 게이트를 내부 소유하므로 비멤버에겐 빈 판넬이다 — 따라서 토글 버튼도
  * `canEdit`(admin override 포함) 로 게이팅해 편집 권한이 있는 사용자(owner 포함)에게만 노출한다.
@@ -125,6 +130,9 @@ export function DocumentWorkspacePage(): ReactElement {
         ) : null}
       </header>
 
+      {/* 변이 오류 단일 sink: create/rename/삭제가 공유하는 오류를 판넬 개폐와 무관하게 항상 노출. */}
+      <ErrorMessage error={mutations.state.error} />
+
       {settingsVisible ? (
         <div id="document-settings-panel">
           <DocumentToolbar
@@ -181,6 +189,9 @@ export function DocumentWorkspacePage(): ReactElement {
               canEdit={canEdit}
               onEnterEdit={(documentId) => {
                 navigate(buildDocumentEditPath(documentId));
+              }}
+              onDelete={(documentId) => {
+                void mutations.remove(documentId);
               }}
             />
           ) : (

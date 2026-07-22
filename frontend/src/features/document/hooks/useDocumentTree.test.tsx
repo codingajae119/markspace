@@ -149,6 +149,54 @@ describe("useDocumentTree", () => {
     expect(loadAllMock).toHaveBeenCalledTimes(2);
   });
 
+  it("reselectAfterRemoval: 선택이 삭제되면 가장 가까운 생존 조상으로 이동한다", async () => {
+    // 초기 트리 1→2→3, 3 을 선택한 뒤 3 삭제(reload 는 1,2 만 반환)를 시뮬레이션한다.
+    loadAllMock.mockResolvedValue([doc(1, null, "a"), doc(2, 1, "b"), doc(3, 2, "c")]);
+    const { result } = renderHook(() => useDocumentTree());
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+
+    act(() => result.current.select(3));
+    expect(result.current.selectedId).toBe(3);
+
+    loadAllMock.mockResolvedValue([doc(1, null, "a"), doc(2, 1, "b")]);
+    await act(async () => {
+      await result.current.reload();
+    });
+    act(() => result.current.reselectAfterRemoval([2, 1]));
+
+    expect(result.current.selectedId).toBe(2);
+  });
+
+  it("reselectAfterRemoval: 선택이 살아 있으면(다른 문서 삭제) 선택을 유지한다", async () => {
+    loadAllMock.mockResolvedValue([doc(1, null, "a"), doc(2, null, "b")]);
+    const { result } = renderHook(() => useDocumentTree());
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+
+    act(() => result.current.select(1));
+    await act(async () => {
+      await result.current.reload();
+    });
+    // 후보가 있어도 현재 선택(1)이 생존하므로 건드리지 않는다.
+    act(() => result.current.reselectAfterRemoval([2]));
+
+    expect(result.current.selectedId).toBe(1);
+  });
+
+  it("reselectAfterRemoval: 생존 조상이 없으면(루트 삭제·전부 삭제) null 로 비운다", async () => {
+    loadAllMock.mockResolvedValue([doc(1, null, "a")]);
+    const { result } = renderHook(() => useDocumentTree());
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+
+    act(() => result.current.select(1));
+    loadAllMock.mockResolvedValue([]);
+    await act(async () => {
+      await result.current.reload();
+    });
+    act(() => result.current.reselectAfterRemoval([]));
+
+    expect(result.current.selectedId).toBeNull();
+  });
+
   it("workspaceId 가 null 이면 API 를 호출하지 않고 status=ready, roots=[]", async () => {
     useDocumentScopeMock.mockReturnValue({
       status: "empty",

@@ -60,6 +60,12 @@ export type UseDocumentTreeResult = DocumentTreeState & {
   ancestorsOf(id: number): DocumentRead[];
   /** 낙관 반영 seam: 패치 배열 대체 / null 은 서버 스냅샷 복원. */
   applyLocal(patch: DocumentNode[] | null): void;
+  /**
+   * 삭제 후 선택 재배치 seam: reload 직후 호출한다. 현재 선택이 최신 서버 스냅샷에 살아 있으면
+   * 유지하고, 사라졌으면 주어진 후보(부모→루트 등 가까운 순) 중 첫 생존 노드로, 없으면 null 로
+   * 이동한다(가장 가까운 부모 표시, 없으면 빈 화면).
+   */
+  reselectAfterRemoval(candidateIdsNearestFirst: number[]): void;
 };
 
 /** buildTree 결과 형태(서버 스냅샷 ref 타입). */
@@ -232,6 +238,27 @@ export function useDocumentTree(): UseDocumentTreeResult {
     [nodeById],
   );
 
+  const reselectAfterRemoval = useCallback(
+    (candidateIdsNearestFirst: number[]): void => {
+      // reload 직후 최신 서버 스냅샷(load 가 동기 세팅한 ref)을 기준으로 생존 판정한다.
+      const fresh = serverSnapshotRef.current.nodeById;
+      // 현재 선택이 살아 있으면(다른 문서 삭제·reload 실패 등) 선택을 건드리지 않는다.
+      if (selectedIdRef.current !== null && fresh.has(selectedIdRef.current)) {
+        return;
+      }
+      // 삭제된 선택을 대체할 가장 가까운 생존 조상을 고른다. 없으면(루트 삭제·전부 삭제) null 로
+      // 비워 뷰어 대신 빈 화면이 나오게 한다. 삭제는 하위로만 캐스케이드하므로 부모 이상은 생존한다.
+      const survivor =
+        candidateIdsNearestFirst.find((cid) => fresh.has(cid)) ?? null;
+      selectedIdRef.current = survivor;
+      setSelectedId(survivor);
+      if (survivor !== null && workspaceId !== null) {
+        writeLastDocumentId(workspaceId, survivor);
+      }
+    },
+    [workspaceId],
+  );
+
   const applyLocal = useCallback((patch: DocumentNode[] | null): void => {
     if (patch === null) {
       // 서버 스냅샷으로 정확 복원(네트워크 호출 없음).
@@ -256,5 +283,6 @@ export function useDocumentTree(): UseDocumentTreeResult {
     toggleExpand,
     ancestorsOf,
     applyLocal,
+    reselectAfterRemoval,
   };
 }

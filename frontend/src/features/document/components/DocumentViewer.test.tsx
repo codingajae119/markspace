@@ -131,7 +131,7 @@ describe("DocumentViewer — 단일 EditorWrapper(read) 재사용 (Req 7.1~7.6)"
     expect(onEnterEdit).toHaveBeenCalledWith(9);
   });
 
-  it("canEdit=false(뷰어) 면 편집 버튼을 렌더하지 않는다 (Req 7.4, 7.5)", async () => {
+  it("canEdit=false(뷰어) 면 편집·삭제 버튼을 렌더하지 않는다 (Req 7.4, 7.5, 5.1)", async () => {
     getDocumentMock.mockResolvedValue(sampleDoc({ id: 3 }));
 
     render(<DocumentViewer documentId={3} canEdit={false} />);
@@ -140,6 +140,52 @@ describe("DocumentViewer — 단일 EditorWrapper(read) 재사용 (Req 7.1~7.6)"
       expect(factorySpy).toHaveBeenCalled();
     });
     expect(screen.queryByRole("button", { name: "편집" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "삭제" })).toBeNull();
+  });
+
+  it("canEdit=true 면 삭제 버튼을 편집 버튼과 함께 렌더한다 (Req 5.1)", async () => {
+    getDocumentMock.mockResolvedValue(sampleDoc({ id: 9 }));
+
+    render(<DocumentViewer documentId={9} canEdit={true} />);
+
+    // 편집·삭제 버튼이 함께(편집 옆) 노출된다.
+    expect(await screen.findByRole("button", { name: "편집" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "삭제" })).toBeInTheDocument();
+  });
+
+  it("삭제 → ConfirmDialog 확인 시 onDelete(documentId) 호출 후 닫힘 (Req 5.1)", async () => {
+    getDocumentMock.mockResolvedValue(sampleDoc({ id: 9, title: "지울 문서" }));
+    const onDelete = vi.fn<(documentId: number) => void>();
+
+    render(<DocumentViewer documentId={9} canEdit={true} onDelete={onDelete} />);
+
+    // 초기엔 확인 모달이 없다.
+    const deleteButton = await screen.findByRole("button", { name: "삭제" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    // 삭제 클릭 → 확인 모달이 뜨고(문서 제목 안내), 아직 seam 은 호출되지 않는다.
+    fireEvent.click(deleteButton);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+
+    // 확인 → onDelete(documentId) 호출 후 모달이 닫힌다(변이는 상위 페이지가 소유).
+    fireEvent.click(screen.getByRole("button", { name: "휴지통으로 이동" }));
+    expect(onDelete).toHaveBeenCalledWith(9);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("삭제 확인 모달에서 취소하면 onDelete 를 호출하지 않고 닫힌다 (Req 5.1)", async () => {
+    getDocumentMock.mockResolvedValue(sampleDoc({ id: 4 }));
+    const onDelete = vi.fn<(documentId: number) => void>();
+
+    render(<DocumentViewer documentId={4} canEdit={true} onDelete={onDelete} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "삭제" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("getDocument 가 ApiError 로 실패하면 ErrorMessage 를 보이고 본문(에디터)은 렌더하지 않는다 (Req 7.6)", async () => {

@@ -30,7 +30,12 @@ const deleteMock = documentApi.deleteDocument as unknown as Mock;
 const moveMock = documentApi.moveDocument as unknown as Mock;
 
 type Tree = ReturnType<typeof useDocumentTree>;
-type MockTree = Tree & { reload: Mock; select: Mock; applyLocal: Mock };
+type MockTree = Tree & {
+  reload: Mock;
+  select: Mock;
+  applyLocal: Mock;
+  reselectAfterRemoval: Mock;
+};
 
 function doc(
   id: number,
@@ -69,6 +74,7 @@ function makeTree(docs: DocumentRead[]): MockTree {
     toggleExpand: vi.fn(),
     ancestorsOf: vi.fn().mockReturnValue([]),
     applyLocal: vi.fn(),
+    reselectAfterRemoval: vi.fn(),
   };
   return tree as MockTree;
 }
@@ -201,6 +207,53 @@ describe("useDocumentMutations", () => {
     expect(tree.reload).toHaveBeenCalledTimes(1);
     expect(returned).toBe(true);
     expect(result.current.state.error).toBeNull();
+  });
+
+  it("remove 성공 → reload 후 reselectAfterRemoval(부모→루트, 가까운 순) 호출", async () => {
+    // 트리: 1(루트) → 2 → 3. 3 을 삭제하면 후보는 부모부터 [2, 1] 이어야 한다.
+    const tree = makeTree([doc(1, null, "a"), doc(2, 1, "b"), doc(3, 2, "c")]);
+    deleteMock.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useDocumentMutations(tree, "7"));
+
+    await act(async () => {
+      await result.current.remove(3);
+    });
+
+    expect(tree.reload).toHaveBeenCalledTimes(1);
+    expect(tree.reselectAfterRemoval).toHaveBeenCalledWith([2, 1]);
+    // reselect 는 reload 이후에 불려야 최신 스냅샷으로 생존 판정이 가능하다.
+    expect(tree.reselectAfterRemoval.mock.invocationCallOrder[0]).toBeGreaterThan(
+      tree.reload.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("remove 루트 삭제 → reselectAfterRemoval([]) 호출(대체 부모 없음 → 빈 화면)", async () => {
+    const tree = makeTree([doc(1, null, "a")]);
+    deleteMock.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useDocumentMutations(tree, "7"));
+
+    await act(async () => {
+      await result.current.remove(1);
+    });
+
+    expect(tree.reselectAfterRemoval).toHaveBeenCalledWith([]);
+  });
+
+  it("remove 오류 → reselectAfterRemoval 미호출(선택 보존)", async () => {
+    const tree = makeTree([doc(1, null, "a")]);
+    deleteMock.mockRejectedValue(
+      new ApiError({ status: 409, code: "conflict", message: "not active" }),
+    );
+
+    const { result } = renderHook(() => useDocumentMutations(tree, "7"));
+
+    await act(async () => {
+      await result.current.remove(1);
+    });
+
+    expect(tree.reselectAfterRemoval).not.toHaveBeenCalled();
   });
 
   it("remove 오류(409 ApiError) → state.error 설정, false 반환, reload 미호출", async () => {

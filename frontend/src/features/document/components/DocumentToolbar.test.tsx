@@ -8,11 +8,12 @@ import { useSession } from "@/app/session/useSession";
 import type { useDocumentMutations } from "../hooks/useDocumentMutations";
 import { DocumentToolbar } from "./DocumentToolbar";
 
-// DocumentToolbar 은 생성·이름변경·삭제 조작을 RequireRole(minimum=MEMBER) 단일 게이트로
-// 감싸 비멤버(null)에게 미노출한다(Req 3.6·4.5·5.6·9.2). RequireRole 은 isAdmin 을
+// DocumentToolbar 은 생성·이름변경 조작을 RequireRole(minimum=MEMBER) 단일 게이트로
+// 감싸 비멤버(null)에게 미노출한다(Req 3.6·4.5·9.2). RequireRole 은 isAdmin 을
 // useSession() 에서만 취득하므로(admin override) 세션 훅을 모킹한다. mutations 는 주입된
-// 의존을 그대로 소비하는 목으로 대체해 호출 인자를 관찰한다.
-// Requirements: 3.1, 3.6, 4.1, 4.5, 5.1, 5.6, 9.2
+// 의존을 그대로 소비하는 목으로 대체해 호출 인자를 관찰한다. 삭제 버튼·확인 모달은 이 툴바가
+// 아니라 DocumentViewer 헤더가 소유하므로 여기서 검증하지 않는다.
+// Requirements: 3.1, 3.6, 4.1, 4.5, 9.2
 
 vi.mock("@/app/session/useSession", () => ({ useSession: vi.fn() }));
 
@@ -59,8 +60,8 @@ afterEach(() => {
   cleanup();
 });
 
-describe("DocumentToolbar — RequireRole 단일 게이트 생성·이름변경·삭제", () => {
-  it("비멤버(null, 비-admin) → 생성·이름변경·삭제 컨트롤 미노출 (Req 3.6·4.5·5.6·9.2)", () => {
+describe("DocumentToolbar — RequireRole 단일 게이트 생성·이름변경", () => {
+  it("비멤버(null, 비-admin) → 생성·이름변경 컨트롤 미노출 (Req 3.6·4.5·9.2)", () => {
     mockNonAdmin();
     render(
       <DocumentToolbar
@@ -73,7 +74,6 @@ describe("DocumentToolbar — RequireRole 단일 게이트 생성·이름변경�
 
     expect(screen.queryByRole("button", { name: "새 문서" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "이름 변경" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "삭제" })).not.toBeInTheDocument();
   });
 
   it("member → 생성 컨트롤 노출, 제출 시 create({ title, parentId }) 호출 (Req 3.1)", () => {
@@ -152,48 +152,19 @@ describe("DocumentToolbar — RequireRole 단일 게이트 생성·이름변경�
 
     expect(screen.getByRole("button", { name: "새 문서" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "이름 변경" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "삭제" })).toBeInTheDocument();
   });
 
-  it("삭제 → ConfirmDialog 확인 시 remove(selectedId) 호출 후 닫힘 (Req 5.1)", () => {
+  it("삭제 버튼은 이 툴바에 없다(뷰어 헤더가 소유, Req 5.1)", () => {
     mockNonAdmin();
-    const mutations = makeMutations();
     render(
       <DocumentToolbar
-        mutations={mutations}
+        mutations={makeMutations()}
         currentRole={Role.MEMBER}
         selectedId={7}
         selectedTitle="지울 문서"
       />,
     );
 
-    // 초기엔 다이얼로그 없음.
-    expect(screen.queryByRole("dialog")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "휴지통으로 이동" }));
-    expect(vi.mocked(mutations.remove)).toHaveBeenCalledWith(7);
-    expect(screen.queryByRole("dialog")).toBeNull();
-  });
-
-  it("mutations.state.error → ErrorMessage 로 표면화한다", () => {
-    mockNonAdmin();
-    const error = new ApiError({
-      status: 409,
-      code: "conflict",
-      message: "이미 존재하는 문서입니다.",
-    });
-    render(
-      <DocumentToolbar
-        mutations={makeMutations({ pending: false, error })}
-        currentRole={Role.MEMBER}
-        selectedId={null}
-        selectedTitle={null}
-      />,
-    );
-
-    expect(screen.getByText("이미 존재하는 문서입니다.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "삭제" })).not.toBeInTheDocument();
   });
 });

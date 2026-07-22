@@ -52,6 +52,7 @@ function makeTree(partial: Partial<UseDocumentTreeResult> = {}): UseDocumentTree
     toggleExpand: vi.fn<(id: number) => void>(),
     ancestorsOf: vi.fn<(id: number) => DocumentRead[]>(() => []),
     applyLocal: vi.fn<(patch: DocumentNode[] | null) => void>(),
+    reselectAfterRemoval: vi.fn<(candidateIdsNearestFirst: number[]) => void>(),
     ...partial,
   };
 }
