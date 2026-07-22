@@ -51,6 +51,8 @@ function doc(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // 마지막 선택 문서 영속(localStorage)이 테스트 간 누출되지 않도록 초기화한다.
+  localStorage.clear();
   useDocumentScopeMock.mockReturnValue({
     status: "ready",
     workspaceId: "7",
@@ -190,5 +192,39 @@ describe("useDocumentTree", () => {
     expect(result.current.roots[0].doc.id).toBe(1);
     expect(result.current.nodeById.get(99)).toBeUndefined();
     expect(result.current.nodeById.get(1)?.doc.id).toBe(1);
+  });
+
+  it("마지막 선택 문서를 재마운트 시 복원하고 조상을 펼친다", async () => {
+    loadAllMock.mockResolvedValue([doc(1, null, "a"), doc(2, 1, "b"), doc(3, 2, "c")]);
+
+    // 1) 첫 마운트에서 중첩 문서 3 을 선택하면 워크스페이스별로 영속된다.
+    const first = renderHook(() => useDocumentTree());
+    await waitFor(() => expect(first.result.current.status).toBe("ready"));
+    act(() => first.result.current.select(3));
+    expect(first.result.current.selectedId).toBe(3);
+
+    // 2) 편집 화면 이동을 모사해 언마운트 후 다시 마운트하면 선택이 복원되고 조상(1·2)이 펼쳐진다.
+    first.unmount();
+    const second = renderHook(() => useDocumentTree());
+    await waitFor(() => expect(second.result.current.selectedId).toBe(3));
+    expect(second.result.current.expandedIds.has(1)).toBe(true);
+    expect(second.result.current.expandedIds.has(2)).toBe(true);
+    // 선택 노드 자신은 펼치지 않는다(자식 없음).
+    expect(second.result.current.expandedIds.has(3)).toBe(false);
+  });
+
+  it("영속된 마지막 문서가 현재 트리에 없으면 복원하지 않는다", async () => {
+    // 워크스페이스 7 에서 문서 42 를 선택해 영속한다(트리에는 42 가 없다).
+    loadAllMock.mockResolvedValue([]);
+    const first = renderHook(() => useDocumentTree());
+    await waitFor(() => expect(first.result.current.status).toBe("ready"));
+    act(() => first.result.current.select(42));
+    first.unmount();
+
+    // 재마운트 시 트리에는 1·2 만 있으므로 유령 42 는 복원되지 않는다.
+    loadAllMock.mockResolvedValue([doc(1, null, "a"), doc(2, 1, "b")]);
+    const second = renderHook(() => useDocumentTree());
+    await waitFor(() => expect(second.result.current.status).toBe("ready"));
+    expect(second.result.current.selectedId).toBeNull();
   });
 });

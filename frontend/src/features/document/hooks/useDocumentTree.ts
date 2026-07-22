@@ -29,6 +29,7 @@ import type { DocumentRead, DocumentNode } from "../types";
 import { documentApi } from "../api/documentApi";
 import { buildTree } from "../lib/buildTree";
 import { resolveAncestors } from "../lib/resolveAncestors";
+import { readLastDocumentId, writeLastDocumentId } from "../lib/lastSelectedDocument";
 import { useDocumentScope } from "./useDocumentScope";
 
 /** 로드/트리/선택 상태 표면 (design.md §useDocumentTree). */
@@ -112,6 +113,8 @@ export function useDocumentTree(): UseDocumentTreeResult {
   const runIdRef = useRef(0);
   // applyLocal(null) 복원 대상: 마지막으로 성공한 서버 로드 스냅샷.
   const serverSnapshotRef = useRef<Tree>(EMPTY_TREE);
+  // 비동기 load 완료 시점에서 "현재 선택 없음" 을 최신값으로 판정하기 위한 selectedId 미러(복원 게이트).
+  const selectedIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -157,7 +160,40 @@ export function useDocumentTree(): UseDocumentTreeResult {
       setError(null);
       // 빈 WS 도 성공이다: roots=[] 인 채 ready(Req 1.6).
       setStatus("ready");
+
+      // 마지막 선택/편집 문서 복원: 현재 활성 선택이 없을 때만(신규 마운트·WS 전환 직후)
+      // 저장된 id 를 되살린다. 저장 id 가 이 트리에 실제로 존재할 때만 선택하고(삭제·타 WS
+      // 유령 방지) 조상 노드를 펼쳐 트리에서 가시화한다. 진행 중 선택은 덮지 않는다.
+      if (selectedIdRef.current === null && workspaceId !== null) {
+        const remembered = readLastDocumentId(workspaceId);
+        if (remembered !== null && tree.nodeById.has(remembered)) {
+          selectedIdRef.current = remembered;
+          setSelectedId(remembered);
+          // resolveAncestors 는 root→current(자기 포함)를 반환한다. 자신은 제외하고 조상만 펼친다.
+          const toExpand = resolveAncestors(tree.nodeById, remembered)
+            .map((doc) => doc.id)
+            .filter((ancestorId) => ancestorId !== remembered);
+          if (toExpand.length > 0) {
+            setExpandedIds((prev) => {
+              const next = new Set(prev);
+              for (const ancestorId of toExpand) {
+                next.add(ancestorId);
+              }
+              return next;
+            });
+          }
+        }
+      }
     }
+  }, [workspaceId]);
+
+  // WS 전환 시 이전 WS 의 선택/펼침을 비운다. 이렇게 비워 두어야 이어지는 load 의 복원 게이트
+  // (selectedIdRef===null)가 열려 새 WS 의 마지막 문서가 복원되고, 교차-WS stale 선택도 제거된다.
+  // 마운트(초기 null)에서도 무해하게 실행된다. load 보다 먼저 선언해 동기 리셋이 앞서게 한다.
+  useEffect(() => {
+    selectedIdRef.current = null;
+    setSelectedId(null);
+    setExpandedIds(new Set<number>());
   }, [workspaceId]);
 
   // 마운트 및 workspaceId 변경 시 로드(load 는 workspaceId 에 의존).
@@ -167,9 +203,17 @@ export function useDocumentTree(): UseDocumentTreeResult {
 
   const reload = useCallback((): Promise<void> => load(), [load]);
 
-  const select = useCallback((id: number | null): void => {
-    setSelectedId(id);
-  }, []);
+  const select = useCallback(
+    (id: number | null): void => {
+      selectedIdRef.current = id;
+      setSelectedId(id);
+      // 마지막 선택을 워크스페이스별로 영속해 편집 후 복귀(읽기로 돌아가기·"문서" 탭) 시 복원되게 한다.
+      if (id !== null && workspaceId !== null) {
+        writeLastDocumentId(workspaceId, id);
+      }
+    },
+    [workspaceId],
+  );
 
   const toggleExpand = useCallback((id: number): void => {
     setExpandedIds((prev) => {

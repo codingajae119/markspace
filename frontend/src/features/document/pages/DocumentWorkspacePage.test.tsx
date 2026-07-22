@@ -150,6 +150,8 @@ beforeEach(() => {
   getDocumentMock.mockReset();
   useCurrentWorkspaceMock.mockReset();
   useSessionMock.mockReset();
+  // 마지막 선택 문서 영속(localStorage)이 테스트 간 누출돼 다음 테스트에서 자동 복원되지 않도록 초기화.
+  localStorage.clear();
 });
 
 afterEach(() => {
