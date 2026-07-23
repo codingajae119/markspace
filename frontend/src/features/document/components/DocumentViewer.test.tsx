@@ -117,6 +117,24 @@ describe("DocumentViewer — 단일 EditorWrapper(read) 재사용 (Req 7.1~7.3, 
     expect(options.initialValue).not.toBe(doc.content_html);
   });
 
+  it("read 뷰어에 첨부 렌더러를 결선한다 — 이미지/파일 링크가 읽기모드에서 렌더된다 (Req 7.2·7.3)", async () => {
+    getDocumentMock.mockResolvedValue(sampleDoc({ id: 7 }));
+
+    render(<DocumentViewer documentId={7} />);
+
+    await waitFor(() => {
+      expect(factorySpy).toHaveBeenCalledTimes(1);
+    });
+    // buildAttachmentRenderers() 가 read Viewer 로 도달한다 → Toast customHTMLRenderer 에
+    // 첨부 image/link 컨버터가 결선된다(편집 preview 와 동일한 단일 렌더 경로).
+    const renderer = factorySpy.mock.calls[0][0].customHTMLRenderer as {
+      image?: unknown;
+      link?: unknown;
+    };
+    expect(typeof renderer.image).toBe("function");
+    expect(typeof renderer.link).toBe("function");
+  });
+
   it("편집·삭제 버튼은 뷰어가 소유하지 않는다(상단 DocumentToolbar 소유, Req 5.1·7.4·7.5)", async () => {
     getDocumentMock.mockResolvedValue(sampleDoc({ id: 3 }));
 

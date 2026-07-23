@@ -52,7 +52,14 @@ import "@toast-ui/editor/dist/toastui-editor-viewer.css";
 import { ReadOnlyProse } from "./ReadOnlyProse";
 import { renderMathIn } from "./renderMath";
 
-/** Toast 위치 좌표 `[line, ch]`(래퍼가 Toast API 형태로 정규화). */
+/**
+ * 위치 좌표 `[line, ch]` — **1-based line, 0-based ch**(에디터 비종속 규약).
+ *
+ * 소비자(s21 `locateToken`)는 자연스러운 JS 문자열 규약(0-based ch)으로 좌표를 만든다.
+ * Toast markdown 은 line·ch **모두 1-based**(ch=1 이 첫 글자)이므로, 이 래퍼가
+ * `replaceRange` 위임 시 ch 를 1-based 로 보정한다(아래 `toToastPos`). 이 Toast 좌표계
+ * 흡수가 래퍼 단일 소유이며, 소비자는 Toast 의 base 를 알 필요가 없다.
+ */
 export type EditorPos = [line: number, ch: number];
 
 /**
@@ -74,6 +81,15 @@ export interface EditorHandle {
 export type CustomImageRenderer = (ref: string) => HTMLElement;
 
 /**
+ * Toast image 노드 컨버터가 받는 컨텍스트의 **구조적 최소 형태**(사용하는 멤버만).
+ * `entering`(진입/이탈 구분)·`skipChildren`(자식·이탈 방문 스킵)만 소비한다.
+ */
+interface ToastImageContext {
+  entering: boolean;
+  skipChildren: () => void;
+}
+
+/**
  * 첨부/이미지 커스텀 렌더러 오버라이드(edit·read 양 모드 공통).
  * `/attachments/{id}` 참조 → 인증 blob 로딩 렌더는 s21 이 소비 계약으로 구현한다.
  */
@@ -82,6 +98,16 @@ export interface CustomRenderers {
   customImageRenderer?: CustomImageRenderer;
   /** Toast `customHTMLRenderer` 형태 — 래퍼가 그대로 위임한다. */
   customHTMLRenderer?: unknown;
+  /**
+   * Toast 가 읽기/미리보기 DOM 을 채운 **직후** 호출되는 후처리 훅(edit preview·read 공통).
+   *
+   * Toast `customHTMLRenderer` 는 컨버터 반환을 **문자열**로만 받으므로, 인증 blob 이미지처럼
+   * 비동기 커밋이 필요한 컴포넌트는 컨버터가 빈 placeholder(`data-*` 마커)만 내보내고 이 훅이
+   * 렌더 후 실 DOM 마커에 라이브 마운트한다(s21 `hydrateAttachmentsInDom`). 반환한 disposer 는
+   * 다음 hydrate 직전·언마운트 시 호출되어 마운트한 자원을 해제한다(오브젝트 URL 누수 방지).
+   * 편집(WYSIWYG) 표면에는 적용하지 않는다 — 읽기 경로(read Viewer·edit preview)만 대상.
+   */
+  hydrateDom?: (root: HTMLElement) => (() => void) | void;
 }
 
 export interface EditorWrapperProps {
@@ -130,7 +156,16 @@ function toToastHTMLRenderer(
   }
   const merged: CustomHTMLRenderer = {
     ...(passthrough ?? {}),
-    image: (node) => {
+    // Toast image 노드는 컨테이너다 — walker 가 진입(entering)·이탈(leaving) 두 번 방문하고 그
+    // 사이에 alt 텍스트 자식을 방문한다. Toast 기본 image 컨버터처럼 **진입 시 `skipChildren()`
+    // 을 호출**해야 walker 가 자식(alt)과 이탈 이벤트를 함께 건너뛴다. 이를 빠뜨리면 진입에서 1회,
+    // 이탈에서 또 1회 렌더되고 사이에 alt 텍스트까지 나와 "이미지·alt·이미지" 3중 출력이 된다.
+    image: (node, context) => {
+      const ctx = context as ToastImageContext;
+      if (ctx.entering === false) {
+        return null; // 이탈 이벤트(방어적) — 진입에서 skipChildren 하면 통상 도달하지 않는다.
+      }
+      ctx.skipChildren();
       const ref = (node as LinkMdNode).destination ?? "";
       return { type: "html", content: imageRenderer(ref).outerHTML };
     },
@@ -197,8 +232,12 @@ export function EditorWrapper({
       // 게스트 뷰와 동일 수식 렌더). 편집 표면(WYSIWYG)에는 적용하지 않는다(ProseMirror
       // 텍스트 노드 교체 시 에디터 상태 손상). Viewer 는 생성 시 initialValue 를 동기 렌더한다.
       renderMathIn(el);
+      // 렌더된 DOM 의 첨부 placeholder 마커에 인증 컴포넌트를 라이브 마운트한다(s21). Viewer 는
+      // 1회 렌더이므로 disposer 를 cleanup 에서 호출해 마운트 자원을 해제한다.
+      const disposeHydrate = renderersRef.current?.hydrateDom?.(el);
 
       return () => {
+        disposeHydrate?.();
         viewer.destroy();
       };
     }
@@ -237,8 +276,14 @@ export function EditorWrapper({
     // Preview 는 탭 전환·타이핑마다 markdown 에서 재렌더되어 KaTeX 가 지워지므로, 매 렌더
     // 완료(`afterPreviewRender`)마다 다시 태운다. 이 mutation 은 재렌더를 유발하지 않아 루프가
     // 없다.
+    // preview 재렌더마다 이전 hydrate 루트를 해제한 뒤 재마운트한다. Toast 가 preview DOM 을
+    // 통째로 재생성하므로 이전 루트를 방치하면 언마운트 없이 detach 되어 오브젝트 URL 이 누수된다.
+    let disposePreviewHydrate: (() => void) | void;
     const renderPreviewMath = (): void => {
-      renderMathIn(editor.getEditorElements().mdPreview);
+      const mdPreview = editor.getEditorElements().mdPreview;
+      renderMathIn(mdPreview);
+      disposePreviewHydrate?.();
+      disposePreviewHydrate = renderersRef.current?.hydrateDom?.(mdPreview);
     };
     editor.on("afterPreviewRender", renderPreviewMath);
 
@@ -263,7 +308,11 @@ export function EditorWrapper({
       el.addEventListener("drop", handleDrop);
     }
 
-    const toToastPos = (pos: EditorPos): [number, number] => [pos[0], pos[1]];
+    // EditorPos(1-based line, 0-based ch) → Toast markdown 좌표(1-based line, 1-based ch).
+    // Toast `getMdToEditorPos` 는 line-1 로 인덱싱하고 ch 를 그대로 문자 오프셋에 더하며
+    // ch=1 이 첫 글자를 가리킨다(ProseMirror pos). 따라서 line 은 그대로, ch 만 +1 보정한다.
+    // 이 +1 이 빠지면 range 가 좌로 한 칸 밀려 토큰 마지막 글자(예: 센티넬 `⟧`)가 남는다.
+    const toToastPos = (pos: EditorPos): [number, number] => [pos[0], pos[1] + 1];
     const handle: EditorHandle = {
       getMarkdown: () => editor.getMarkdown(),
       insert: (text) => {
@@ -279,6 +328,7 @@ export function EditorWrapper({
       if (wireFileDrop) {
         el.removeEventListener("drop", handleDrop);
       }
+      disposePreviewHydrate?.();
       editor.off("afterPreviewRender");
       editor.destroy();
     };

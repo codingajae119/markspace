@@ -20,8 +20,9 @@
  * Requirements: 7.1, 7.2, 7.3, 7.6
  */
 
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 
+import { buildAttachmentRenderers } from "@/features/attachment";
 import { ApiError } from "@/shared/api/errors";
 import { EditorWrapper } from "@/shared/editor/EditorWrapper";
 import { ErrorMessage, Spinner } from "@/shared/ui";
@@ -53,6 +54,10 @@ export function DocumentViewer({ documentId }: DocumentViewerProps): ReactElemen
   );
   const [doc, setDoc] = useState<DocumentRead | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
+
+  // 읽기 렌더도 편집 preview 와 동일한 첨부 렌더러를 소비한다 — `/attachments/{id}` 이미지는
+  // 인증 blob 으로, 파일 링크는 다운로드 버튼으로 렌더된다(단일 렌더 경로). 안정 참조로 memo.
+  const renderers = useMemo(() => buildAttachmentRenderers(), []);
 
   // 언마운트 후 setState 방지 + documentId 변경 경합 시 최신 실행만 반영(latest-wins).
   const mountedRef = useRef(true);
@@ -113,7 +118,7 @@ export function DocumentViewer({ documentId }: DocumentViewerProps): ReactElemen
         <h1 className="text-xl font-semibold text-gray-900">{doc.title}</h1>
       </header>
       {/* 단일 EditorWrapper(read) — content(markdown)만 사용, content_html 미사용(Req 7.2, 7.3). */}
-      <EditorWrapper mode="read" initialContent={doc.content} />
+      <EditorWrapper mode="read" initialContent={doc.content} renderers={renderers} />
     </article>
   );
 }

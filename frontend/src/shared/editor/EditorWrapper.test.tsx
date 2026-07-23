@@ -252,31 +252,96 @@ describe("EditorWrapper — capability 슬롯 (8.6~8.8)", () => {
       return img;
     };
 
+    type ImageContext = { entering: boolean; skipChildren: () => void };
+    type ImageConverter = (
+      node: { destination: string | null },
+      context: ImageContext,
+    ) => { type: string; content: string } | null;
+    const entering = (): ImageContext => ({
+      entering: true,
+      skipChildren: vi.fn(),
+    });
+
     // edit 모드.
     const editRender = render(
       <EditorWrapper mode="edit" renderers={{ customImageRenderer }} />,
     );
     const editRenderer = editorCtorSpy.mock.calls[0][0]
-      .customHTMLRenderer as Record<
-      string,
-      (node: { destination: string | null }) => { type: string; content: string }
-    >;
+      .customHTMLRenderer as Record<string, ImageConverter>;
     expect(typeof editRenderer.image).toBe("function");
-    const editToken = editRenderer.image({ destination: "/attachments/42" });
+    const ctx = entering();
+    const editToken = editRenderer.image({ destination: "/attachments/42" }, ctx);
     expect(rendered).toContain("/attachments/42");
-    expect(editToken.type).toBe("html");
-    expect(editToken.content).toContain('data-ref="/attachments/42"');
+    expect(editToken?.type).toBe("html");
+    expect(editToken?.content).toContain('data-ref="/attachments/42"');
+    // 자식(alt) + 이탈 이벤트를 건너뛰도록 진입 시 skipChildren 을 호출한다(이중 렌더 방지).
+    expect(ctx.skipChildren).toHaveBeenCalledTimes(1);
+    // 이탈(entering=false) 이벤트에는 렌더하지 않는다(방어적) — null.
+    expect(
+      editRenderer.image(
+        { destination: "/attachments/42" },
+        { entering: false, skipChildren: vi.fn() },
+      ),
+    ).toBeNull();
     editRender.unmount();
 
     // read 모드 — 동일 override 가 Viewer 에도 결선된다.
     render(<EditorWrapper mode="read" renderers={{ customImageRenderer }} />);
-    const readRenderer = factorySpy.mock.calls[0][0].customHTMLRenderer as Record<
-      string,
-      (node: { destination: string | null }) => { type: string; content: string }
-    >;
+    const readRenderer = factorySpy.mock.calls[0][0]
+      .customHTMLRenderer as Record<string, ImageConverter>;
     expect(typeof readRenderer.image).toBe("function");
-    readRenderer.image({ destination: "/attachments/99" });
+    readRenderer.image({ destination: "/attachments/99" }, entering());
     expect(rendered).toContain("/attachments/99");
+  });
+
+  it("read 모드: 렌더 후 hydrateDom(뷰어 el) 을 호출하고 unmount 시 disposer 를 실행한다 (8.8)", () => {
+    const dispose = vi.fn();
+    const hydrateDom = vi.fn<(root: HTMLElement) => () => void>(() => dispose);
+
+    const { unmount } = render(
+      <EditorWrapper mode="read" initialContent="x" renderers={{ hydrateDom }} />,
+    );
+
+    // Viewer 가 채운 el 컨테이너로 후처리 hydrate 가 1회 호출된다.
+    expect(hydrateDom).toHaveBeenCalledTimes(1);
+    const el = factorySpy.mock.calls[0][0].el as HTMLElement;
+    expect(hydrateDom).toHaveBeenCalledWith(el);
+
+    // 언마운트 시 마운트 자원 해제(오브젝트 URL 누수 방지).
+    expect(dispose).not.toHaveBeenCalled();
+    unmount();
+    expect(dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("edit 모드: afterPreviewRender 마다 hydrateDom(mdPreview) 호출·직전 disposer 해제·unmount 해제 (8.8)", () => {
+    mdPreviewHtml = '<p><span data-attachment-image-id="7"></span></p>';
+    const disposers = [vi.fn(), vi.fn()];
+    let call = 0;
+    const hydrateDom = vi.fn<(root: HTMLElement) => () => void>(
+      () => disposers[call++],
+    );
+
+    const { unmount } = render(
+      <EditorWrapper mode="edit" initialContent="x" renderers={{ hydrateDom }} />,
+    );
+
+    const handler = onSpy.mock.calls.find(
+      ([type]) => type === "afterPreviewRender",
+    )![1];
+
+    // 1차 preview 렌더 → hydrate(mdPreview).
+    handler();
+    expect(hydrateDom).toHaveBeenCalledTimes(1);
+    expect(hydrateDom).toHaveBeenLastCalledWith(lastMdPreview);
+
+    // 2차 preview 재렌더 → 직전 루트 해제 후 재hydrate(누수 방지).
+    handler();
+    expect(disposers[0]).toHaveBeenCalledTimes(1);
+    expect(hydrateDom).toHaveBeenCalledTimes(2);
+
+    // 언마운트 시 마지막 disposer 해제.
+    unmount();
+    expect(disposers[1]).toHaveBeenCalledTimes(1);
   });
 
   it("onImagePaste: 붙여넣기/드롭 이미지 blob 훅이 File 과 함께 콜백을 호출한다 (8.6)", () => {
@@ -330,7 +395,7 @@ describe("EditorWrapper — capability 슬롯 (8.6~8.8)", () => {
     expect(insertTextSpy).toHaveBeenCalledWith("x");
   });
 
-  it("handle.replaceRange(from,to,text) 는 정규화된 좌표로 범위 치환을 호출한다 (8.7)", () => {
+  it("handle.replaceRange(from,to,text) 는 Toast 좌표(ch 1-based) 로 보정해 치환한다 (8.7)", () => {
     let handle: EditorHandle | undefined;
     render(
       <EditorWrapper
@@ -341,9 +406,11 @@ describe("EditorWrapper — capability 슬롯 (8.6~8.8)", () => {
       />,
     );
 
-    handle?.replaceRange([0, 0], [0, 3], "ref");
+    // EditorPos(0-based ch) → Toast markdown(1-based ch): line 그대로, ch 만 +1 보정.
+    // 이 보정이 빠지면 range 가 좌로 한 칸 밀려 토큰 마지막 글자가 남는다.
+    handle?.replaceRange([1, 0], [1, 3], "ref");
     expect(replaceSelectionSpy).toHaveBeenCalledTimes(1);
-    expect(replaceSelectionSpy).toHaveBeenCalledWith("ref", [0, 0], [0, 3]);
+    expect(replaceSelectionSpy).toHaveBeenCalledWith("ref", [1, 1], [1, 4]);
   });
 
   it("read 모드에서 insert/replaceRange 는 무해한 no-op(편집 전용 mutation) 이다 (8.7)", () => {

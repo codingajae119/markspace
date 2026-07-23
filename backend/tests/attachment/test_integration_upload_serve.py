@@ -29,6 +29,7 @@ uuid4 접미사로 시드한다.
 """
 
 from datetime import datetime
+from urllib.parse import quote
 
 from app.attachment.schemas import AttachmentKind, AttachmentRead
 from app.models import Attachment, Document
@@ -152,6 +153,44 @@ def test_editor_uploads_general_file_round_trip(
     disk_file = tmp_attachment_roots.file_storage_root / stored_path
     assert disk_file.is_file()
     assert disk_file.read_bytes() == _FILE_BYTES
+
+
+def test_serve_non_ascii_filename_does_not_500(
+    doc_tree_scenario, harness, tmp_attachment_roots
+):
+    """비-ASCII(한글) 원본명 파일 조회가 500 이 아니라 200 이어야 한다(회귀).
+
+    과거 서빙 라우터가 원본명을 ``Content-Disposition: inline; filename="<원본명>"`` 에 그대로
+    넣어, Starlette 의 latin-1 헤더 인코딩에서 한글 파일명이 ``UnicodeEncodeError`` 를 일으켜
+    500 이 났다(이미지가 무사했던 건 붙여넣기 이미지 원본명이 ASCII 라서일 뿐). RFC 5987
+    ``filename*=UTF-8''`` 인코딩으로 안전하게 직렬화되어야 한다.
+    """
+    doc_id = doc_tree_scenario.root_id
+    editor = doc_tree_scenario.editor_client
+    viewer = doc_tree_scenario.scenario.viewer_client
+
+    korean_name = "백엔드-김기열.pdf"
+    resp = _upload(
+        editor,
+        doc_id,
+        filename=korean_name,
+        data=_FILE_BYTES,
+        content_type="application/pdf",
+        kind="file",
+    )
+    assert resp.status_code == 201, f"업로드 201: {resp.status_code} {resp.text}"
+    body = resp.json()
+    assert body["original_name"] == korean_name, "한글 원본명 보존"
+
+    serve = viewer.get(body["url"])
+    # 핵심 회귀: 한글 파일명이어도 헤더 인코딩에서 500 이 나지 않는다.
+    assert serve.status_code == 200, f"한글 파일명 조회 200: {serve.status_code} {serve.text}"
+    assert serve.content == _FILE_BYTES, "정확한 바이너리 반환"
+
+    # RFC 5987 로 UTF-8 percent-encoding 된 파일명 파라미터를 포함한다(ASCII 폴백도 공존).
+    disposition = serve.headers["content-disposition"]
+    assert "filename*=UTF-8''" in disposition
+    assert quote(korean_name, safe="") in disposition
 
 
 # =============================================================================

@@ -12,3 +12,6 @@ wheels/
 # Secrets (never commit real .env; .env.example is tracked)
 .env
 !.env.example
+
+# Local runtime data (uploaded attachment storage, etc.)
+backend/var/
