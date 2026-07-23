@@ -1,9 +1,10 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import type { Mock } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 
 import { useSession } from "@/app/session/useSession";
 import type { CurrentWorkspaceContextValue } from "@/app/workspace-context/types";
+import { shareApi } from "../api/shareApi";
 import { ShareLinkPanel } from "./ShareLinkPanel";
 
 /**
@@ -24,8 +25,11 @@ import { ShareLinkPanel } from "./ShareLinkPanel";
  */
 
 // api 경계만 모킹한다(발급/토글은 이 테스트에서 호출하지 않으므로 apiClient 부작용 격리용).
+// getLink 는 REAL useShareManager 의 마운트-시 초기 조회를 흡수한다(Req 2.1) — 링크 없음(null)
+// 으로 해상되어 이 테스트가 검증하는 관측신호(documentStatus·isShareable) 파생 경로만 남긴다.
 vi.mock("../api/shareApi", () => ({
   shareApi: {
+    getLink: vi.fn(),
     issueLink: vi.fn(),
     toggleLink: vi.fn(),
   },
@@ -63,6 +67,13 @@ function mockWorkspace(
   );
 }
 
+/** 마운트-시 초기 조회(getLink→null) 마이크로태스크를 act 로 흡수해 act(...) 경고를 없앤다. */
+async function settleInitialFetch(): Promise<void> {
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
 /** 무효화 안내(InvalidationNotice invalidated 분기)의 대표 문구 존재 여부. */
 function invalidationAdvisoryShown(): boolean {
   return screen.queryByText(/재발급/) !== null;
@@ -70,6 +81,9 @@ function invalidationAdvisoryShown(): boolean {
 
 beforeEach(() => {
   useSessionMock.mockReset();
+  // 마운트-시 초기 조회는 "링크 없음"으로 해상한다(관측신호 파생 경로만 검증하기 위함).
+  (shareApi.getLink as unknown as Mock).mockReset();
+  (shareApi.getLink as unknown as Mock).mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -83,6 +97,7 @@ describe("ShareLinkPanel — S4 자기완결 마운트 seam (REAL useShareManage
     mockWorkspace(workspaceMock, { role: null, isShareable: true });
 
     render(<ShareLinkPanel documentId={10} documentStatus="active" />);
+    await settleInitialFetch();
 
     // 자기완결: prop + 세션만으로 관리 컨트롤(발급)이 마운트된다.
     expect(screen.getByRole("button", { name: "링크 발급" })).toBeEnabled();
@@ -99,6 +114,7 @@ describe("ShareLinkPanel — S4 자기완결 마운트 seam (REAL useShareManage
     const { rerender } = render(
       <ShareLinkPanel documentId={10} documentStatus="active" />,
     );
+    await settleInitialFetch();
     // 초기 active 상태에서는 안내가 없다.
     expect(invalidationAdvisoryShown()).toBe(false);
 
@@ -118,6 +134,7 @@ describe("ShareLinkPanel — S4 자기완결 마운트 seam (REAL useShareManage
     mockWorkspace(workspaceMock, { role: null, isShareable: false });
 
     render(<ShareLinkPanel documentId={10} documentStatus="active" />);
+    await settleInitialFetch();
 
     // 게이트 off 신호(isShareable=false)가 실 useShareManager 의 invalidated 파생을 켠다.
     expect(screen.getByRole("status")).toBeInTheDocument();

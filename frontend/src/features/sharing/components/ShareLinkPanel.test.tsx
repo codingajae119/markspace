@@ -76,6 +76,7 @@ function makeManager(
     frontShareUrl: null,
     reissued: false,
     invalidated: false,
+    loading: false,
     pending: false,
     error: null,
     issue: vi.fn(),
