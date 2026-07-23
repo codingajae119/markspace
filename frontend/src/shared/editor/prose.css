@@ -94,6 +94,22 @@
   margin-bottom: 0.25em;
 }
 
+/* GFM 작업 목록(task list): 기본 디스크 불릿을 숨기고 체크박스를 텍스트 앞에 인라인 정렬한다.
+ * 서버 렌더러(MarkdownRenderer)가 `contains-task-list`/`task-list-item` 클래스를 부여한다.
+ *
+ * flex 를 쓰지 않는다: `<li>` 에 flex 를 주면 체크박스·텍스트·중첩 `<ul>` 이 모두 flex item 이
+ * 되어 한 행에 나열되고, 중첩 작업 목록이 부모 문장 끝에 붙는다. 일반 블록 흐름을 유지해야
+ * 중첩 목록이 자기 줄로 내려가 `padding-left` 만큼 한 단계 더 들여쓰기된다. */
+.readonly-prose ul.contains-task-list {
+  list-style-type: none;
+  padding-left: 1.5em;
+}
+
+.readonly-prose li.task-list-item > input[type="checkbox"] {
+  margin-right: 0.4em;
+  vertical-align: middle;
+}
+
 /* 링크 */
 .readonly-prose a {
   color: #2563eb; /* blue-600 */

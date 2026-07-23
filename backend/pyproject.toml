@@ -10,6 +10,7 @@ dependencies = [
     "fastapi>=0.139",
     "itsdangerous>=2.2",
     "markdown-it-py>=4.2.0",
+    "mdit-py-plugins>=0.4",
     "nh3>=0.3.6",
     "pwdlib[argon2]>=0.3",
     "pydantic-settings>=2.14",
