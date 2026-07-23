@@ -24,7 +24,7 @@
 
 - [ ] 2. DocumentEditPage 브리지·게이팅·렌더러 결선
 
-- [ ] 2.1 (P) DocumentEditPage 에서 업로드 브리지 호출·canUpload 도출·uploadDocumentId 정규화·렌더러 주입
+- [x] 2.1 (P) DocumentEditPage 에서 업로드 브리지 호출·canUpload 도출·uploadDocumentId 정규화·렌더러 주입
   - `@/features/attachment` 배럴에서 `useEditorUploadBridge`·`buildAttachmentRenderers` 를 인가된 소비 seam 으로 import 한다(D2). attachment 외 다른 feature 는 import 하지 않는다.
   - `canUpload` 를 s16 공통 게이팅 유틸 `hasWorkspaceRole({ currentRole: scope.role, isAdmin: scope.isAdmin, minimum: Role.MEMBER })` 단일 경로로 도출한다 — 자체 role 비교 로직을 흩뿌리지 않는다(R4.5).
   - 브리지용 `uploadDocumentId` 를 `number | null` 로 정규화(비수치 `:id` → null)한다. 기존 세션·배너용 `documentId = Number(id)` 계약은 유지하고 브리지용 값만 추가한다(R4.3).

@@ -27,7 +27,16 @@
  * 로컬 role 게이트를 재구현하지 않는다(Req 1.5·7.2·7.8). 401 은 s16 전역 인터셉터가 처리하므로
  * 여기서 특별 취급하지 않는다(Req 7.4). 오류는 하위 컴포넌트가 `ApiError` 를 그대로 표면화한다
  * (Req 7.3). 다른 feature(`@/features/document`·`@/features/workspace`)를 import 하지 않는다
- * (Req 7.5).
+ * (Req 7.5). 예외로 `@/features/attachment` 배럴은 편집 표면이 업로드 브리지·첨부 렌더러를
+ * 소비하는 **인가된 소비 seam** 이며(s27 D2), 이 단방향 소비에 한해 허용된다 — document·
+ * workspace 는 여전히 비의존이다.
+ *
+ * s21 첨부 결선(s27): 라우트 `:id` 를 브리지용 `uploadDocumentId`(number|null 정규화, R4.3)로
+ * 파생하고, 편집 권한 `canUpload` 를 s16 `hasWorkspaceRole`(minimum: MEMBER) 단일 경로로만
+ * 도출한다(자체 role 비교 금지, R4.5). `useEditorUploadBridge` 는 렌더 트리 안에서 무조건
+ * 호출하고(hook 규칙) `buildAttachmentRenderers()` 는 `useMemo([])` 로 안정화해 EditorWrapper
+ * effect 재실행을 막는다. 게이팅 실판정은 브리지 내부 `isEnabled(canUpload && documentId!==null)`
+ * 이 소유하며 조립부는 두 입력의 올바른 주입만 책임진다(R4.1·4.2·4.3).
  *
  * Requirements: 1.1(진입·세션 결선), 1.5(viewer 미도달), 7.1(WS·세션 스코프 주입), 7.2(권한
  *   게이팅 위임), 7.3(ApiError 표면화 위임), 7.4(401 전역 위임), 7.5(다른 feature 비의존·s16
@@ -35,10 +44,13 @@
  */
 
 import type { ReactElement } from "react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Spinner } from "@/shared/ui";
+import { hasWorkspaceRole } from "@/shared/auth/permissions";
+import { Role } from "@/shared/auth/roles";
+import { useEditorUploadBridge, buildAttachmentRenderers } from "@/features/attachment";
 
 import { useEditorScope } from "../hooks/useEditorScope";
 import { useEditSession } from "../hooks/useEditSession";
@@ -56,6 +68,22 @@ export function DocumentEditPage(): ReactElement {
   const scope = useEditorScope();
   const session = useEditSession(documentId);
   const navigate = useNavigate();
+
+  // s21 업로드 브리지 결선(s27). 세션·배너용 `documentId`(number)는 유지하고, 브리지용
+  // `uploadDocumentId` 만 별도로 정규화한다: 비수치 `:id` → NaN → null 로 접어 브리지가
+  // documentId 미확보를 no-op 으로 처리하게 한다(R4.3).
+  const uploadDocumentId = Number.isNaN(documentId) ? null : documentId;
+  // 편집 권한 게이팅은 s16 공통 유틸 단일 경로로만 도출한다 — 자체 role 비교를 흩뿌리지
+  // 않는다(R4.1·4.2·4.5). admin override·role null→false 판정은 hasWorkspaceRole 이 소유.
+  const canUpload = hasWorkspaceRole({
+    currentRole: scope.role,
+    isAdmin: scope.isAdmin,
+    minimum: Role.MEMBER,
+  });
+  // 브리지 훅은 렌더 트리 안에서 무조건 호출한다(hook 규칙) — session.document 유무와 무관.
+  const bridge = useEditorUploadBridge({ documentId: uploadDocumentId, canUpload });
+  // 렌더러 팩토리는 순수하므로 마운트당 1회로 안정화해 EditorWrapper effect 재실행을 막는다.
+  const renderers = useMemo(() => buildAttachmentRenderers(), []);
 
   const goToReading = useCallback(() => {
     navigate(READING_PATH);
@@ -109,7 +137,13 @@ export function DocumentEditPage(): ReactElement {
               편집창 폭 확보를 위해 버전 이력 사이드 패널은 표시하지 않고 전폭으로 렌더한다. */}
           {session.document !== null ? (
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              <EditorPane session={session} />
+              <EditorPane
+                session={session}
+                onImagePaste={bridge.onImagePaste}
+                onFileDrop={bridge.onFileDrop}
+                renderers={renderers}
+                onEditorReady={bridge.onReady}
+              />
             </div>
           ) : null}
         </>
