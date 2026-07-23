@@ -44,8 +44,21 @@ function toggleLink(
   return apiClient.patch<ShareLinkRead>(`/documents/${documentId}/share`, body);
 }
 
-/** 공유 링크 관리(발급·토글) 훅이 소비하는 얇은 공유 API. */
+/**
+ * 대상 문서의 현재 공유 링크 상태를 조회한다(읽기 전용, Req 2.1).
+ *
+ * `GET` 으로 조회하며 상태를 발급·전환·무효화하지 않는다(읽기 전용). 링크가 없는 문서는
+ * 서버가 `200 + null` 로 응답하고, apiClient 의 본문 파서가 `JSON.parse("null")=null` 로
+ * 환원하므로 별도 "링크 없음" 분기 없이 `null` 을 그대로 반환한다. 오류(401/403/404)는
+ * apiClient 정규화 `ApiError` 로 throw 되며 여기서 잡지 않고 그대로 전파한다(Req 6.3 위임).
+ */
+function getLink(documentId: number): Promise<ShareLinkRead | null> {
+  return apiClient.get<ShareLinkRead | null>(`/documents/${documentId}/share`);
+}
+
+/** 공유 링크 관리(조회·발급·토글) 훅이 소비하는 얇은 공유 API. */
 export const shareApi = {
   issueLink,
   toggleLink,
+  getLink,
 };

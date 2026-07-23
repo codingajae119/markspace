@@ -11,6 +11,7 @@ vi.mock("@/shared/api/client", () => ({
   apiClient: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), del: vi.fn() },
 }));
 
+const getMock = apiClient.get as unknown as Mock;
 const postMock = apiClient.post as unknown as Mock;
 const patchMock = apiClient.patch as unknown as Mock;
 
@@ -29,6 +30,7 @@ function sampleShareLink(overrides: Partial<ShareLinkRead> = {}): ShareLinkRead 
 }
 
 beforeEach(() => {
+  getMock.mockReset();
   postMock.mockReset();
   patchMock.mockReset();
 });
@@ -58,6 +60,44 @@ describe("shareApi.issueLink", () => {
     postMock.mockRejectedValueOnce(apiError);
 
     await expect(shareApi.issueLink(11)).rejects.toBe(apiError);
+  });
+});
+
+describe("shareApi.getLink", () => {
+  it("gets /documents/{documentId}/share and returns the resolved ShareLinkRead", async () => {
+    const link = sampleShareLink();
+    getMock.mockResolvedValueOnce(link);
+
+    const result = await shareApi.getLink(11);
+
+    expect(getMock).toHaveBeenCalledTimes(1);
+    const [path] = getMock.mock.calls[0];
+    expect(path).toBe("/documents/11/share");
+    // getLink 은 읽기 전용 조회이므로 발급(POST)·토글(PATCH)을 호출하지 않는다.
+    expect(postMock).not.toHaveBeenCalled();
+    expect(patchMock).not.toHaveBeenCalled();
+    expect(result).toEqual(link);
+  });
+
+  it("returns null when the response body is null (200 + null → 링크 없음)", async () => {
+    getMock.mockResolvedValueOnce(null);
+
+    const result = await shareApi.getLink(11);
+
+    expect(getMock).toHaveBeenCalledTimes(1);
+    expect(getMock.mock.calls[0][0]).toBe("/documents/11/share");
+    expect(result).toBeNull();
+  });
+
+  it("propagates ApiError from apiClient without swallowing", async () => {
+    const apiError = new ApiError({
+      status: 403,
+      code: "forbidden",
+      message: "not a member",
+    });
+    getMock.mockRejectedValueOnce(apiError);
+
+    await expect(shareApi.getLink(11)).rejects.toBe(apiError);
   });
 });
 
