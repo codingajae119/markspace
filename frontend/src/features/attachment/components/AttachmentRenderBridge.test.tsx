@@ -192,7 +192,7 @@ describe("hydrateAttachmentsInDom — placeholder 마커 라이브 마운트 (3.
     expect((file.props as { fileName: string }).fileName).toBe("report.pdf");
   });
 
-  it("반환 disposer 는 마운트한 모든 루트를 unmount 한다(오브젝트 URL 누수 방지)", () => {
+  it("반환 disposer 는 마운트한 모든 루트를 unmount 한다(오브젝트 URL 누수 방지)", async () => {
     const root = document.createElement("div");
     root.innerHTML =
       '<span data-attachment-image-id="7"></span>' +
@@ -201,6 +201,10 @@ describe("hydrateAttachmentsInDom — placeholder 마커 라이브 마운트 (3.
     const dispose = hydrateAttachmentsInDom(root);
     expect(unmountSpy).not.toHaveBeenCalled();
     dispose();
+    // 언마운트는 React 커밋 중 동기 해제 경고를 피하려 마이크로태스크로 지연된다.
+    // disposer 호출 직후엔 아직 미실행이고, 마이크로태스크가 비워진 뒤 실행된다.
+    expect(unmountSpy).not.toHaveBeenCalled();
+    await Promise.resolve();
     expect(unmountSpy).toHaveBeenCalledTimes(2);
   });
 

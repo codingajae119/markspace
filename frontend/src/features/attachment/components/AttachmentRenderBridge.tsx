@@ -190,7 +190,13 @@ export function hydrateAttachmentsInDom(root: HTMLElement): () => void {
 
   return () => {
     // 라이브 루트 해제 → 컴포넌트 언마운트 → 훅 cleanup(오브젝트 URL revoke)로 누수 방지.
-    roots.forEach((reactRoot) => reactRoot.unmount());
+    // 이 disposer 는 상위 `EditorWrapper` 의 effect cleanup(read 언마운트·preview 재렌더)에서
+    // 호출되는데, 이는 React 커밋 단계 **도중** 동기 실행된다. 중첩 `createRoot` 를 그 자리에서
+    // 동기 `unmount()` 하면 React 19 가 "렌더 진행 중 루트 동기 언마운트"를 경고한다(race 위험).
+    // 언마운트를 마이크로태스크로 미뤄 현재 커밋 완료 후 안전하게 해제한다(React 공식 권고).
+    roots.forEach((reactRoot) => {
+      queueMicrotask(() => reactRoot.unmount());
+    });
   };
 }
 
