@@ -83,6 +83,9 @@ class _FakeShareLinkService:
         self.calls: list[tuple] = []
         self.issue_error: DomainError | None = None
         self.toggle_error: DomainError | None = None
+        # 조회(get_link)는 읽기 전용이라 오류를 만들지 않는다(게이트가 401/403/404 산출).
+        # 기본은 링크 존재; `get_result=None` 으로 "링크 없음"(200+null)을 검증한다.
+        self.get_result: ShareLinkRead | None = _LINK_READ
 
     def issue_link(self, db, ctx, document_id) -> ShareLinkRead:
         self.calls.append(("issue_link", ctx.user_id, document_id))
@@ -95,6 +98,10 @@ class _FakeShareLinkService:
         if self.toggle_error is not None:
             raise self.toggle_error
         return _LINK_READ
+
+    def get_link(self, db, document_id) -> ShareLinkRead | None:
+        self.calls.append(("get_link", document_id))
+        return self.get_result
 
 
 class _FakePublicShareService:
@@ -197,10 +204,11 @@ def _set_db(app: FastAPI, *, workspace_id, role) -> None:
     app.dependency_overrides[get_db] = _fake_db
 
 
-# 발급/토글 라우트(미인증 401 검증에 재사용).
+# 발급/토글/조회 라우트(미인증 401 검증에 재사용) — 셋 다 동일 member 게이트.
 _SHARE_ROUTES = [
     ("post", "/documents/100/share"),
     ("patch", "/documents/100/share"),
+    ("get", "/documents/100/share"),
 ]
 
 
@@ -211,7 +219,7 @@ def _toggle(client, path="/documents/100/share", *, is_enabled=False):
 # --- 엔드포인트 등록/경로 --------------------------------------------------------
 
 
-def test_exactly_four_routes_registered():
+def test_exactly_five_routes_registered():
     app, _, _ = _build_app()
     paths = app.openapi()["paths"]
     ops = {
@@ -222,6 +230,7 @@ def test_exactly_four_routes_registered():
     assert ops == {
         ("/documents/{id}/share", "POST"),
         ("/documents/{id}/share", "PATCH"),
+        ("/documents/{id}/share", "GET"),
         ("/public/{token}", "GET"),
         ("/public/{token}/attachments/{aid}", "GET"),
     }
@@ -374,7 +383,82 @@ def test_toggle_activation_blocked_service_409_passthrough():
     assert share_fake.calls[-1][0] == "toggle_link"
 
 
-# --- 발급/토글 미인증(세션 없음) → 401 -------------------------------------------
+# --- 조회(GET) 성공 계약 + 게이트 (발급·전환과 동일 게이트 재사용) -----------------
+
+
+def test_get_member_returns_200_share_link():
+    """member 는 조회 게이트를 통과하고 링크가 있으면 200 + ShareLinkRead (Req 1.1)."""
+    app, share_fake, _ = _build_app()
+    _login(app, user_id=7, is_admin=False)
+    _set_db(app, workspace_id=42, role="member")
+    client = TestClient(app)
+
+    resp = client.get("/documents/100/share")
+
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["id"] == 900
+    assert body["token"] == "tok-abc"
+    assert body["is_enabled"] is True
+    assert body["share_url"] == "/public/tok-abc"
+    assert share_fake.calls[-1] == ("get_link", 100)  # 경로 문서 id 전달
+
+
+def test_get_member_no_link_returns_200_null():
+    """링크가 없으면 오류가 아니라 200 + 본문 null (Req 1.2, 발급/토글과 균질)."""
+    app, share_fake, _ = _build_app()
+    _login(app, user_id=7, is_admin=False)
+    _set_db(app, workspace_id=42, role="member")
+    share_fake.get_result = None  # 링크 없음
+    client = TestClient(app)
+
+    resp = client.get("/documents/100/share")
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json() is None  # 본문 null(204 아님)
+    assert share_fake.calls[-1] == ("get_link", 100)
+
+
+def test_get_admin_bypasses():
+    """비멤버 admin 은 조회 게이트를 bypass 한다 (Req 1.7, INV-3, 발급/토글과 동일)."""
+    app, share_fake, _ = _build_app()
+    _login(app, user_id=99, is_admin=True)
+    _set_db(app, workspace_id=42, role=None)  # 비멤버여도 admin bypass.
+    client = TestClient(app)
+
+    resp = client.get("/documents/100/share")
+
+    assert resp.status_code == 200, resp.text
+    assert share_fake.calls[-1] == ("get_link", 100)
+
+
+def test_get_non_member_forbidden_403():
+    """비멤버·비admin 은 조회 게이트에서 403 (Req 1.6, 발급/토글과 동일)."""
+    app, _, _ = _build_app()
+    _login(app, user_id=3, is_admin=False)
+    _set_db(app, workspace_id=42, role=None)
+    client = TestClient(app)
+
+    resp = client.get("/documents/100/share")
+
+    assert resp.status_code == 403
+    assert resp.json()["code"] == "forbidden"
+
+
+def test_get_missing_document_returns_404():
+    """문서 부재는 게이트 어댑터가 판정 전에 404 (Req 1.4, 발급/토글과 동일)."""
+    app, _, _ = _build_app()
+    _login(app, user_id=99, is_admin=True)  # admin 이어도 어댑터가 문서 부재로 404.
+    _set_db(app, workspace_id=None, role=None)  # scalar → None: 문서 미존재.
+    client = TestClient(app)
+
+    resp = client.get("/documents/100/share")
+
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "not_found"
+
+
+# --- 발급/토글/조회 미인증(세션 없음) → 401 --------------------------------------
 
 
 @pytest.mark.parametrize("method,path", _SHARE_ROUTES)
@@ -386,8 +470,10 @@ def test_share_routes_unauthenticated_401(method, path):
 
     if method == "post":
         resp = client.post(path)
-    else:
+    elif method == "patch":
         resp = _toggle(client, path=path)
+    else:
+        resp = client.get(path)
 
     assert resp.status_code == 401
     assert resp.json()["code"] == "unauthenticated"

@@ -112,6 +112,25 @@ def toggle_share_link(
     return service.toggle_link(db, document_id=id, payload=payload)
 
 
+@router.get("/documents/{id}/share", response_model=ShareLinkRead | None)
+def get_share_link(
+    id: int,
+    db: Session = Depends(get_db),
+    _ctx: AuthContext = Depends(ws_role_for_document(Role.MEMBER)),
+    service: ShareLinkService = Depends(get_share_link_service),
+) -> ShareLinkRead | None:
+    """문서의 현재 공유 링크 상태를 읽기 전용으로 조회한다 (Req 1.1·1.2·1.3·7.2·7.3, member 이상).
+
+    발급·전환과 **동일한** s07 문서→WS 어댑터(`ws_role_for_document(MEMBER)`) 게이트를 재사용한다
+    (문서 부재→404, 비멤버→403, admin bypass, 미인증→401 — 판정은 s01 소유). 게이트 통과 후
+    `ShareLinkService.get_link` 에 위임한다: 조회는 읽기 전용이라 상태 전이·거부 조건과 무관하며,
+    링크가 있으면 :class:`ShareLinkRead`(share_url=`/public/{token}`) 를, 없으면 `None` 을 돌려준다.
+    `None` 은 FastAPI(≥0.139)가 `200 + 본문 null` 로 직렬화해 발급·토글의 `200 + ShareLinkRead` 와
+    균질하게 응답한다(오류·204 아님, Req 1.2). 라우터는 오류를 매핑하지 않는다.
+    """
+    return service.get_link(db, document_id=id)
+
+
 @router.get("/public/{token}", response_model=PublicDocumentRead)
 def render_public_document(
     token: str,
