@@ -1,0 +1,22 @@
+{
+  "feature_name": "s28-share-status-control",
+  "created_at": "2026-07-23T01:26:35Z",
+  "updated_at": "2026-07-23T02:30:00Z",
+  "language": "ko",
+  "phase": "tasks-generated",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": true
+}
