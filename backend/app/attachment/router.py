@@ -28,8 +28,6 @@
 하지 않는다. s01 조립 지점 등록(`include_router`)은 task 3.3 소유로 이 파일 범위 밖이다.
 """
 
-from urllib.parse import quote
-
 from fastapi import APIRouter, Depends, File, Form, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -39,6 +37,7 @@ from app.attachment.schemas import AttachmentKind, AttachmentRead
 from app.attachment.service import AttachmentService
 from app.common.auth import AuthContext
 from app.common.db import get_db
+from app.common.http import content_disposition_inline
 from app.document.dependencies import ws_role_for_document
 
 __all__ = ["router", "get_attachment_service"]
@@ -70,25 +69,6 @@ def _resolve_kind(kind: AttachmentKind | None, content_type: str | None) -> Atta
     if content_type is not None and content_type.startswith("image/"):
         return AttachmentKind.IMAGE
     return AttachmentKind.FILE
-
-
-def _content_disposition(filename: str) -> str:
-    """비-ASCII 파일명도 안전한 ``Content-Disposition`` 헤더 값을 만든다(RFC 6266/5987).
-
-    Starlette 는 응답 헤더 값을 **latin-1** 로 인코딩한다. 한글 등 비-latin-1 원본명을 그대로
-    ``filename="..."`` 에 넣으면 전송 시 ``UnicodeEncodeError`` 로 500 이 난다(이미지가 무사한
-    이유는 붙여넣기 이미지의 원본명이 통상 ASCII 라서일 뿐, kind 무관 파일명 인코딩 문제다).
-
-    RFC 5987 ``filename*=UTF-8''`` 파라미터로 원본명을 UTF-8 percent-encoding 하고, 이 파라미터를
-    모르는 구형 클라이언트를 위한 ASCII 폴백 ``filename="..."`` 을 함께 제공한다. 폴백은 비-ASCII·
-    헤더를 깨뜨리는 문자(제어문자·``"``·``\``)를 ``_`` 로 치환해 latin-1 안전성을 보장한다.
-    """
-    ascii_fallback = (
-        "".join(c if (32 < ord(c) < 127 and c not in '"\\') else "_" for c in filename)
-        or "download"
-    )
-    encoded = quote(filename, safe="")
-    return f"inline; filename=\"{ascii_fallback}\"; filename*=UTF-8''{encoded}"
 
 
 def _measure_size(file: UploadFile) -> int:
@@ -164,7 +144,7 @@ def serve_attachment(
         media_type=binary.content_type,
         headers={
             # 원본명이 한글 등 비-ASCII 여도 헤더 인코딩(latin-1)에서 500 이 나지 않도록
-            # RFC 5987 로 안전 인코딩한다(_content_disposition).
-            "Content-Disposition": _content_disposition(binary.filename),
+            # RFC 5987 로 안전 인코딩한다(app.common.http 단일 소유 헬퍼).
+            "Content-Disposition": content_disposition_inline(binary.filename),
         },
     )

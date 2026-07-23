@@ -25,6 +25,7 @@ design.md §Components → SharingRouter API Contract 표(카탈로그 행 34~37
 
 import io
 from datetime import datetime
+from urllib.parse import quote
 
 import pytest
 from fastapi import FastAPI
@@ -542,6 +543,35 @@ def test_public_attachment_streams_binary_without_auth():
     assert resp.content == _PNG_BYTES  # 정확한 바이트 스트리밍
     assert resp.headers["content-type"].startswith("image/png")
     assert public_fake.calls[-1] == ("serve_public_attachment", "tok-abc", 500)
+
+
+def test_public_attachment_non_ascii_filename_does_not_500():
+    """비-ASCII(한글) 원본명 첨부의 링크 경유 서빙이 500 이 아니라 200 이어야 한다(회귀).
+
+    과거 이 라우터가 `Content-Disposition: inline; filename="<원본명>"` 을 개별 복제해, 게스트
+    뷰가 `집.png` 같은 한글 원본명 첨부를 로드하면 Starlette 의 latin-1 헤더 인코딩에서
+    `UnicodeEncodeError` 로 500 이 나 이미지가 깨졌다(s12 인증 서빙은 이미 RFC 5987 로 안전
+    인코딩했으나 이 공개 경로만 divergence). 이제 공용 `content_disposition_inline` 을 재사용해
+    `filename*=UTF-8''` 로 안전하게 직렬화한다.
+    """
+    korean_name = "집.png"
+    app, _, public_fake = _build_app()
+    public_fake.binary = AttachmentBinary(
+        stream=io.BytesIO(_PNG_BYTES),
+        content_type="image/png",
+        filename=korean_name,
+    )
+    client = TestClient(app)
+
+    resp = client.get("/public/tok-abc/attachments/11")
+
+    # 핵심 회귀: 한글 파일명이어도 헤더 인코딩에서 500 이 나지 않는다.
+    assert resp.status_code == 200, resp.text
+    assert resp.content == _PNG_BYTES
+    # RFC 5987 로 UTF-8 percent-encoding 된 파일명 파라미터를 포함한다(ASCII 폴백도 공존).
+    disposition = resp.headers["content-disposition"]
+    assert "filename*=UTF-8''" in disposition
+    assert quote(korean_name, safe="") in disposition
 
 
 def test_public_attachment_forwards_path_params():

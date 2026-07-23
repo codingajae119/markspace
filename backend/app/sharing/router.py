@@ -35,6 +35,7 @@ from sqlalchemy.orm import Session
 
 from app.common.auth import AuthContext
 from app.common.db import get_db
+from app.common.http import content_disposition_inline
 from app.document.dependencies import Role, ws_role_for_document
 from app.sharing.public_service import PublicShareService
 from app.sharing.schemas import (
@@ -165,12 +166,17 @@ def serve_public_attachment(
     서비스가 돌려준 바이너리 값 객체로 `StreamingResponse` 를 구성해 스트리밍한다(원본명 기반
     content-type, inline Content-Disposition — s12 `serve_attachment` 응답 구성과 동일). 성공
     시 200 + 바이너리 스트림.
+
+    한글 등 비-ASCII 원본명(예: `집.png`)을 그대로 `filename="..."` 에 넣으면 Starlette 의
+    latin-1 헤더 인코딩에서 `UnicodeEncodeError` 로 500 이 나 게스트 뷰 이미지가 깨진다. s12 와
+    동일하게 `content_disposition_inline`(RFC 5987 안전 인코딩, `app.common.http` 단일 소유)을
+    재사용한다(과거 이 라우터가 헤더를 개별 복제해 s12 의 수정과 divergence 가 났던 회귀 봉인).
     """
     binary = service.serve_public_attachment(db, token, attachment_id=aid)
     return StreamingResponse(
         binary.stream,
         media_type=binary.content_type,
         headers={
-            "Content-Disposition": f'inline; filename="{binary.filename}"',
+            "Content-Disposition": content_disposition_inline(binary.filename),
         },
     )
