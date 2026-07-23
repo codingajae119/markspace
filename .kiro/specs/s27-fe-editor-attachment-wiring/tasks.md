@@ -46,7 +46,7 @@
 
 - [ ] 3. 조립 레벨 통합 테스트 (결선 갭 회귀 방지)
 
-- [ ] 3.1 붙여넣기/드롭 → 업로드 → 자리표시자 치환 종단 통합 테스트 신규 작성
+- [x] 3.1 붙여넣기/드롭 → 업로드 → 자리표시자 치환 종단 통합 테스트 신규 작성
   - `DocumentEditPage`+`EditorPane`+s21 브리지를 실제로 마운트하고 `@/shared/editor/EditorWrapper` 와 attachment API(`apiClient`)만 목킹한다. `EditorWrapper` stub 은 수신 props 를 기록하고 `onReady(mockHandle)`·`onImagePaste(file)`·`onFileDrop(file)` 를 발화한다.
   - 붙여넣기 종단(R1.1·3.1): `onImagePaste(file)` 발화 → `handle.insert(placeholder)` 호출 + `POST /attachments` 발생 단언.
   - 성공 치환(R3.2): 201 mock → `handle.replaceRange` 가 `/attachments/{id}` 참조로 치환 단언. 실패 치환(R3.3): 4xx mock → `handle.replaceRange` 가 오류 마커로 치환 단언.
