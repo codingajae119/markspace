@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 
-import type { EditorHandle } from "@/shared/editor/EditorWrapper";
+import type { CustomRenderers, EditorHandle } from "@/shared/editor/EditorWrapper";
 import type { UseEditSession } from "../hooks/useEditSession";
 import type { EditableDocument } from "../types";
 
@@ -22,6 +22,7 @@ interface RecordedProps {
   onReady?: (handle: EditorHandle) => void;
   onImagePaste?: (file: File) => void;
   onFileDrop?: (file: File) => void;
+  renderers?: CustomRenderers;
 }
 
 const wrapperCalls: RecordedProps[] = [];
@@ -152,5 +153,59 @@ describe("EditorPane", () => {
 
     expect(screen.queryByTestId("editor-wrapper")).toBeNull();
     expect(wrapperCalls).toHaveLength(0);
+  });
+
+  it("renderers 로 주입한 객체를 동일 참조로 EditorWrapper 에 통과한다 (Req 2.3)", () => {
+    const renderers = {
+      customImageRenderer: () => document.createElement("img"),
+    } as CustomRenderers;
+    render(<EditorPane session={fakeSession()} renderers={renderers} />);
+
+    // 동일 참조(identity) — 렌더 경로를 재구성/이원화하지 않고 그대로 통과한다.
+    expect(wrapperCalls[0].renderers).toBe(renderers);
+  });
+
+  it("onReady 발화 시 준비된 단일 handle 을 bindHandle·onEditorReady 양쪽에 동일 참조로 1회씩 분배한다 (D1, Req 5.1)", () => {
+    const session = fakeSession();
+    const onEditorReady = vi.fn();
+    const mockHandle = {
+      getMarkdown: () => "md",
+      insert: () => {},
+      replaceRange: () => {},
+    } as EditorHandle;
+    render(<EditorPane session={session} onEditorReady={onEditorReady} />);
+
+    // stub 이 수신한 onReady 를 캡처해 준비된 handle 로 발화한다.
+    const onReady = wrapperCalls[0].onReady;
+    expect(onReady).toBeTypeOf("function");
+    onReady!(mockHandle);
+
+    // 자동저장 경로와 업로드 브리지 경로가 각 1회, 동일 handle 참조를 공유한다.
+    expect(session.bindHandle).toHaveBeenCalledTimes(1);
+    expect(session.bindHandle).toHaveBeenCalledWith(mockHandle);
+    expect(onEditorReady).toHaveBeenCalledTimes(1);
+    expect(onEditorReady).toHaveBeenCalledWith(mockHandle);
+    // 두 소비처가 받은 인자가 동일 참조임을 명시 확인(D1 단일 handle 공유).
+    expect((session.bindHandle as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe(
+      (onEditorReady.mock.calls[0][0] as EditorHandle),
+    );
+    expect(onEditorReady.mock.calls[0][0]).toBe(mockHandle);
+  });
+
+  it("onEditorReady 미주입 시 bindHandle 만 결선되고 오류가 없다(하위 호환)", () => {
+    const session = fakeSession();
+    const mockHandle = {
+      getMarkdown: () => "md",
+      insert: () => {},
+      replaceRange: () => {},
+    } as EditorHandle;
+    render(<EditorPane session={session} />);
+
+    const onReady = wrapperCalls[0].onReady;
+    expect(onReady).toBeTypeOf("function");
+    expect(() => onReady!(mockHandle)).not.toThrow();
+
+    expect(session.bindHandle).toHaveBeenCalledTimes(1);
+    expect(session.bindHandle).toHaveBeenCalledWith(mockHandle);
   });
 });

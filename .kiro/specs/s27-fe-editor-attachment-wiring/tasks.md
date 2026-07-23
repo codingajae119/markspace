@@ -13,7 +13,7 @@
   - _Requirements: 1.4, 1.5, 2.3, 5.1, 5.3, 6.3_
   - _Boundary: EditorPane_
 
-- [ ] 1.2 EditorPane 단위 테스트 확장
+- [x] 1.2 EditorPane 단위 테스트 확장
   - `renderers` 로 주입한 객체가 `EditorWrapper` prop 에 **동일 참조**로 도달함을 단언한다(R2.3).
   - `EditorWrapper` stub 이 `onReady(mockHandle)` 를 발화하면 `session.bindHandle`·`onEditorReady` 가 **동일 handle** 로 각 1회 호출됨을 단언한다(D1 단일 handle 공유, R5.1).
   - `onEditorReady` 미주입 시 `bindHandle` 만 결선되고 오류가 없음(하위 호환)을 단언한다.
