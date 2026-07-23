@@ -206,3 +206,25 @@
   background-color: #f8fafc; /* slate-50 */
   font-weight: 600;
 }
+
+/* 표 셀 정렬(`|:--|:-:|--:|`).
+ *
+ * 두 읽기 경로가 정렬을 동일하게 표현 속성 `align` 으로 내보낸다 — 에디터 읽기 뷰는
+ * Toast Viewer 가, 게스트 공개 뷰는 백엔드 MarkdownRenderer 가 생성한다. 다만 `align` 은
+ * presentational hint 라 캐스케이드에서 author 스타일보다 약해, 위 기본값
+ * `text-align: left` 가 이를 덮어써 버린다. 아래 속성 선택자로 명시 정렬을 다시 이긴다
+ * (기본값은 정렬 지정이 없는 셀에만 적용). */
+.readonly-prose th[align="left"],
+.readonly-prose td[align="left"] {
+  text-align: left;
+}
+
+.readonly-prose th[align="center"],
+.readonly-prose td[align="center"] {
+  text-align: center;
+}
+
+.readonly-prose th[align="right"],
+.readonly-prose td[align="right"] {
+  text-align: right;
+}

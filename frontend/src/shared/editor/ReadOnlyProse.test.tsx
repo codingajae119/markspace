@@ -57,6 +57,33 @@ describe("ReadOnlyProse — 공용 읽기 전용 prose 컨테이너 (12.1, 12.2)
     expect(prose.querySelector(".katex")).not.toBeNull();
   });
 
+  it("표 셀의 align 속성이 기본 좌측 정렬을 이긴다 (두 읽기 경로 공용 정렬 규칙)", () => {
+    // 두 읽기 경로 모두 정렬을 표현 속성 `align` 으로 낸다(에디터=Toast Viewer, 게스트=백엔드
+    // MarkdownRenderer). `align` 은 presentational hint 라 prose.css 의 기본
+    // `text-align: left` 에 캐스케이드에서 밀리므로, 속성 선택자 규칙이 없으면 정렬이
+    // 무시된다(회귀 가드).
+    const { container } = render(
+      <ReadOnlyProse
+        html={
+          "<table><tbody><tr>" +
+          '<td align="left">L</td>' +
+          '<td align="center">C</td>' +
+          '<td align="right">R</td>' +
+          "<td>D</td>" +
+          "</tr></tbody></table>"
+        }
+      />,
+    );
+
+    const prose = getProseContainer(container);
+    const cells = prose.querySelectorAll("td");
+    expect(getComputedStyle(cells[0]).textAlign).toBe("left");
+    expect(getComputedStyle(cells[1]).textAlign).toBe("center");
+    expect(getComputedStyle(cells[2]).textAlign).toBe("right");
+    // 정렬 지정이 없는 셀은 기본값(좌측)을 유지한다.
+    expect(getComputedStyle(cells[3]).textAlign).toBe("left");
+  });
+
   it("html 경로와 children 경로가 동일한 컨테이너 클래스를 사용한다 (동일 시각 언어 보장, 12.2)", () => {
     const htmlRender = render(<ReadOnlyProse html="<p>x</p>" />);
     const htmlClass = getProseContainer(htmlRender.container).className;

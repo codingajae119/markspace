@@ -64,6 +64,34 @@ def test_table_renders_to_table_element(renderer: MarkdownRenderer) -> None:
     assert "<p>| A | B |" not in html
 
 
+def test_table_column_alignment_is_preserved_as_align_attribute(
+    renderer: MarkdownRenderer,
+) -> None:
+    """GFM 표 정렬(`:--`/`:-:`/`--:`)이 `align` 속성으로 보존된다.
+
+    회귀 가드: markdown-it 은 정렬을 인라인 `style="text-align:…"` 로 내보내는데 새니타이즈
+    allowlist 에 `style` 이 없어 정렬이 통째로 사라졌다(게스트 공개 뷰에서만 정렬 소실).
+    core 규칙이 이를 무력한 표현 속성 `align` 으로 정규화해 새니타이즈를 통과시킨다.
+    """
+    html = renderer.render("| L | C | R |\n|:---|:--:|---:|\n| a | b | c |")
+    assert '<th align="left">L</th>' in html
+    assert '<th align="center">C</th>' in html
+    assert '<th align="right">R</th>' in html
+    assert '<td align="left">a</td>' in html
+    assert '<td align="center">b</td>' in html
+    assert '<td align="right">c</td>' in html
+    # 정렬 정보가 새니타이즈에 걸리는 style 로 남지 않는다.
+    assert "text-align" not in html
+
+
+def test_table_without_alignment_has_no_align_attribute(
+    renderer: MarkdownRenderer,
+) -> None:
+    """정렬 지정이 없는 표(`|---|`)는 `align` 속성 없이 렌더된다(기본 정렬 유지)."""
+    html = renderer.render("| A | B |\n|---|---|\n| 1 | 2 |")
+    assert "align=" not in html
+
+
 def test_unchecked_task_list_renders_disabled_checkbox(
     renderer: MarkdownRenderer,
 ) -> None:
