@@ -25,6 +25,33 @@ import type { EditableDocument, LockState } from "../types";
 vi.mock("../hooks/useEditSession", () => ({ useEditSession: vi.fn() }));
 vi.mock("../hooks/useEditorScope", () => ({ useEditorScope: vi.fn() }));
 
+// s27 첨부 결선 관측용 배럴 모킹. `useEditorUploadBridge` 는 수신 입력({documentId, canUpload})을
+// 기록하고 식별 가능한 sentinel 핸들러를 반환한다 — 이로써 (a) 조립부가 도출해 브리지에 주입한
+// canUpload/documentId 와 (b) EditorPane 이 정확히 그 sentinel 핸들러·렌더러를 받았는지 각각
+// 단언할 수 있다. `hasWorkspaceRole`(도출)·`buildAttachmentRenderers` 결선은 진짜로 실행된다:
+// canUpload 도출은 실제 hasWorkspaceRole 을 거치므로(R4.5) role→bool 파생이 실증된다.
+const attachmentMocks = vi.hoisted(() => {
+  const onReady = vi.fn();
+  const onImagePaste = vi.fn();
+  const onFileDrop = vi.fn();
+  const bridgeReturn = { onReady, onImagePaste, onFileDrop };
+  const renderers = { sentinel: "renderers" } as unknown;
+  return {
+    onReady,
+    onImagePaste,
+    onFileDrop,
+    bridgeReturn,
+    renderers,
+    useEditorUploadBridge: vi.fn(() => bridgeReturn),
+    buildAttachmentRenderers: vi.fn(() => renderers),
+  };
+});
+
+vi.mock("@/features/attachment", () => ({
+  useEditorUploadBridge: attachmentMocks.useEditorUploadBridge,
+  buildAttachmentRenderers: attachmentMocks.buildAttachmentRenderers,
+}));
+
 // 세 자식 컴포넌트를 props 기록 stub 으로 모킹한다.
 const editorPaneSpy = vi.fn<(props: unknown) => void>();
 vi.mock("../components/EditorPane", () => ({
@@ -94,9 +121,9 @@ function makeScope(overrides: Partial<EditorScope> = {}): EditorScope {
   };
 }
 
-function renderPage(): void {
+function renderPage(routeId = "42"): void {
   render(
-    <MemoryRouter initialEntries={["/documents/42/edit"]}>
+    <MemoryRouter initialEntries={[`/documents/${routeId}/edit`]}>
       <Routes>
         <Route path="/documents/:id/edit" element={<DocumentEditPage />} />
         {/* 취소 자동 복귀·읽기 복귀 버튼의 목적지(문서 메인) 관측용 랜딩 라우트. */}
@@ -106,11 +133,23 @@ function renderPage(): void {
   );
 }
 
+/** 마지막 `useEditorUploadBridge` 호출이 수신한 입력({documentId, canUpload})을 반환한다. */
+function lastBridgeInput(): { documentId: number | null; canUpload: boolean } {
+  const calls = attachmentMocks.useEditorUploadBridge.mock.calls as unknown as Array<
+    [{ documentId: number | null; canUpload: boolean }]
+  >;
+  expect(calls.length).toBeGreaterThan(0);
+  return calls[calls.length - 1]![0];
+}
+
 beforeEach(() => {
   useEditSessionMock.mockReset();
   useEditorScopeMock.mockReset();
   editorPaneSpy.mockReset();
   lockBannerSpy.mockReset();
+  // 구현(sentinel 반환)은 보존하고 호출 기록만 비운다 — mockReset 은 반환값 구현을 지운다.
+  attachmentMocks.useEditorUploadBridge.mockClear();
+  attachmentMocks.buildAttachmentRenderers.mockClear();
 });
 
 afterEach(() => {
@@ -207,5 +246,74 @@ describe("DocumentEditPage 조립 (세션 + EditorPane + EditLockBanner)", () =>
     renderPage();
 
     expect(screen.getByRole("button", { name: "읽기로 돌아가기" })).toBeInTheDocument();
+  });
+});
+
+describe("DocumentEditPage 첨부 브리지 결선 (canUpload 도출·id 정규화·prop 결선)", () => {
+  // canUpload 도출은 조립부가 자체 role 비교를 흩뿌리지 않고 s16 hasWorkspaceRole(minimum:MEMBER)
+  // 단일 경로만 거침을 실증한다(R4.5): 아래 케이스는 hasWorkspaceRole 을 모킹하지 않으므로 진짜
+  // role→bool 파생(admin override·role null→false·위계 비교)이 브리지 입력에 반영되는지 관측한다.
+  it.each([
+    { label: "MEMBER + non-admin → true (R4.1)", role: Role.MEMBER, isAdmin: false, expected: true },
+    { label: "OWNER + non-admin → true (R4.1)", role: Role.OWNER, isAdmin: false, expected: true },
+    { label: "role=null + non-admin → false (R4.2)", role: null, isAdmin: false, expected: false },
+    { label: "role=null + admin → true (admin override, R4.2)", role: null, isAdmin: true, expected: true },
+  ])(
+    "scope.role/isAdmin 조합에서 실제 hasWorkspaceRole 로 canUpload 를 도출해 브리지에 주입한다 — $label",
+    ({ role, isAdmin, expected }) => {
+      useEditorScopeMock.mockReturnValue(makeScope({ role, isAdmin }));
+      useEditSessionMock.mockReturnValue(makeSession({ document: editableDoc }));
+
+      renderPage();
+
+      expect(lastBridgeInput().canUpload).toBe(expected);
+    },
+  );
+
+  it("수치 라우트 :id 에서 브리지 documentId 가 number 로 전달된다 (R4.3)", () => {
+    useEditorScopeMock.mockReturnValue(makeScope());
+    useEditSessionMock.mockReturnValue(makeSession({ document: editableDoc }));
+
+    renderPage("42");
+
+    expect(lastBridgeInput().documentId).toBe(42);
+  });
+
+  it("비수치 라우트 :id 에서 브리지 documentId 가 null 로 정규화된다 (R4.3)", () => {
+    useEditorScopeMock.mockReturnValue(makeScope());
+    // document 는 브리지 호출과 무관(브리지는 렌더 트리에서 무조건 호출)하지만, 비수치 id 정규화가
+    // 실제 uploadDocumentId 파생(NaN→null)을 거치는지만 관측한다 — 이 단언은 정규화 제거 시 실패한다.
+    useEditSessionMock.mockReturnValue(makeSession({ document: editableDoc }));
+
+    renderPage("abc");
+
+    expect(lastBridgeInput().documentId).toBeNull();
+  });
+
+  it("EditorPane 이 브리지 핸들러·렌더러 sentinel 을 네 prop 으로 결선받는다", () => {
+    useEditorScopeMock.mockReturnValue(makeScope());
+    useEditSessionMock.mockReturnValue(makeSession({ document: editableDoc }));
+
+    renderPage();
+
+    // 브리지가 반환한 정확한 sentinel 핸들러 + 안정화된 렌더러가 EditorPane 에 그대로 전달된다.
+    expect(editorPaneSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        onImagePaste: attachmentMocks.onImagePaste,
+        onFileDrop: attachmentMocks.onFileDrop,
+        onEditorReady: attachmentMocks.onReady,
+        renderers: attachmentMocks.renderers,
+      }),
+    );
+    const props = editorPaneSpy.mock.calls[editorPaneSpy.mock.calls.length - 1]![0] as {
+      onImagePaste: unknown;
+      onFileDrop: unknown;
+      onEditorReady: unknown;
+      renderers: unknown;
+    };
+    expect(props.onImagePaste).toBe(attachmentMocks.onImagePaste);
+    expect(props.onFileDrop).toBe(attachmentMocks.onFileDrop);
+    expect(props.onEditorReady).toBe(attachmentMocks.onReady);
+    expect(props.renderers).toBe(attachmentMocks.renderers);
   });
 });

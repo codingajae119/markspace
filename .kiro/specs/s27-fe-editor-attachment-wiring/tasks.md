@@ -35,7 +35,7 @@
   - _Boundary: DocumentEditPage_
   - _Depends: 1.1_
 
-- [ ] 2.2 DocumentEditPage 단위 테스트 확장
+- [x] 2.2 DocumentEditPage 단위 테스트 확장
   - `scope.role`(member/owner/null)·`isAdmin` 조합별로 `canUpload` 도출 결과가 브리지 입력·진입점 활성에 반영됨을 단언한다(R4.1·4.2·4.5).
   - 비수치 라우트 `:id` 에서 브리지 `documentId` 가 null 로 정규화됨을 단언한다(R4.3).
   - EditorPane 목킹 상태에서 `onImagePaste`·`onFileDrop`·`renderers`·`onEditorReady` 네 prop 이 브리지·렌더러 값으로 결선됨을 단언한다.
