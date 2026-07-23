@@ -1,0 +1,22 @@
+{
+  "feature_name": "s27-fe-editor-attachment-wiring",
+  "created_at": "2026-07-22T23:09:18Z",
+  "updated_at": "2026-07-23T00:45:00Z",
+  "language": "ko",
+  "phase": "tasks-generated",
+  "approvals": {
+    "requirements": {
+      "generated": true,
+      "approved": true
+    },
+    "design": {
+      "generated": true,
+      "approved": true
+    },
+    "tasks": {
+      "generated": true,
+      "approved": true
+    }
+  },
+  "ready_for_implementation": true
+}
