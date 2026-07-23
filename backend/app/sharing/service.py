@@ -53,6 +53,23 @@ class ShareLinkService:
         self._repository = repository or ShareLinkRepository()
         self._documents = document_repository or DocumentRepository()
 
+    def get_link(self, db: Session, document_id: int) -> ShareLinkRead | None:
+        """문서의 현재 공유 링크 상태를 읽기 전용으로 조회한다: 있으면 응답, 없으면 None
+        (design.md §Components and Interfaces #ShareLinkService.get_link, Req 1.1·1.2·1.3).
+
+        `ShareLinkRepository.get_by_document` 로 문서의 링크(최대 1개)를 로드해, 있으면
+        `ShareLinkRead.from_share_link` 로 `token·is_enabled·share_url`(`/public/{token}`) 을
+        담은 응답을 반환하고, 없으면 "링크 없음"을 나타내는 `None` 을 반환한다(오류 아님, Req 1.2).
+
+        **읽기 전용**: 상태 전이 협력자(`upsert_reissue`·`set_enabled`·`retire`)를 호출하지
+        않으며, 발급/토글과 달리 게이트(`workspace.is_shareable`)·문서 `status` 를 관측조차 하지
+        않는다(Req 1.3). 어떤 행도 쓰지 않으므로 호출 전후 링크 행·토큰·활성 상태가 불변이다.
+        발급/토글과 달리 role 재검사(`ctx`)도 하지 않는다 — 라우터 게이트가 member 이상(admin
+        bypass)·문서 부재 404 를 판정 이전 단계에서 산출한다.
+        """
+        link = self._repository.get_by_document(db, document_id)
+        return ShareLinkRead.from_share_link(link) if link is not None else None
+
     def issue_link(
         self, db: Session, ctx: AuthContext, document_id: int
     ) -> ShareLinkRead:

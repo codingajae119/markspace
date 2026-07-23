@@ -412,3 +412,113 @@ def test_toggle_on_missing_link_raises_404(sessionmaker_factory):
         assert exc.value.code == ErrorCode.NOT_FOUND
     finally:
         session.close()
+
+
+# --- get_link (읽기 전용 상태 조회) ---------------------------------------
+
+
+def test_get_link_when_link_exists_returns_read_with_token_and_url(
+    sessionmaker_factory,
+):
+    """링크가 있으면 token·is_enabled·share_url 을 담은 ShareLinkRead 를 반환한다(Req 1.1)."""
+    session = sessionmaker_factory()
+    try:
+        doc = _seed_doc(session, is_shareable=True, status="active")
+        link = _make_share_link(
+            session,
+            document_id=doc.id,
+            token=f"tok-{uuid4().hex}",
+            is_enabled=True,
+        )
+        session.commit()
+        seeded_token = link.token
+
+        service = ShareLinkService()
+        read = service.get_link(session, document_id=doc.id)
+
+        assert isinstance(read, ShareLinkRead)
+        assert read.document_id == doc.id
+        assert read.token == seeded_token, "조회는 기존 토큰을 그대로 반환한다"
+        assert read.is_enabled is True
+        assert read.share_url == f"/public/{seeded_token}", (
+            "share_url 규약(/public/{token})"
+        )
+    finally:
+        session.close()
+
+
+def test_get_link_reflects_disabled_state(sessionmaker_factory):
+    """비활성 링크도 오류 없이 is_enabled=False 로 그대로 반영한다(Req 1.1·1.2)."""
+    session = sessionmaker_factory()
+    try:
+        doc = _seed_doc(session, is_shareable=True, status="active")
+        _make_share_link(
+            session,
+            document_id=doc.id,
+            token=f"tok-{uuid4().hex}",
+            is_enabled=False,
+        )
+        session.commit()
+
+        service = ShareLinkService()
+        read = service.get_link(session, document_id=doc.id)
+
+        assert isinstance(read, ShareLinkRead)
+        assert read.is_enabled is False, "비활성 링크 상태를 그대로 반영한다"
+    finally:
+        session.close()
+
+
+def test_get_link_when_no_link_returns_none(sessionmaker_factory):
+    """링크가 없으면 오류가 아니라 None(링크 없음)을 반환한다(Req 1.2)."""
+    session = sessionmaker_factory()
+    try:
+        doc = _seed_doc(session, is_shareable=True, status="active")
+
+        service = ShareLinkService()
+        read = service.get_link(session, document_id=doc.id)
+
+        assert read is None, "링크 없음은 오류가 아니라 None 정상 응답"
+    finally:
+        session.close()
+
+
+def test_get_link_is_read_only_leaves_row_unchanged(sessionmaker_factory):
+    """조회 전후로 링크 행·토큰·활성 상태가 불변이다(읽기 전용, Req 1.3)."""
+    session = sessionmaker_factory()
+    try:
+        doc = _seed_doc(session, is_shareable=True, status="active")
+        link = _make_share_link(
+            session,
+            document_id=doc.id,
+            token=f"tok-{uuid4().hex}",
+            is_enabled=True,
+        )
+        session.commit()
+        link_id = link.id
+        before_token = link.token
+        before_enabled = link.is_enabled
+
+        service = ShareLinkService()
+        service.get_link(session, document_id=doc.id)
+    finally:
+        session.close()
+
+    # 새 세션 재조회로 상태 전이·물리 변경이 전혀 없었음을 확인(identity-map 배제).
+    verify = sessionmaker_factory()
+    try:
+        rows = list(
+            verify.scalars(
+                text("SELECT id FROM share_link WHERE document_id = :d").bindparams(
+                    d=doc.id
+                )
+            )
+        )
+        assert len(rows) == 1, "조회는 링크 행을 추가·삭제하지 않는다"
+
+        row = verify.get(ShareLink, link_id)
+        assert row is not None
+        assert row.token == before_token, "조회는 토큰을 바꾸지 않는다"
+        assert row.is_enabled == before_enabled, "조회는 활성 상태를 바꾸지 않는다"
+    finally:
+        verify.close()
