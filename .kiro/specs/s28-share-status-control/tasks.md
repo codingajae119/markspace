@@ -61,7 +61,7 @@
   - _Requirements: 3.3_
   - _Boundary: useDocumentScope_
 
-- [ ] 4.2 툴바 공유 클러스터 결선 및 노출 게이트
+- [x] 4.2 툴바 공유 클러스터 결선 및 노출 게이트
   - 편집·삭제 컨트롤 옆 우측 클러스터에 공유 컨트롤을 sharing 배럴 경유 교차-feature import 로 결선
   - owner 이상 또는 admin && 공유 가능 && active 문서 && 선택 존재일 때만 공유 컨트롤 노출, 그 외 조건 미충족 시 미노출
   - owner 권한 산정(admin override 포함)을 페이지에서 계산해 공유 가능 여부와 함께 툴바에 주입, 프론트 게이팅이 서버 강제를 대체하지 않음을 전제로 동작

@@ -18,6 +18,19 @@ import { DocumentToolbar } from "./DocumentToolbar";
 
 vi.mock("@/app/session/useSession", () => ({ useSession: vi.fn() }));
 
+// 공유 클러스터(우측) 는 sharing 배럴(@/features/sharing)에서 교차-feature import 로 결선된다
+// (DocumentViewer → @/features/attachment 와 동일 선례). 게이팅 단언을 도메인 로직과 분리하기
+// 위해 배럴을 목으로 대체해, 마운트 여부와 전달 prop(documentId·documentStatus)만 관측한다.
+vi.mock("@/features/sharing", () => ({
+  DocumentShareControl: (props: { documentId: number; documentStatus: string }) => (
+    <div
+      data-testid="share-control"
+      data-doc-id={props.documentId}
+      data-status={props.documentStatus}
+    />
+  ),
+}));
+
 const useSessionMock = useSession as unknown as Mock;
 
 /** useSession 이 non-admin authenticated 를 반환하도록 설정(admin override 미적용). */
@@ -346,5 +359,113 @@ describe("DocumentToolbar — 편집·삭제 seam(canEdit + 선택 존재)", () 
     fireEvent.click(screen.getByRole("button", { name: "취소" }));
     expect(onDelete).not.toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("DocumentToolbar — 공유 클러스터 노출 게이트(canShare && shareable && active && 선택)", () => {
+  it("canShare + shareable + active(비휴지통) + 선택 → 공유 컨트롤 노출(documentId=선택, status=active) (Req 3.1)", () => {
+    mockNonAdmin();
+    render(
+      <DocumentToolbar
+        mutations={makeMutations()}
+        currentRole={Role.OWNER}
+        selectedId={13}
+        selectedTitle="공유 대상"
+        canEdit={true}
+        canShare={true}
+        shareable={true}
+      />,
+    );
+
+    const control = screen.getByTestId("share-control");
+    expect(control).toBeInTheDocument();
+    // 선택 문서 id 를 그대로 넘기고, active 문맥에서만 마운트되므로 status 는 상수 "active".
+    expect(control).toHaveAttribute("data-doc-id", "13");
+    expect(control).toHaveAttribute("data-status", "active");
+  });
+
+  it("canShare=false(owner 미만·비admin) → 공유 컨트롤 미노출 (Req 3.2)", () => {
+    mockNonAdmin();
+    render(
+      <DocumentToolbar
+        mutations={makeMutations()}
+        currentRole={Role.MEMBER}
+        selectedId={13}
+        selectedTitle="문서"
+        canEdit={true}
+        canShare={false}
+        shareable={true}
+      />,
+    );
+
+    expect(screen.queryByTestId("share-control")).not.toBeInTheDocument();
+  });
+
+  it("shareable=false(공유 불가 워크스페이스) → 공유 컨트롤 미노출 (Req 3.3)", () => {
+    mockNonAdmin();
+    render(
+      <DocumentToolbar
+        mutations={makeMutations()}
+        currentRole={Role.OWNER}
+        selectedId={13}
+        selectedTitle="문서"
+        canEdit={true}
+        canShare={true}
+        shareable={false}
+      />,
+    );
+
+    expect(screen.queryByTestId("share-control")).not.toBeInTheDocument();
+  });
+
+  it("trashMode=true(휴지통 = 비active) → 공유 컨트롤 미노출 (Req 3.4)", () => {
+    mockNonAdmin();
+    render(
+      <DocumentToolbar
+        mutations={makeMutations()}
+        currentRole={Role.OWNER}
+        selectedId={13}
+        selectedTitle="문서"
+        canEdit={true}
+        canShare={true}
+        shareable={true}
+        trashMode={true}
+        trashSelection={{ rootTitle: "폐기", memberCount: 1 }}
+      />,
+    );
+
+    expect(screen.queryByTestId("share-control")).not.toBeInTheDocument();
+  });
+
+  it("선택 없음(hasSelection=false) → 공유 컨트롤 미노출 (Req 3.1 선택 축)", () => {
+    mockNonAdmin();
+    render(
+      <DocumentToolbar
+        mutations={makeMutations()}
+        currentRole={Role.OWNER}
+        selectedId={null}
+        selectedTitle={null}
+        canEdit={true}
+        canShare={true}
+        shareable={true}
+      />,
+    );
+
+    expect(screen.queryByTestId("share-control")).not.toBeInTheDocument();
+  });
+
+  it("share 관련 prop 미주입(기본 false) → 공유 컨트롤 미노출", () => {
+    mockNonAdmin();
+    render(
+      <DocumentToolbar
+        mutations={makeMutations()}
+        currentRole={Role.OWNER}
+        selectedId={13}
+        selectedTitle="문서"
+        canEdit={true}
+      />,
+    );
+
+    expect(screen.queryByTestId("share-control")).not.toBeInTheDocument();
   });
 });

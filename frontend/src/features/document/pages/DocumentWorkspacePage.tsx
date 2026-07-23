@@ -17,6 +17,13 @@
  * 툴바는 RequireRole(MEMBER) 단일 게이트를 내부 소유하므로(DocumentToolbar) 여기서 role 을 다시
  * 비교하지 않고 `currentRole` 만 주입한다. `canEdit` 는 트리 DnD·뷰어 편집 seam 노출에 쓴다.
  *
+ * 공유 클러스터(s28 Req 3.1~3.5): 편집(canEdit, minimum MEMBER)과 구별되는 owner+ 축을 별도로
+ * 산정한다 — `canShare = hasWorkspaceRole({..., minimum: OWNER})`(admin override 포함, Req 3.2). 이
+ * `canShare` 와 `scope.isShareable`(WS 공유 가능 여부, Req 3.3) 를 툴바에 주입하고, active·선택 축은
+ * 툴바가 `!trashMode && hasSelection` 로 판정해 우측 클러스터에 `DocumentShareControl` 을 결선한다.
+ * 프론트 노출 게이팅은 UX 편의일 뿐 서버측 권한 강제를 대체하지 않는다(Req 3.5) — 여기서 공유 상태
+ * 조회·발급 등 추가 서버 호출을 배선하지 않는다(공유 도메인은 sharing feature 가 소유).
+ *
  * 단일 컨트롤 행: 트리 표시 토글 · 생성/이름변경 입력 · 편집/삭제를 상단 `DocumentToolbar` 한 행에
  * 합쳐 소유한다. 트리 토글 상태(`treeVisible`)는 서버·URL 과 무관한 순수 화면 표시 상태이므로 조립부가
  * 직접 보유하고 seam(`onToggleTree`)으로 툴바에 주입한다. 숨김 시 `<aside>` 를 렌더에서 제외하면 남은
@@ -90,6 +97,16 @@ export function DocumentWorkspacePage(): ReactElement {
     currentRole: scope.role,
     isAdmin: scope.isAdmin,
     minimum: Role.MEMBER,
+  });
+
+  // 공유 컨트롤 노출 축(Req 3.2): 편집(minimum MEMBER)과 구별되는 owner+ 최소 권한을 별도 산정한다
+  // (admin override 포함). shareable 은 scope.isShareable(현재 WS 공유 가능 여부)로, active·선택 축은
+  // 툴바가 `!trashMode && hasSelection` 로 판정한다. 프론트 게이팅은 UX 편의일 뿐 서버 강제를
+  // 대체하지 않으므로(Req 3.5) 여기서 추가 서버 호출을 배선하지 않는다.
+  const canShare = hasWorkspaceRole({
+    currentRole: scope.role,
+    isAdmin: scope.isAdmin,
+    minimum: Role.OWNER,
   });
 
   // 휴지통은 member+ 전용(서버 권한과 동일 기준). 뷰어에게는 모드 탭 자체를
@@ -178,6 +195,8 @@ export function DocumentWorkspacePage(): ReactElement {
         treeVisible={treeVisible}
         onToggleTree={() => setTreeVisible((visible) => !visible)}
         canEdit={canEdit}
+        canShare={canShare}
+        shareable={scope.isShareable}
         onEnterEdit={(documentId) => {
           navigate(buildDocumentEditPath(documentId));
         }}

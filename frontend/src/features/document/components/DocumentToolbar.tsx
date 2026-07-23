@@ -21,6 +21,12 @@
  *   별도 role 비교를 하지 않는다. `RequireRole` 은 래퍼 DOM 을 만들지 않아, fragment 로 감싼
  *   입력·버튼들이 행 flex 의 직접 자식이 되어 나란히 배치된다.
  * - 편집·삭제: `canEdit`(admin override 포함, 상위 페이지가 판정) + 선택 문서 존재 시에만 노출한다.
+ * - 공유(우측 클러스터, Req 3.1~3.4): 편집·삭제 옆에서 `!trashMode && canShare && shareable &&
+ *   hasSelection` 일 때만 sharing 배럴의 `<DocumentShareControl>` 을 마운트한다. `canShare` 는
+ *   owner+/admin(상위 페이지가 `hasWorkspaceRole({minimum:OWNER})` 로 산정, canEdit 의 MEMBER 최소보다
+ *   좁은 축), `shareable` 은 WS 공유 가능 여부다. owner⊇member 이므로 canShare 이면 편집·삭제 클러스터도
+ *   함께 존재해 하나의 우측 클러스터로 묶인다. 프론트 노출 게이팅은 UX 편의일 뿐 서버 강제를 대체하지
+ *   않는다(Req 3.5).
  *
  * 단일 입력(하나의 텍스트 필드)이 세 조작에 공유된다:
  * - 프리필: 선택 문서의 현재 제목(`selectedTitle`). 선택이 바뀌면 새 제목으로 재프리필한다.
@@ -40,7 +46,7 @@
  * sink 로 표면화한다(여기서 표시하지 않는다).
  *
  * Requirements: 3.1(생성), 3.6·4.5·9.2(RequireRole 단일 게이트), 4.1(이름변경), 5.1(삭제),
- *   7.4·7.5(편집 진입 seam).
+ *   7.4·7.5(편집 진입 seam), s28 3.1~3.5(공유 클러스터 노출 게이트).
  */
 
 import { useEffect, useState } from "react";
@@ -49,6 +55,10 @@ import type { ReactElement } from "react";
 import { Role } from "@/shared/auth/roles";
 import { RequireRole } from "@/shared/auth/RequireRole";
 import { Button } from "@/shared/ui";
+// 공유 컨트롤은 sharing feature 배럴에서 교차-feature import 로 결선한다(DocumentViewer →
+// @/features/attachment 와 동일 선례, 비순환). sharing 내부 조각(useShareManager 등)이 아니라
+// 배럴이 공개한 자기완결 컨트롤만 소비한다.
+import { DocumentShareControl } from "@/features/sharing";
 import type { useDocumentMutations } from "../hooks/useDocumentMutations";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -67,6 +77,14 @@ export interface DocumentToolbarProps {
   onToggleTree?: () => void;
   /** editor+ 여부(편집·삭제 seam 노출, admin override 포함). 상위 페이지가 판정. 기본 false. */
   canEdit?: boolean;
+  /**
+   * owner+ 여부(공유 컨트롤 노출 축, admin override 포함). 상위 페이지가 `hasWorkspaceRole({minimum:OWNER})`
+   * 로 판정해 주입한다. canEdit(minimum MEMBER)보다 좁은 별도 축이다(owner⊇member 라 canShare 이면
+   * canEdit 도 참). 기본 false. 프론트 게이팅은 UX 편의일 뿐 서버 강제를 대체하지 않는다(Req 3.5).
+   */
+  canShare?: boolean;
+  /** 현재 워크스페이스 공유 가능 여부(useDocumentScope().isShareable 주입). false 면 공유 컨트롤 미노출. 기본 false. */
+  shareable?: boolean;
   /** 편집 진입 seam — 편집 버튼 클릭 시 호출(동작은 s20 소유). */
   onEnterEdit?: (documentId: number) => void;
   /** 삭제 seam — 삭제 확인 후 호출(실제 휴지통 이동 변이는 상위 페이지 소유, Req 5.1). */
@@ -95,6 +113,8 @@ export function DocumentToolbar({
   treeVisible,
   onToggleTree,
   canEdit = false,
+  canShare = false,
+  shareable = false,
   onEnterEdit,
   onDelete,
   trashMode = false,
@@ -215,19 +235,33 @@ export function DocumentToolbar({
         </Button>
       </RequireRole>
 
-      {/* 편집·삭제 — canEdit + 선택 존재 시에만 노출, ml-auto 로 오른쪽 정렬. */}
-      {canEdit && hasSelection ? (
+      {/* 우측 클러스터(편집·삭제 + 공유) — ml-auto 로 오른쪽 정렬. 편집·삭제와 공유는 서로 독립
+          축이지만 owner⊇member 이므로 canShare 이면 canEdit 도 참이라 항상 한 덩어리 우측 클러스터로
+          묶인다. 클러스터 자체는 선택이 있고(편집·삭제 또는 공유) 중 하나라도 노출될 때 렌더한다. */}
+      {hasSelection && (canEdit || (canShare && shareable)) ? (
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          <Button variant="primary" onClick={() => onEnterEdit?.(selectedId)}>
-            편집
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => setConfirmOpen(true)}
-            className="border-red-300 text-red-700 hover:bg-red-50 focus-visible:ring-red-400"
-          >
-            삭제
-          </Button>
+          {canEdit ? (
+            <>
+              <Button variant="primary" onClick={() => onEnterEdit?.(selectedId)}>
+                편집
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setConfirmOpen(true)}
+                className="border-red-300 text-red-700 hover:bg-red-50 focus-visible:ring-red-400"
+              >
+                삭제
+              </Button>
+            </>
+          ) : null}
+          {/* 공유 컨트롤 — canShare(owner+/admin) && shareable(WS 공유 가능) 일 때만 노출한다.
+              trashMode 는 이 분기(else) 밖이라 자동으로 배제되고(휴지통=비active, Req 3.4),
+              active 문맥에서만 마운트되므로 documentStatus 는 상수 "active" 로 안전하다. 노출 게이트
+              자체(owner/admin·공유가능·active·선택)는 여기(툴바)가 소유하고, 컨트롤은 마운트되면
+              공유 상태 조회·토글·복사를 자기완결로 수행한다. */}
+          {canShare && shareable ? (
+            <DocumentShareControl documentId={selectedId} documentStatus="active" />
+          ) : null}
         </div>
       ) : null}
         </>
