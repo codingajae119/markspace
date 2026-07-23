@@ -28,6 +28,8 @@ export interface DocumentScope {
   role: Role | null;
   /** admin override 판정: authenticated 일 때만 `user.is_admin`, 그 외 false. */
   isAdmin: boolean;
+  /** 현재 WS 의 공유 가능 여부(s16 통과·산술 금지) — `useCurrentWorkspace().isShareable` 1필드 투영. */
+  isShareable: boolean;
 }
 
 /**
@@ -35,9 +37,9 @@ export interface DocumentScope {
  * 접근자를 그대로 통과시키고, `isAdmin` 만 세션에서 파생한다(RequireRole 동형).
  */
 export function useDocumentScope(): DocumentScope {
-  const { status, workspaceId, role } = useCurrentWorkspace();
+  const { status, workspaceId, role, isShareable } = useCurrentWorkspace();
   const session = useSession();
   const isAdmin = session.status === "authenticated" ? session.user.is_admin : false;
 
-  return { status, workspaceId, role, isAdmin };
+  return { status, workspaceId, role, isAdmin, isShareable };
 }

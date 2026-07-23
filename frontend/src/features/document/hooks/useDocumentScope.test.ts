@@ -138,4 +138,22 @@ describe("useDocumentScope", () => {
 
     expect(result.current.isAdmin).toBe(false);
   });
+
+  it("useCurrentWorkspace.isShareable=true 를 가공 없이 그대로 투영한다", () => {
+    useCurrentWorkspaceMock.mockReturnValue(workspaceValue({ isShareable: true }));
+    useSessionMock.mockReturnValue(authenticatedSession(false));
+
+    const { result } = renderHook(() => useDocumentScope());
+
+    expect(result.current.isShareable).toBe(true);
+  });
+
+  it("useCurrentWorkspace.isShareable=false 를 그대로 투영한다", () => {
+    useCurrentWorkspaceMock.mockReturnValue(workspaceValue({ isShareable: false }));
+    useSessionMock.mockReturnValue(authenticatedSession(false));
+
+    const { result } = renderHook(() => useDocumentScope());
+
+    expect(result.current.isShareable).toBe(false);
+  });
 });

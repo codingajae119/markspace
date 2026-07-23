@@ -54,7 +54,7 @@
   - _Boundary: DocumentShareControl_
 
 - [ ] 4. 문서 화면 결선 및 노출 게이팅 (document feature)
-- [ ] 4.1 (P) 워크스페이스 공유 가능 신호 투영
+- [x] 4.1 (P) 워크스페이스 공유 가능 신호 투영
   - 문서 스코프 훅에 현재 워크스페이스의 공유 가능 여부(isShareable)를 원천 가공 없이 1필드 투영 추가
   - 스코프 소비처가 공유 가능 여부를 최상위 접근자로 읽을 수 있음(기존 status·role·isAdmin 접근자 idiom 유지)
   - 단위 테스트: isShareable 투영 통과 확인
