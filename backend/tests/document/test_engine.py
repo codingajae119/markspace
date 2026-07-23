@@ -28,7 +28,7 @@ from app.document.engine import Bundle, DocumentStateEngine
 from app.document.repository import DocumentRepository
 from app.models import Document, User, Workspace
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 # 삭제 시점(공통 trashed_at). 서로 다른 시점이 병합되지 않음을 검증한다.
 T1 = datetime(2026, 7, 16, 10, 0, 0)

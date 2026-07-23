@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Purpose**: 이 spec은 Notion-lite 프론트엔드의 **첨부 UX feature**(`src/features/attachment`)를 소유한다.
+**Purpose**: 이 spec은 MarkSpace 프론트엔드의 **첨부 UX feature**(`src/features/attachment`)를 소유한다.
 편집 표면(s20)에 드롭/붙여넣기로 이미지·파일을 업로드하고, 업로드 진행 자리표시자를 낙관적으로 표시하며,
 문서 콘텐츠의 첨부 참조(`/attachments/{id}`)를 인증·WS 격리 경로로 렌더/다운로드하고, 참조 소멸·서빙 불가
 첨부를 안전한 placeholder로 폴백한다. 모두 `s16-fe-foundation` 공통 레이어(공용 API 클라이언트·전역 401·

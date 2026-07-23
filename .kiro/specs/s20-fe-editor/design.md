@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Purpose**: 이 spec은 Notion-lite 프론트엔드의 **문서 편집 도메인 feature**(`src/features/editor`)를 소유한다.
+**Purpose**: 이 spec은 MarkSpace 프론트엔드의 **문서 편집 도메인 feature**(`src/features/editor`)를 소유한다.
 `s19-fe-document`가 확립한 읽기 전용 문서 뷰 위에 편집 레이어를 얹어, editor 이상 사용자의 편집 모드 진입/이탈
 생명주기(진입=잠금 획득, 이탈=이탈 시 1회 자동저장+잠금 해제), 잠금 상태 UX, 편집 취소, 강제 해제(제한 노출),
 저장 버전 이력 뷰어를 구현한다. 모두 `s16-fe-foundation` 공통 레이어(공용 API 클라이언트·전역 401 인터셉터·

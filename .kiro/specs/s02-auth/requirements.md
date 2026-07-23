@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`s02-auth`는 Notion-lite 폐쇄형 서비스의 **자격 증명 기반 인증** 기능을 소유한다. 사용자는 `login_id`/`password`로
+`s02-auth`는 MarkSpace 폐쇄형 서비스의 **자격 증명 기반 인증** 기능을 소유한다. 사용자는 `login_id`/`password`로
 로그인하여 세션을 발급받고, 로그아웃으로 세션을 종료하며, 본인 비밀번호를 변경할 수 있다. 자격 증명이 올바르더라도
 비활동(`is_active=false`) 또는 삭제(`is_deleted=true`) 상태의 계정은 로그인이 차단된다.
 

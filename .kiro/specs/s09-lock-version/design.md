@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Purpose**: Notion-lite의 **편집 잠금**과 **저장 시 버전 생성** 동작을 구현한다. editor 이상 사용자가 문서
+**Purpose**: MarkSpace의 **편집 잠금**과 **저장 시 버전 생성** 동작을 구현한다. editor 이상 사용자가 문서
 편집을 시작하면 잠금을 획득하고(최대 1인, INV-9), 저장하면 새 `document_version` 스냅샷을 만들며
 `current_version_id`를 갱신하고 잠금을 해제한다. 저장 없이 취소/이탈하면 잠금을 해제하고 변경분을 폐기하며,
 owner/admin은 방치된 잠금을 강제 해제할 수 있다. 자동 타임아웃·rollback은 없고, 버전은 무한 보관된다.

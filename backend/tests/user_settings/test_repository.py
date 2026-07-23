@@ -20,7 +20,7 @@ from app.common.db import Base
 from app.models import User, UserSetting
 from app.user_settings.repository import UserSettingRepository
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 
 def _drop_everything(engine) -> None:

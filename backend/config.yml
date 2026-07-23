@@ -1,7 +1,7 @@
-app_name: notion-lite
+app_name: markspace
 db_host: 127.0.0.1
 db_port: 3306
-db_name: notion_lite
+db_name: markspace
 db_user: root
 default_trash_retention_days: 30
 trash_sweep_interval_seconds: 3600

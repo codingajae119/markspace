@@ -44,7 +44,7 @@ from app.models import Attachment, Document, User, Workspace
 from app.sharing.public_service import PublicShareService
 from app.sharing.repository import ShareLinkRepository
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 _DEFAULT_MAX_BYTES = 26214400  # config 기본 25MiB
 
 # DATETIME(0) 반올림을 피하기 위한 초 정밀도 고정 시각.

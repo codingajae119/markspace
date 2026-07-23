@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`s03-admin-account`는 폐쇄형(closed) Notion-lite 서비스에서 회원 가입이 없는 대신 **단일 admin이 사용자
+`s03-admin-account`는 폐쇄형(closed) MarkSpace 서비스에서 회원 가입이 없는 대신 **단일 admin이 사용자
 계정 생명주기를 수동 관리**하는 동작을 구현한다. 대상은 계정의 생성·목록 조회·삭제(flag)·비활동·재활성화와
 admin에 의한 비밀번호 재설정이다.
 

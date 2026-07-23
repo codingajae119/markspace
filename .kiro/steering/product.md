@@ -1,6 +1,6 @@
 # 제품 개요
 
-Notion-lite는 소규모 폐쇄형(closed) 협업 문서 서비스로, Notion과 유사하지만 필수 기능만 제공한다.
+MarkSpace는 소규모 폐쇄형(closed) 협업 문서 서비스로, Notion과 유사하지만 필수 기능만 제공한다.
 회원 가입(self sign-up) 절차가 없고, 모든 사용자 계정은 단일 admin이 수동으로 등록·관리한다.
 
 ## 핵심 기능

@@ -30,7 +30,7 @@ s07/s10 `DocumentStateEngine` primitive(`engine_access`)로, 게이트(`is_share
 재사용 관찰(Req 6.5·7.7): s14 는 첨부 저장·격리·보관을 재구현하지 않고 s12 첨부 서빙(업로드·
 저장·보관 판정)을 재사용한다 — 업로드가 s12 라우트로 tmp 에 실제 파일을 쓰고, 링크 경유 서빙이
 그 바이너리를 되읽으며, 보관 차단이 s12 `serve_attachment` 위임에서 발생한다는 것이 이를
-입증한다. mock·stub 미사용, 공유 `notion_lite_test` DB 오염 방지를 위해 문서 제목에 uuid4
+입증한다. mock·stub 미사용, 공유 `markspace_test` DB 오염 방지를 위해 문서 제목에 uuid4
 접미사를 쓴다. DB 미가용·부팅 실패는 스킵이 아니라 `harness` 가 오류를 전파해 **실패**한다.
 """
 
@@ -49,7 +49,7 @@ _MISSING_AID = 99_999_999
 
 
 def _unique_title(prefix: str) -> str:
-    """공유 ``notion_lite_test`` DB 에서 충돌하지 않는 고유 문서 제목을 만든다."""
+    """공유 ``markspace_test`` DB 에서 충돌하지 않는 고유 문서 제목을 만든다."""
     return f"{prefix}-{uuid4().hex[:12]}"
 
 

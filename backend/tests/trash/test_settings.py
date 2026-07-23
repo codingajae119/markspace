@@ -13,10 +13,10 @@ from app.config import Settings, get_settings
 
 # trash_sweep_interval_seconds는 의도적으로 생략 → 스키마 기본값(3600) 검증
 CONFIG_YML = """\
-app_name: notion-lite
+app_name: markspace
 db_host: 127.0.0.1
 db_port: 3306
-db_name: notion_lite
+db_name: markspace
 db_user: root
 default_trash_retention_days: 30
 file_storage_root: ./var/attachments

@@ -1,4 +1,4 @@
-# Notion-lite: 최종 명세서
+# MarkSpace: 최종 명세서
 
 > 소규모 폐쇄형(closed) 협업 문서 서비스. Notion과 유사하나 필수 기능만 포함한다.
 >

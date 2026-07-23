@@ -24,7 +24,7 @@ Tests"·§Security Considerations 를 **마이그레이션된 실제 DB + 부팅
    규약(code·message)으로 직렬화된다.
 
 DB 관찰은 부팅 앱과 동일 세션 팩토리(`harness.session_local`)로 커밋된 행을 신규 세션에서
-직접 조회한다(캐시 아님). 공유 `notion_lite_test` DB 오염 방지를 위해 문서·사용자는 하네스가
+직접 조회한다(캐시 아님). 공유 `markspace_test` DB 오염 방지를 위해 문서·사용자는 하네스가
 uuid4 접미사로 시드한다.
 """
 

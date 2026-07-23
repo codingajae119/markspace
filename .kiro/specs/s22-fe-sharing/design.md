@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Purpose**: 이 spec은 Notion-lite 프론트엔드의 **문서 단위 읽기 전용 공유** 도메인 화면군
+**Purpose**: 이 spec은 MarkSpace 프론트엔드의 **문서 단위 읽기 전용 공유** 도메인 화면군
 (`src/features/sharing`)을 소유한다. editor 이상 사용자의 공유 링크 관리(발급/재발급·on-off 토글·복사·무효화
 안내)와, 링크를 받은 게스트의 인증 없는 읽기 전용 뷰(`/share/:token`), 그리고 링크 경유 첨부 접근·차단 반영을
 구현하며, 모두 `s16-fe-foundation` 공통 레이어와 그 현재 WS 앰비언트 컨텍스트(`useCurrentWorkspace()`의 최상위

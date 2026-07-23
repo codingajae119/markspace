@@ -163,7 +163,7 @@
   - _Depends: 3.3_
 
 ## Implementation Notes
-- 테스트 하네스는 **공유 `notion_lite_test` MySQL DB**를 사용한다. 두 개 이상의 DB 기반 pytest
+- 테스트 하네스는 **공유 `markspace_test` MySQL DB**를 사용한다. 두 개 이상의 DB 기반 pytest
   프로세스를 동시에 같은 인스턴스에 돌리면 스퓨리어스 실패/에러가 발생한다(격리 재실행 시 사라짐).
   전체 스위트 회귀 검증은 항상 단일 프로세스로 직렬 실행할 것(구현→리뷰 순차 처리로 이미 보장).
 - `AttachmentRead`는 `attachment` 모델에 `updated_at`이 없어 `TimestampedRead`가 아니라

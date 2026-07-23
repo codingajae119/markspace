@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`s05-workspace`는 Notion-lite의 **협업 권한 단위인 워크스페이스**를 구현한다. 워크스페이스 CRUD,
+`s05-workspace`는 MarkSpace의 **협업 권한 단위인 워크스페이스**를 구현한다. 워크스페이스 CRUD,
 멤버십(owner/editor/viewer) 관리, 워크스페이스 단위 권한 판정, 공유 게이트(`is_shareable`)·휴지통
 보관일(`trash_retention_days`) 설정, 그리고 admin 소유권 변경이 이 경계에 모인다.
 

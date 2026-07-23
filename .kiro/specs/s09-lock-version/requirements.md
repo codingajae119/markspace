@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`s09-lock-version`는 Notion-lite의 **편집 잠금(edit lock)** 과 **저장 시 버전 생성(version snapshot)** 동작을
+`s09-lock-version`는 MarkSpace의 **편집 잠금(edit lock)** 과 **저장 시 버전 생성(version snapshot)** 동작을
 구현한다. 동시 편집 충돌을 실시간 병합(CRDT)이 아닌 단순 편집 잠금으로 방지하고, 편집자가 저장할 때마다
 새 `document_version` 스냅샷을 만들어 **무한 보관**한다(rollback 없음). 편집 잠금은 시작·저장·취소/이탈·
 강제 해제의 네 가지 흐름으로 구성되며, 자동 타임아웃은 두지 않는다.

@@ -34,7 +34,7 @@ _NOW = datetime(2026, 7, 17, 0, 0, 0)
 
 
 def _uniq(prefix: str) -> str:
-    """공유 ``notion_lite_test`` DB 에서 충돌하지 않는 고유 이름/제목을 만든다."""
+    """공유 ``markspace_test`` DB 에서 충돌하지 않는 고유 이름/제목을 만든다."""
     return f"{prefix}-{uuid4().hex[:12]}"
 
 

@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`s18-fe-workspace`는 Notion-lite 프론트엔드의 **워크스페이스 도메인 관리 화면군**을 소유한다. 사용자가 소속
+`s18-fe-workspace`는 MarkSpace 프론트엔드의 **워크스페이스 도메인 관리 화면군**을 소유한다. 사용자가 소속
 워크스페이스를 전환하고(공통 레이어의 현재 WS 앰비언트 컨텍스트를 소비하는 스위처), owner가 멤버·권한과 WS
 설정(`is_shareable`·보관 기간)을 관리하며, admin이 사용자 계정 생명주기와 WS 소유권을 관리하는 화면을
 구현한다. 이 spec은 프론트 Wave-2 feature로, 공통 레이어(`s16-fe-foundation`)가 단일 소유한 세션 컨텍스트·

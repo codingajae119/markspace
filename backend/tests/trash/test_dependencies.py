@@ -17,7 +17,7 @@ design.md §Components and Interfaces #BundleWsAdapter 검증:
 바인딩됨을 검증한다.
 
 격리: s07 `tests/document/test_dependencies.py` 와 동일한 확립된 패턴을 재사용한다. `DB_NAME`
-을 전용 테스트 DB(`notion_lite_test`)로 바꾸고 `get_settings` 캐시를 비운 뒤 그 시점 URL 로
+을 전용 테스트 DB(`markspace_test`)로 바꾸고 `get_settings` 캐시를 비운 뒤 그 시점 URL 로
 새 엔진·세션 팩토리를 만들고, `get_db` 를 override 한 실제 앱에 테스트 전용 라우트만 부착한다.
 종료 시 테이블을 모두 제거하고 엔진을 dispose 한 뒤 환경변수·캐시를 원복한다.
 """
@@ -40,7 +40,7 @@ from app.main import create_app
 from app.models import Document, User, Workspace, WorkspaceMember
 from app.trash.dependencies import Role, ws_role_for_bundle
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 
 def _drop_everything(engine) -> None:

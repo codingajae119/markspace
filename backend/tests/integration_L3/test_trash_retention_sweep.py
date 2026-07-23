@@ -15,7 +15,7 @@ DATETIME(0) 반올림 함정 회피). 워크스페이스별 `trash_retention_day
 이 스위트는 test-authoring task 로, feature 는 이미 조립·구현되어 있다("역-RED": 새 테스트가
 실제 구현 위에서 **통과**하는 것이 검증). product 코드·기존 테스트는 건드리지 않는다.
 
-결정성 근거(공유 `notion_lite_test` DB 에서 전역 반환 카운트 사용): 스윕 반환값은 전 워크스페이스
+결정성 근거(공유 `markspace_test` DB 에서 전역 반환 카운트 사용): 스윕 반환값은 전 워크스페이스
 합산이지만, 주입 `now`(2026-07-17 00:00:00) 기준으로 **만료된 trashed 묶음은 이 테스트가 과거로
 핀 고정한 묶음뿐**이다 — 다른 스위트가 남기는 trashed 묶음은 실제 `utcnow`(오늘) 기준 최근
 trashed_at + 기본 보관일(30)이라 주입 `now` 로는 만료되지 않고, 이 스위트의 미만료 묶음도 마찬가지다.
@@ -37,7 +37,7 @@ _NOW = datetime(2026, 7, 17, 0, 0, 0)
 
 
 def _uniq(prefix: str) -> str:
-    """공유 ``notion_lite_test`` DB 에서 충돌하지 않는 고유 이름/제목을 만든다."""
+    """공유 ``markspace_test`` DB 에서 충돌하지 않는 고유 이름/제목을 만든다."""
     return f"{prefix}-{uuid4().hex[:12]}"
 
 

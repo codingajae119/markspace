@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`s16-fe-foundation`은 Notion-lite 프론트엔드 전체(하위 spec s17~s22)가 공유하는 **교차 관심사 공통 레이어**를
+`s16-fe-foundation`은 MarkSpace 프론트엔드 전체(하위 spec s17~s22)가 공유하는 **교차 관심사 공통 레이어**를
 단일 소유한다. 백엔드가 `s01-contract-foundation`에서 공유 계약·공용 런타임 인프라를 단일 소스로 확정한 것과
 대칭으로, 이 spec은 프론트엔드의 L0(upstream)로서 라우팅 셸·공용 API 클라이언트·전역 401 인터셉터·세션
 컨텍스트·권한 게이팅 유틸·공용 UI 프리미티브·Toast UI Editor 래퍼를 **한 번만** 구현하고, 각 feature spec은

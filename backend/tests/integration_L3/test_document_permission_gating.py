@@ -34,7 +34,7 @@ MISSING_DOCUMENT_ID = 999_999_999
 
 
 def _title(prefix: str) -> str:
-    """공유 ``notion_lite_test`` DB 충돌을 피하는 고유 문서 제목을 만든다."""
+    """공유 ``markspace_test`` DB 충돌을 피하는 고유 문서 제목을 만든다."""
     return f"{prefix}-{uuid4().hex[:12]}"
 
 

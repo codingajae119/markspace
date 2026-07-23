@@ -14,7 +14,7 @@ design.md §Components and Interfaces #ArchivalSweepService(Feature/Service)와 
 - 첨부 단위 예외는 격리되어 한 첨부의 실패가 나머지 보관을 막지 않는다.
 
 격리: tests/attachment/test_repository.py·test_service.py 의 확립된 테스트 DB 패턴을 재사용한다
-(`DB_NAME` 을 `notion_lite_test` 로 swap, 새 엔진·create_all, uuid4 접미사 시드, 초 정밀도 시각).
+(`DB_NAME` 을 `markspace_test` 로 swap, 새 엔진·create_all, uuid4 접미사 시드, 초 정밀도 시각).
 저장/보관 루트는 tmp_path 하위를 가리키는 settings 대역을 storage 모듈에 monkeypatch 해 실제
 config.yml 저장 루트에 의존하지 않는다. 물리 파일은 저장 루트에 직접 기록해 실제 이동을 관찰한다.
 """
@@ -37,7 +37,7 @@ from app.attachment.storage import AttachmentStorage
 from app.common.db import Base
 from app.models import Attachment, Document, DocumentVersion, User, Workspace
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 
 def _drop_everything(engine) -> None:

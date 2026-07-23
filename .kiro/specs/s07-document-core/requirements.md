@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`s07-document-core`는 Notion-lite의 **핵심 도메인**인 계층적 markdown 문서와, 문서 3단계 상태
+`s07-document-core`는 MarkSpace의 **핵심 도메인**인 계층적 markdown 문서와, 문서 3단계 상태
 (active → trashed → deleted) 전이를 지배하는 **묶음(bundle) 비흡수 엔진**을 구현한다. 문서 엔티티·계층
 (parent/child)·CRUD·이동/재정렬(순환 방지·동일 워크스페이스 제약)·현재 버전 렌더/preview를 소유하며,
 무엇보다 삭제·복구·완전삭제를 **묶음 단위로 원자적**으로 처리하는 상태 전이 엔진을 단일 구현으로

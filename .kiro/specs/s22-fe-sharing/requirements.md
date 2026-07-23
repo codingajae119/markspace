@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`s22-fe-sharing`는 Notion-lite 프론트엔드의 **문서 단위 읽기 전용 공유** 도메인 화면군
+`s22-fe-sharing`는 MarkSpace 프론트엔드의 **문서 단위 읽기 전용 공유** 도메인 화면군
 (`src/features/sharing`)을 소유한다. editor 이상 사용자가 공유 가능한 워크스페이스의 문서에 대해 공유 링크를
 **발급/재발급·on-off 토글·복사·무효화 안내**를 수행하고, 링크를 받은 게스트가 인증 없이 `/share/:token`
 경로에서 문서(+접근 시점의 active 하위 계층·첨부 이미지/파일)를 **읽기 전용**으로 열람하는 흐름을 구현한다.

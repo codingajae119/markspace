@@ -45,7 +45,7 @@ L5 conftest 의 ``__all__`` 이 이미 `harness`(L1)·`ws_scenario`/`WorkspaceSc
 - mock·stub 미사용(무효화 스윕 직접 호출은 실제 s14 코드 실행이므로 허용). 설정은 s01 `Settings`
   재사용(공유 additive `share_token_bytes`·`share_invalidation_sweep_interval_seconds` 포함).
 - DB·부팅 실패 시 스킵이 아니라 **실패**(L1 `harness` 가 오류를 전파; 여기서 ``pytest.skip`` 미사용).
-- 공유 `notion_lite_test` DB 오염 방지를 위해 사용자·문서·토큰마다 고유 접미사(uuid4, 하위 하네스)를 쓴다.
+- 공유 `markspace_test` DB 오염 방지를 위해 사용자·문서·토큰마다 고유 접미사(uuid4, 하위 하네스)를 쓴다.
 """
 
 from dataclasses import dataclass

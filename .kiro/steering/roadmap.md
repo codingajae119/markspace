@@ -1,8 +1,8 @@
-# Roadmap — Notion-lite
+# Roadmap — MarkSpace
 
 ## Overview
 
-Notion-lite(소규모 폐쇄형 협업 문서 서비스)를 **contract-first + 의존성 계층(layer) 분해**로 구축한다.
+MarkSpace(소규모 폐쇄형 협업 문서 서비스)를 **contract-first + 의존성 계층(layer) 분해**로 구축한다.
 전체 프로젝트가 공유하는 계약(데이터 스키마 · API · 공용 인터페이스)을 `s01-contract-foundation`에서
 단일 소스로 먼저 확정한 뒤, feature spec을 의존성 계층 순서로 얹는다. 각 계층 경계마다 **누적 통합 검증
 체크포인트**(`integration-check-L{n}`)를 삽입하여, 그 시점까지 완성된 upstream 전체가 공유 계약과

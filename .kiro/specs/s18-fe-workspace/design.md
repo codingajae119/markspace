@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Purpose**: 이 spec은 Notion-lite 프론트엔드의 **워크스페이스 도메인 관리 화면군**(`src/features/workspace`)을
+**Purpose**: 이 spec은 MarkSpace 프론트엔드의 **워크스페이스 도메인 관리 화면군**(`src/features/workspace`)을
 소유한다. 워크스페이스 스위처·생성, owner 멤버/권한 관리, owner WS 설정(`is_shareable`·보관 기간·삭제),
 admin 사용자 콘솔·소유권 변경을 구현한다. 현재 WS **앰비언트 컨텍스트**(`CurrentWorkspaceProvider`·
 `useCurrentWorkspace()`·`CurrentWorkspaceContextValue`)와 세션·API 클라이언트·권한 게이팅(`RequireAdmin`

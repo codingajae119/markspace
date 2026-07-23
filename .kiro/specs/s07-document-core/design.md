@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Purpose**: Notion-lite의 **핵심 도메인**을 구현한다. 계층적 markdown 문서의 엔티티·계층(parent/child)·
+**Purpose**: MarkSpace의 **핵심 도메인**을 구현한다. 계층적 markdown 문서의 엔티티·계층(parent/child)·
 CRUD·이동/재정렬(순환 방지·동일 워크스페이스)·현재 버전 렌더/preview를 소유하고, 무엇보다 문서 3단계 상태
 (active → trashed → deleted) 전이를 지배하는 **묶음(bundle) 비흡수 엔진**을 단일 구현으로 캡슐화한다
 (INV-5·6·10·11·12). 이 엔진은 삭제 캐스케이드·복구 위치 규칙·완전삭제·묶음 식별을 코드 한 곳에 담아,

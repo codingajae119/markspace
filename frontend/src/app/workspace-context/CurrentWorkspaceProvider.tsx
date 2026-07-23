@@ -33,7 +33,7 @@ import type { CurrentWorkspaceContextValue } from "@/app/workspace-context/types
  * 현재 WS 선택을 영속하는 **단일** localStorage 키. 선택 영속/복원은 이 키 하나로만 수행한다
  * (AC 9.4). 이 키 규약 변경은 하위 spec 재검증 트리거다.
  */
-export const CURRENT_WORKSPACE_STORAGE_KEY = "notion-lite.currentWorkspaceId";
+export const CURRENT_WORKSPACE_STORAGE_KEY = "markspace.currentWorkspaceId";
 
 /**
  * 컨텍스트. provider 밖 소비를 감지하기 위해 기본값을 `null` 로 둔다({@link useCurrentWorkspace} 가드).

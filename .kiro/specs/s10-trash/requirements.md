@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`s10-trash`는 Notion-lite 문서 3단계 생명주기(active → trashed → deleted)의 **휴지통 단계 API·UX**를
+`s10-trash`는 MarkSpace 문서 3단계 생명주기(active → trashed → deleted)의 **휴지통 단계 API·UX**를
 구현한다. 워크스페이스 휴지통의 **묶음(bundle) 목록 열람**, **묶음 복구**, **묶음 즉시 완전삭제**,
 그리고 **묶음별 독립 보관 타이머에 따른 자동 영구삭제 배치**를 소유한다. editor 이상 사용자는 워크스페이스
 휴지통 전체(본인 삭제분 외 포함)에 접근하고, viewer는 접근할 수 없다(REQ-6.11, INV-2).

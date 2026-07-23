@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Purpose**: Notion-lite의 **협업 권한 단위인 워크스페이스**를 구현한다. 워크스페이스 CRUD, 멤버십
+**Purpose**: MarkSpace의 **협업 권한 단위인 워크스페이스**를 구현한다. 워크스페이스 CRUD, 멤버십
 (owner/editor/viewer) 관리, `is_shareable`·`trash_retention_days` 설정, admin 소유권 변경을 소유하며,
 무엇보다 `s01` 워크스페이스 권한 resolver를 **실제 멤버십 role로 동작**시켜 INV-1·2·3을 실효화한다.
 

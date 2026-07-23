@@ -2,7 +2,7 @@
 
 ## Introduction
 
-`s01-contract-foundation`은 Notion-lite 전체 프로젝트(feature spec s02~s14, 통합 체크포인트 s04~s15)가
+`s01-contract-foundation`은 MarkSpace 전체 프로젝트(feature spec s02~s14, 통합 체크포인트 s04~s15)가
 공유하는 **단일 계약 소스**와 그 계약을 실제로 검증 가능하게 만드는 **공용 런타임 인프라**를 소유한다.
 
 이 spec은 두 가지를 함께 확정한다.

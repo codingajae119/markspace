@@ -79,7 +79,7 @@ Catalog INV-1~12 · §Common/Permissions `Role`·`require_ws_role`·admin bypass
 uv run pytest tests/integration_L6
 ```
 
-> **직렬 실행 필수**: 이 스위트는 공유 `notion_lite_test` MySQL DB 를 function-scope 하네스로 쓰므로
+> **직렬 실행 필수**: 이 스위트는 공유 `markspace_test` MySQL DB 를 function-scope 하네스로 쓰므로
 > **직렬로만** 실행한다. `tests/integration_L6` 에 대해 두 번째 pytest 프로세스를 동시 기동하면
 > 하네스 setup 충돌로 허위 ERROR 가 발생한다(테스트 결함이 아니라 동시 DB 경합). 게이트 판정은
 > 단일 직렬 실행 결과로 산출한다.

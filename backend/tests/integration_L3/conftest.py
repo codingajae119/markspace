@@ -39,7 +39,7 @@ s02·s03·s05·**s07 문서 라우터가 조립된 상태**(`app.main.create_app
   재사용(L1 하네스 경유).
 - DB 미가용 시 스킵이 아니라 **실패**(L1 `harness` 가 연결 오류를 전파; 여기서 ``pytest.skip``
   을 쓰지 않는다).
-- 공유 `notion_lite_test` DB 오염 방지를 위해 문서 제목마다 고유 접미사(uuid4)를 쓴다.
+- 공유 `markspace_test` DB 오염 방지를 위해 문서 제목마다 고유 접미사(uuid4)를 쓴다.
 """
 
 from contextlib import contextmanager
@@ -70,7 +70,7 @@ __all__ = [
 
 
 def _unique_title(prefix: str) -> str:
-    """공유 ``notion_lite_test`` DB 에서 충돌하지 않는 고유 문서 제목을 만든다."""
+    """공유 ``markspace_test`` DB 에서 충돌하지 않는 고유 문서 제목을 만든다."""
     return f"{prefix}-{uuid4().hex[:12]}"
 
 

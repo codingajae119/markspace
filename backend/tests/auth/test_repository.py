@@ -8,7 +8,7 @@ design.md §auth/Data #AuthUserRepository 계약을 검증한다:
   (fresh 조회로 교체 증명).
 
 격리: test_integration_wiring.py 의 확립된 테스트 DB 패턴을 재사용한다. `DB_NAME`
-을 전용 테스트 DB(`notion_lite_test`)로 바꾸고 :func:`app.config.get_settings`
+을 전용 테스트 DB(`markspace_test`)로 바꾸고 :func:`app.config.get_settings`
 캐시를 비운 뒤 그 시점 URL 로 새 엔진·세션 팩토리를 만든다. 종료 시 테이블을 모두
 제거하고 엔진을 dispose 한 뒤 환경변수·캐시를 원복한다.
 """
@@ -25,7 +25,7 @@ from app.auth.repository import AuthUserRepository
 from app.common.db import Base
 from app.models import User
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 
 def _drop_everything(engine) -> None:

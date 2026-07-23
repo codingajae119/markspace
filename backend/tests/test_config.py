@@ -10,10 +10,10 @@ from pydantic import ValidationError
 from app.config import Settings, get_settings
 
 CONFIG_YML = """\
-app_name: notion-lite
+app_name: markspace
 db_host: 127.0.0.1
 db_port: 3306
-db_name: notion_lite
+db_name: markspace
 db_user: root
 default_trash_retention_days: 30
 file_storage_root: ./var/attachments
@@ -57,10 +57,10 @@ def test_loads_config_yml_and_env(isolated):
     _write_config(isolated)
     s = Settings()
 
-    assert s.app_name == "notion-lite"
+    assert s.app_name == "markspace"
     assert s.db_host == "127.0.0.1"
     assert s.db_port == 3306
-    assert s.db_name == "notion_lite"
+    assert s.db_name == "markspace"
     assert s.db_user == "root"
     assert s.default_trash_retention_days == 30
     assert s.file_storage_root == "./var/attachments"
@@ -74,9 +74,9 @@ def test_loads_config_yml_and_env(isolated):
 def test_defaults_applied_when_omitted(isolated):
     """선택 항목은 config.yml에서 빠져도 스키마 기본값이 적용된다 (2.6)."""
     minimal = (
-        "app_name: notion-lite\n"
+        "app_name: markspace\n"
         "db_host: 127.0.0.1\n"
-        "db_name: notion_lite\n"
+        "db_name: markspace\n"
         "db_user: root\n"
         "file_storage_root: ./var/attachments\n"
     )
@@ -95,7 +95,7 @@ def test_sqlalchemy_url(isolated):
     _write_config(isolated)
     s = Settings()
     assert s.sqlalchemy_url == (
-        "mysql+pymysql://root:secret-pw@127.0.0.1:3306/notion_lite?charset=utf8mb4"
+        "mysql+pymysql://root:secret-pw@127.0.0.1:3306/markspace?charset=utf8mb4"
     )
 
 

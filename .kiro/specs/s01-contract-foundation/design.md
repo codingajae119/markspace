@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Purpose**: 이 spec은 Notion-lite 전체(하위 spec s02~s14, 통합 체크포인트 s04~s15)가 공유하는 **단일 계약 소스**
+**Purpose**: 이 spec은 MarkSpace 전체(하위 spec s02~s14, 통합 체크포인트 s04~s15)가 공유하는 **단일 계약 소스**
 (DB 스키마 · API 엔드포인트 카탈로그 · `{Resource}Create/Read/Update` 스키마 규약 · 공통 에러 모델 · 도메인 불변식 INV-1~12)와,
 그 계약을 실제로 검증 가능하게 만드는 **공용 런타임 인프라**(MySQL 8 마이그레이션 · pydantic-settings 단일 `Settings` ·
 공통 에러 핸들러 · 세션 인증 의존성 · 워크스페이스 권한 resolver · FastAPI 부트스트랩 · health)를 함께 소유한다.

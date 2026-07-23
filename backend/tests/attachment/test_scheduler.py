@@ -33,7 +33,7 @@ from app.attachment.scheduler import start, stop
 from app.common.db import Base
 from app.models import Attachment, Document, User, Workspace
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 
 # ======================================================================

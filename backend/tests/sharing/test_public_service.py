@@ -34,7 +34,7 @@ from app.sharing.public_service import PublicShareService
 from app.sharing.repository import ShareLinkRepository
 from app.sharing.schemas import PublicDocumentNode
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 # DATETIME(0) 반올림을 피하기 위한 초 정밀도 고정 시각.
 _FIXED_TIME = datetime(2026, 7, 17, 9, 0, 0)

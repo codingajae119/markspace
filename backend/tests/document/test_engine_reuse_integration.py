@@ -26,7 +26,7 @@ from app.document.engine import Bundle, DocumentStateEngine
 from app.document.repository import DocumentRepository
 from app.models import Document, User, Workspace
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 
 def _drop_everything(engine) -> None:

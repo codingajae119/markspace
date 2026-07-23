@@ -11,7 +11,7 @@ design.md §Components and Interfaces #TrashService(Feature/Service)와 §System
   권한은 라우터 게이트).
 
 격리: tests/trash/test_repository.py 의 확립된 테스트 DB 패턴을 재사용한다. `DB_NAME`
-을 전용 테스트 DB(`notion_lite_test`)로 바꾸고 :func:`app.config.get_settings` 캐시를
+을 전용 테스트 DB(`markspace_test`)로 바꾸고 :func:`app.config.get_settings` 캐시를
 비운 뒤 그 시점 URL 로 새 엔진·세션 팩토리를 만든다. 종료 시 테이블을 모두 제거하고
 엔진을 dispose 한 뒤 환경변수·캐시를 원복한다. 공유 테스트 DB 충돌을 피하려 이름/제목에
 uuid4 접미사를 쓴다. `trashed_at` 은 DATETIME(0) 반올림을 피하려 초 단위(마이크로초 0)
@@ -38,7 +38,7 @@ from app.trash.repository import TrashRepository
 from app.trash.schemas import TrashBundleRead
 from app.trash.service import TrashService
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 
 def _drop_everything(engine) -> None:

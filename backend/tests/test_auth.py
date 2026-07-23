@@ -4,8 +4,8 @@
 세션 인증 판정(design.md §Common/Auth #SessionAuth, System Flows "세션 인증 판정")
 을 결정적으로 검증한다.
 
-격리: 개발 DB(``notion_lite``)를 건드리지 않도록 전용 테스트 DB
-(``notion_lite_test``)를 대상으로 한다. ``DB_NAME`` 환경변수로 대상 DB 를 바꾸고
+격리: 개발 DB(``markspace``)를 건드리지 않도록 전용 테스트 DB
+(``markspace_test``)를 대상으로 한다. ``DB_NAME`` 환경변수로 대상 DB 를 바꾸고
 :func:`app.config.get_settings` 캐시를 비운 뒤, **그 시점의** 설정 URL 로 새 엔진을
 직접 만든다(``app.common.db`` 의 모듈 수준 ``engine`` 은 import 시점의 개발 DB URL 에
 바인딩되어 있으므로 재사용하지 않는다). 종료 시 테이블을 모두 제거하고 환경변수·캐시를
@@ -28,7 +28,7 @@ from app.common.db import Base
 from app.common.errors import DomainError, ErrorCode
 from app.models import User
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 
 def _drop_everything(engine) -> None:

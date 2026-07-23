@@ -13,7 +13,7 @@ design.md §Components and Interfaces #AttachmentRepository(Feature/Data) 계약
   열거하고, 보관된 첨부·kind=file·current_version_id NULL·deleted 문서는 제외한다(Req 5.1·5.5).
 
 상태 전이·버전 생성은 하지 않는다(관측만). 격리: tests/trash/test_repository.py 의 확립된 테스트
-DB 패턴을 재사용한다. `DB_NAME` 을 전용 테스트 DB(`notion_lite_test`)로 바꾸고
+DB 패턴을 재사용한다. `DB_NAME` 을 전용 테스트 DB(`markspace_test`)로 바꾸고
 :func:`app.config.get_settings` 캐시를 비운 뒤 그 시점 URL 로 새 엔진·세션 팩토리를 만든다.
 종료 시 테이블을 모두 제거하고 엔진을 dispose 한 뒤 환경변수·캐시를 원복한다. 공유 테스트 DB
 충돌을 피하려 이름/제목에 uuid4 접미사를, DATETIME(0) 반올림을 피하려 초 정밀도 시각을 쓴다.
@@ -33,7 +33,7 @@ from app.attachment.repository import AttachmentRepository
 from app.common.db import Base
 from app.models import Attachment, Document, DocumentVersion, User, Workspace
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 
 def _drop_everything(engine) -> None:

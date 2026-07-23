@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Purpose**: 이 spec은 Notion-lite 프론트엔드의 **문서 도메인 feature**(`src/features/document`)를 소유한다.
+**Purpose**: 이 spec은 MarkSpace 프론트엔드의 **문서 도메인 feature**(`src/features/document`)를 소유한다.
 현재 WS의 문서 계층 트리 네비게이션·breadcrumb·문서 CRUD·드래그앤드롭 이동/재정렬·읽기 전용 뷰어와
 휴지통(목록/복구/완전삭제) 화면을 구현하며, 모두 `s16-fe-foundation` 공통 레이어(공용 API 클라이언트·전역
 401 인터셉터·권한 게이팅 유틸·라우터 셸·Toast UI Editor 래퍼)를 소비한다.

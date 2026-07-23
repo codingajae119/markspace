@@ -5,8 +5,8 @@ Alembic 파이썬 API 로 ``upgrade head`` 를 실행해 전체 DB 계약이 물
 ``downgrade base`` 로 스키마가 재현 가능하게 원복되는지 검증한다. 재적용
 가능성까지 확인하기 위해 upgrade→downgrade 를 한 번 더 반복한다.
 
-격리: 개발 DB(``notion_lite``)를 건드리지 않도록 전용 테스트 DB
-(``notion_lite_test``)를 대상으로 한다. ``DB_NAME`` 환경변수로 대상 DB 를
+격리: 개발 DB(``markspace``)를 건드리지 않도록 전용 테스트 DB
+(``markspace_test``)를 대상으로 한다. ``DB_NAME`` 환경변수로 대상 DB 를
 바꾸고(env 소스가 YAML 보다 우선), :func:`app.config.get_settings` 캐시를
 비워 ``migrations/env.py`` 가 실행 시점에 테스트 DB URL 을 읽게 한다. 테스트
 종료 시 환경변수·캐시를 원복하고 테스트 DB 를 비워, 이후 다른 테스트가 다시
@@ -22,7 +22,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, text
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 # 애플리케이션 계약 테이블(alembic_version 은 제외) — Req 1.1.
 # s01 초기 7개 + additive 확장 user_setting(0002 마이그레이션).

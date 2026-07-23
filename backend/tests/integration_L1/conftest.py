@@ -19,7 +19,7 @@ mock 없이 s01 ⊕ s02 ⊕ s03 의 **실제 구현을 결합**한 검증 환경
 
 격리: ``tests/auth/test_login_integration.py`` · ``tests/admin_account/test_lifecycle_integration.py``
 의 확립된 DB 격리 패턴을 그대로 쓰되, ``create_all`` 대신 **실제 Alembic 마이그레이션**을
-돌린다. ``DB_NAME`` 을 전용 테스트 DB(``notion_lite_test``)로 바꾸고
+돌린다. ``DB_NAME`` 을 전용 테스트 DB(``markspace_test``)로 바꾸고
 :func:`app.config.get_settings` 캐시를 비운 뒤 **그 시점의** URL 로 새 엔진·세션 팩토리를
 만든다(모듈 수준 ``app.common.db.engine`` 은 import 시점 개발 DB 에 묶여 있어 재사용하지
 않는다). ``migrations/env.py`` 는 로드 시점에 ``get_settings().sqlalchemy_url`` 을 읽으므로,
@@ -44,7 +44,7 @@ from app.common.security import hash_password
 from app.main import create_app
 from app.models import User
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 # 시드 admin 의 알려진 평문 비밀번호(해시는 s01 hash_password 로 생성). 실제 자격이 아닌
 # 테스트 전용 크리덴셜이며 애플리케이션 코드에는 존재하지 않는다.

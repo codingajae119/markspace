@@ -1,4 +1,4 @@
-# notion-lite backend
+# markspace backend
 
 FastAPI(Python 3.13+) + MySQL 8 백엔드. 의존성·실행은 **uv** 기준.
 

@@ -8,7 +8,7 @@
  * feature 는 서로 import 하지 않는다, s19/s20 Req 7.5).
  *
  * 스코프: 키를 **워크스페이스별**로 분리해 다른 WS 의 문서 id 가 교차 복원되지 않게 한다.
- * s16 `CURRENT_WORKSPACE_STORAGE_KEY` 와 동일한 `notion-lite.*` 접두 규약을 따른다.
+ * s16 `CURRENT_WORKSPACE_STORAGE_KEY` 와 동일한 `markspace.*` 접두 규약을 따른다.
  *
  * 견고성: localStorage 접근이 실패(사파리 프라이빗 모드 등)해도 선택 복원은 best-effort 이므로
  * 조용히 무시한다. 저장 값이 손상(비정수·음수)됐거나 현재 트리에 없는 id 는 소비 측(복원 시점)이
@@ -16,7 +16,7 @@
  */
 
 /** 마지막 문서 id 영속 키 접두. WS id 를 접미해 워크스페이스별로 분리한다. */
-const STORAGE_PREFIX = "notion-lite.lastDocumentId.";
+const STORAGE_PREFIX = "markspace.lastDocumentId.";
 
 function keyFor(workspaceId: string): string {
   return `${STORAGE_PREFIX}${workspaceId}`;

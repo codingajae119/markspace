@@ -21,7 +21,7 @@
 동작한다는 것이 s14 가 그 primitive 를 재구현하지 않고 소비함을 입증한다(하위 문서 추가/trashed
 전이는 s07/s10 경로로 커밋되고, 공개 렌더가 그 상태를 접근 시점에 그대로 반영한다).
 
-mock·stub 미사용, 공유 `notion_lite_test` DB 오염 방지를 위해 문서 제목에 uuid4 접미사를 쓴다.
+mock·stub 미사용, 공유 `markspace_test` DB 오염 방지를 위해 문서 제목에 uuid4 접미사를 쓴다.
 DB 미가용·부팅 실패는 스킵이 아니라 `harness` 가 오류를 전파해 **실패**한다.
 """
 
@@ -45,7 +45,7 @@ _UNSAFE_CONTENT = (
 
 
 def _unique_title(prefix: str) -> str:
-    """공유 ``notion_lite_test`` DB 에서 충돌하지 않는 고유 문서 제목을 만든다."""
+    """공유 ``markspace_test`` DB 에서 충돌하지 않는 고유 문서 제목을 만든다."""
     return f"{prefix}-{uuid4().hex[:12]}"
 
 

@@ -77,7 +77,7 @@
 ## Implementation Notes
 
 - **하네스는 `create_all`이 아니라 실제 Alembic in-process `command.upgrade(cfg, "head")`로 스키마를 만든다.**
-  `migrations/env.py`가 로드 시 `get_settings().sqlalchemy_url`을 읽으므로, 기존 테스트 격리 패턴(`DB_NAME=notion_lite_test`
+  `migrations/env.py`가 로드 시 `get_settings().sqlalchemy_url`을 읽으므로, 기존 테스트 격리 패턴(`DB_NAME=markspace_test`
   env 스왑 + `get_settings.cache_clear()`)만으로 마이그레이션이 테스트 DB를 대상으로 한다. 이후 L2+ 체크포인트도
   이 패턴을 재사용해 *마이그레이션된* 스키마를 검증할 것.
 - **로그인 실패는 사유 불문 uniform 401 `unauthenticated`**(anti-enumeration). 경계 스위트는 실패를 401로만 단언하고

@@ -13,7 +13,7 @@ Integration Tests "로그인→me 왕복", "로그아웃 종료", "미인증 보
   ``unauthenticated`` (Req 2.3, 3.2, 4.6 → 여기선 3.2/2.3 및 비밀번호 게이트 401).
 
 격리: ``test_login_integration.py`` 의 확립된 패턴을 그대로 재사용한다. ``DB_NAME`` 을 전용
-테스트 DB(``notion_lite_test``)로 바꾸고 :func:`app.config.get_settings` 캐시를 비운 뒤 그 시점의
+테스트 DB(``markspace_test``)로 바꾸고 :func:`app.config.get_settings` 캐시를 비운 뒤 그 시점의
 URL 로 새 엔진·세션 팩토리를 만든다. 앱 전체가 테스트 DB 를 쓰도록 ``get_db`` 를 override 하고,
 종료 시 테이블 제거·엔진 dispose·환경변수·캐시를 원복해 개발 DB 누수를 막는다.
 """
@@ -32,7 +32,7 @@ from app.common.security import hash_password
 from app.main import create_app
 from app.models import User
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 # 시드 사용자의 알려진 평문 비밀번호(해시는 s01 hash_password 로 생성).
 CORRECT_PASSWORD = "correct-horse"

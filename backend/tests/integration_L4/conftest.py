@@ -46,7 +46,7 @@ L3 conftest 의 ``__all__`` 이 이미 `harness`(L1)·`ws_scenario`/`WorkspaceSc
   `Settings` 재사용(additive `trash_sweep_interval_seconds` 포함, L1 하네스 경유).
 - DB 미가용·부팅 실패 시 스킵이 아니라 **실패**(L1 `harness` 가 오류를 전파; 여기서
   ``pytest.skip`` 을 쓰지 않는다).
-- 공유 `notion_lite_test` DB 오염 방지를 위해 사용자·문서마다 고유 접미사(uuid4)를 쓴다.
+- 공유 `markspace_test` DB 오염 방지를 위해 사용자·문서마다 고유 접미사(uuid4)를 쓴다.
 """
 
 from dataclasses import dataclass, field

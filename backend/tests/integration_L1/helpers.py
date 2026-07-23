@@ -38,7 +38,7 @@ DEFAULT_PASSWORD = "helper-default-pw-123"
 
 
 def unique_login_id(prefix: str = "u") -> str:
-    """공유 ``notion_lite_test`` DB 에서 충돌하지 않는 고유 ``login_id`` 를 생성한다.
+    """공유 ``markspace_test`` DB 에서 충돌하지 않는 고유 ``login_id`` 를 생성한다.
 
     ``harness`` fixture 인스턴스마다 DB 가 drop+migrate 되지만, 한 인스턴스 안에서 여러
     사용자를 만드는 시나리오의 안전과 명료성을 위해 항상 고유 id 를 낸다. 결과는

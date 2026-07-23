@@ -5,7 +5,7 @@
 거치지 않고 평범한 함수/메서드 호출로 직접 검증한다(design.md §Common/Permissions
 #PermissionResolver, System Flows "세션 인증 판정", Invariants INV-1·2·3).
 
-격리: ``test_auth.py`` 와 동일하게 전용 테스트 DB(``notion_lite_test``)를 대상으로
+격리: ``test_auth.py`` 와 동일하게 전용 테스트 DB(``markspace_test``)를 대상으로
 ``DB_NAME`` 을 바꾸고 ``get_settings`` 캐시를 비운 뒤 그 시점 URL 로 새 엔진을 만든다.
 종료 시 테이블을 모두 제거하고 환경변수·캐시를 원복한다(캐시·DB 누수 방지).
 """
@@ -29,7 +29,7 @@ from app.common.permissions import (
 )
 from app.models import User, Workspace, WorkspaceMember
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 
 def _drop_everything(engine) -> None:

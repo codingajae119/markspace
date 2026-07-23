@@ -6,7 +6,7 @@
 
 FastAPI DI 를 거치지 않고 게이트 함수를 직접 호출해 분기를 검증한다.
 
-격리: ``test_permissions.py`` 와 동일하게 전용 테스트 DB(``notion_lite_test``)를
+격리: ``test_permissions.py`` 와 동일하게 전용 테스트 DB(``markspace_test``)를
 대상으로 ``DB_NAME`` 을 바꾸고 ``get_settings`` 캐시를 비운 뒤 새 엔진을 만든다.
 종료 시 테이블을 모두 제거하고 환경변수·캐시를 원복한다.
 """
@@ -25,7 +25,7 @@ from app.common.errors import DomainError, ErrorCode
 from app.common.permissions import require_active_workspace
 from app.models import User, Workspace
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 
 def _drop_everything(engine) -> None:

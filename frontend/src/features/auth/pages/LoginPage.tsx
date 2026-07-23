@@ -21,7 +21,7 @@ export function LoginPage(): ReactElement {
         className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm"
       >
         <h1 id="login-heading" className="mb-6 text-center text-xl font-semibold text-slate-900">
-          Notion-lite 로그인
+          MarkSpace 로그인
         </h1>
         <LoginForm />
       </section>

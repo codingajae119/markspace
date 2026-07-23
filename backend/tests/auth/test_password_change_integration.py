@@ -19,7 +19,7 @@ MOCK 없이 마이그레이션된 실제 테스트 DB 위에서 ``create_app()``
   가입/재설정 엔드포인트 부재(Req 5.3, 5.4). 모든 오류가 s01 ``ErrorResponse`` 형태(Req 5.1, 5.5).
 
 격리: ``test_login_integration.py`` 의 확립된 패턴을 그대로 재사용한다. ``DB_NAME`` 을 전용
-테스트 DB(``notion_lite_test``)로 바꾸고 :func:`app.config.get_settings` 캐시를 비운 뒤 그 시점의
+테스트 DB(``markspace_test``)로 바꾸고 :func:`app.config.get_settings` 캐시를 비운 뒤 그 시점의
 URL 로 새 엔진·세션 팩토리를 만든다. 앱 전체가 테스트 DB 를 쓰도록 ``get_db`` 를 override 하고,
 종료 시 테이블 제거·엔진 dispose·환경변수·캐시를 원복해 개발 DB 누수를 막는다.
 """
@@ -39,7 +39,7 @@ from app.main import create_app
 from app.models import User
 from tests.support import logical_openapi_paths
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 # 시드 사용자의 알려진 평문 비밀번호(해시는 s01 hash_password 로 생성).
 OLD_PASSWORD = "correct-horse"

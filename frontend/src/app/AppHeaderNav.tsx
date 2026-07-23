@@ -40,7 +40,7 @@ export function AppHeaderNav(): ReactElement {
   return (
     <div className="flex w-full items-center gap-4">
       <NavLink to={DOCUMENTS_PATH} className="text-base font-semibold text-slate-900">
-        Notion-lite
+        MarkSpace
       </NavLink>
 
       <nav aria-label="주요" className="flex items-center gap-1">

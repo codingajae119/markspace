@@ -18,7 +18,7 @@ from tests.integration_L3 import helpers as l3_helpers
 
 
 def _uniq(prefix: str) -> str:
-    """공유 ``notion_lite_test`` DB 에서 충돌하지 않는 고유 제목을 만든다."""
+    """공유 ``markspace_test`` DB 에서 충돌하지 않는 고유 제목을 만든다."""
     return l3_helpers.l1_helpers.unique_login_id(prefix)
 
 

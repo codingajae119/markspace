@@ -110,10 +110,10 @@
 
 ## Implementation Notes
 
-- **환경**: dev MySQL 8 @ 127.0.0.1:3306 (root/1234), DB `notion_lite`(앱)·`notion_lite_test`(테스트) 생성됨. `backend/.env`(gitignored)에 dev secret, `.env.example`은 placeholder만.
+- **환경**: dev MySQL 8 @ 127.0.0.1:3306 (root/1234), DB `markspace`(앱)·`markspace_test`(테스트) 생성됨. `backend/.env`(gitignored)에 dev secret, `.env.example`은 placeholder만.
 - **2.1→2.2**: 모델은 Python-side `default=`만 사용(모델 boundary). DDL-level `DEFAULT`(is_admin/is_active/is_deleted/is_shareable/is_enabled BOOLEAN, trash_retention_days=30, status=active)는 마이그레이션(2.2)이 `server_default`로 명시해야 함.
 - **2.1 순환 FK**: document.current_version_id ↔ document_version.id 는 nullable + `use_alter=True`(name="fk_document_current_version")로 해소. 마이그레이션도 이 FK를 `create_table` 이후 `create_foreign_key`(ALTER)로 분리 생성해야 함.
 - **Windows 인코딩**: `alembic.ini`는 configparser가 시스템 로캘(cp949)로 읽어 한글 주석이 UnicodeDecodeError를 유발. alembic.ini는 ASCII-only로 유지할 것. `alembic check`("No new upgrade operations detected")로 모델↔마이그레이션 드리프트 없음을 기계적으로 확인 가능.
 - **DB 상태**: 2.2 완료 후 DB는 `base`(빈 상태, alembic_version 테이블만 존재). 마이그레이션 검증 태스크는 자체 fixture로 upgrade/downgrade 제어.
-- **DB 테스트 격리 패턴(재사용)**: DB 접근 테스트는 `notion_lite_test`에 대해 `DB_NAME=notion_lite_test`+`get_settings.cache_clear()` 후 `get_settings().sqlalchemy_url`로 **fresh engine**를 새로 만든다(모듈 레벨 `app.common.db.engine`는 import 시점에 dev DB로 바인딩되어 재사용 불가). teardown에서 테이블 drop+DB_NAME 복원+cache_clear. `tests/test_migration_roundtrip.py`·`tests/test_auth.py` 참고.
+- **DB 테스트 격리 패턴(재사용)**: DB 접근 테스트는 `markspace_test`에 대해 `DB_NAME=markspace_test`+`get_settings.cache_clear()` 후 `get_settings().sqlalchemy_url`로 **fresh engine**를 새로 만든다(모듈 레벨 `app.common.db.engine`는 import 시점에 dev DB로 바인딩되어 재사용 불가). teardown에서 테이블 drop+DB_NAME 복원+cache_clear. `tests/test_migration_roundtrip.py`·`tests/test_auth.py` 참고.
 - **FastAPI 0.139 라우팅**: 등록 엔드포인트 집합 검사는 `app.routes`의 `.path`가 아니라 `app.openapi()["paths"]`로 열거(0.139는 lazy `_IncludedRouter` 사용). 4.1 `create_app()` 팩토리 + 모듈레벨 `app = create_app()`. health 라우터는 4.1이 minimal stub(db="ok" 고정), 4.2가 실제 `SELECT 1` 연결 점검으로 확장.

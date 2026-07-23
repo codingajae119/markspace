@@ -19,7 +19,7 @@ from tests.integration_L4 import helpers as h
 
 
 def _uniq(prefix: str) -> str:
-    """공유 ``notion_lite_test`` DB 에서 충돌하지 않는 고유 제목(L1 관용 재사용)."""
+    """공유 ``markspace_test`` DB 에서 충돌하지 않는 고유 제목(L1 관용 재사용)."""
     return h.l3_helpers.l1_helpers.unique_login_id(prefix)
 
 

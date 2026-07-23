@@ -163,7 +163,7 @@ def cmd_list(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="admin_cli",
-        description="notion-lite admin 계정 관리 CLI (backend/ 에서 실행).",
+        description="markspace admin 계정 관리 CLI (backend/ 에서 실행).",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 

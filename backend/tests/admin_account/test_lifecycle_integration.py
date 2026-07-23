@@ -19,7 +19,7 @@ s02 로그인 + s03 admin 게이트가 함께 동작하는 진짜 end-to-end 임
 - INV-4(물리 삭제 없음): soft-delete 후에도 DB 행이 물리적으로 존재(Req 8.3).
 
 격리: ``tests/auth/test_login_integration.py`` 의 확립된 패턴을 재사용한다. ``DB_NAME`` 을
-전용 테스트 DB(``notion_lite_test``)로 바꾸고 :func:`app.config.get_settings` 캐시를 비운 뒤
+전용 테스트 DB(``markspace_test``)로 바꾸고 :func:`app.config.get_settings` 캐시를 비운 뒤
 **그 시점의** URL 로 새 엔진·세션 팩토리를 만든다. 앱 전체가 테스트 DB 를 쓰도록 ``get_db``
 를 override 하고, DB 수준 단언(비밀번호 해시·행 존재)은 앱 override 와 동일한 세션 팩토리에서
 연 신규 세션으로 커밋된 행을 관찰한다. 종료 시 테이블을 모두 제거·엔진 dispose·환경변수·캐시를
@@ -40,7 +40,7 @@ from app.common.security import hash_password, verify_password
 from app.main import create_app
 from app.models import User
 
-TEST_DB_NAME = "notion_lite_test"
+TEST_DB_NAME = "markspace_test"
 
 # 시드 사용자의 알려진 평문 비밀번호(해시는 s01 hash_password 로 생성).
 ADMIN_PASSWORD = "admin-correct-horse"
